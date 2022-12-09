@@ -4,6 +4,8 @@
 import { PanelInfo } from "@foxglove/studio-base/context/PanelCatalogContext";
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 
+import BlinkerHelp from "./Blinker/index.help.md";
+import blinkerThumbnail from "./Blinker/thumbnail.png";
 import DataSourceInfoHelp from "./DataSourceInfo/index.help.md";
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
 import GaugeHelp from "./Gauge/index.help.md";
@@ -221,7 +223,14 @@ const builtin: PanelInfo[] = [
     thumbnail: speedMeterThumbnail,
     module: async () => await import("./SpeedMeter"),
   },
-
+  {
+    title: "Blinker",
+    type: "BlinkerPanel",
+    description: "Display blinker status",
+    help: BlinkerHelp,
+    thumbnail: blinkerThumbnail,
+    module: async () => await import("./Blinker"),
+  },
   {
     title: "Tab",
     type: TAB_PANEL_TYPE,
