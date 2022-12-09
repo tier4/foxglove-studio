@@ -2,8 +2,6 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import ForwardIcon from "@mui/icons-material/Forward";
-import { keyframes } from '@mui/system';
 import { last } from "lodash";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useState } from "react";
 
@@ -13,6 +11,7 @@ import parseRosPath from "@foxglove/studio-base/components/MessagePathSyntax/par
 import { simpleGetMessagePathDataItems } from "@foxglove/studio-base/components/MessagePathSyntax/simpleGetMessagePathDataItems";
 import Stack from "@foxglove/studio-base/components/Stack";
 
+import BlinkerIcon from "./BlinkerIcon";
 import { settingsActionReducer, useSettingsTree } from "./settings";
 import { Config } from "./types";
 
@@ -217,33 +216,5 @@ export function Blinker({ context }: Props): JSX.Element {
         </Stack>
       </Stack>
     </Stack>
-  );
-}
-
-
-type BlinkerProps = {
-  on: boolean;
-  direction: string;
-};
-
-const blink = keyframes`
-  0%: {
-    opacity: 0;
-  },
-  100%: {
-    opacity: 1;
-  },
-`;
-
-export function BlinkerIcon({ on, direction }: BlinkerProps) {
-  return (
-    <ForwardIcon
-      sx={{
-        color: on ? "yellow" : "white",
-        transform: (direction === "left") ? "scaleX(-1)" : null,
-        animation: `${blink} 0.5s infinite ease`,
-        fontSize: "3.5rem",
-     }}
-    />
   );
 }
