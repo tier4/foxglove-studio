@@ -43,6 +43,8 @@ import ThreeDeeRenderHelp from "./ThreeDeeRender/index.help.md";
 import threeDeeRenderThumbnail from "./ThreeDeeRender/thumbnail.png";
 import TopicGraphHelp from "./TopicGraph/index.help.md";
 import topicGraphThumbnail from "./TopicGraph/thumbnail.png";
+import TrafficLightHelp from "./TrafficLight/index.help.md";
+import trafficLightThumbnail from "./TrafficLight/thumbnail.png";
 import URDFViewerHelp from "./URDFViewer/index.help.md";
 import URDFViewerThumbnail from "./URDFViewer/thumbnail.png";
 import VariableSliderHelp from "./VariableSlider/index.help.md";
@@ -230,6 +232,14 @@ const builtin: PanelInfo[] = [
     help: BlinkerHelp,
     thumbnail: blinkerThumbnail,
     module: async () => await import("./Blinker"),
+  },
+  {
+    title: "Traffic Light",
+    type: "TrafficLightPanel",
+    description: "Display traffic light status",
+    help: TrafficLightHelp,
+    thumbnail: trafficLightThumbnail,
+    module: async () => await import("./TrafficLight"),
   },
   {
     title: "Tab",
