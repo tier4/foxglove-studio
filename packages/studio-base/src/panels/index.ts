@@ -27,6 +27,8 @@ import PublishHelp from "./Publish/index.help.md";
 import publishThumbnail from "./Publish/thumbnail.png";
 import RawMessagesHelp from "./RawMessages/index.help.md";
 import rawMessagesThumbnail from "./RawMessages/thumbnail.png";
+import SpeedMeterHelp from "./SpeedMeter/index.help.md";
+import speedMeterThumbnail from "./SpeedMeter/thumbnail.png";
 import StateTransitionsHelp from "./StateTransitions/index.help.md";
 import stateTransitionsThumbnail from "./StateTransitions/thumbnail.png";
 import TabHelp from "./Tab/index.help.md";
@@ -211,6 +213,15 @@ const builtin: PanelInfo[] = [
     thumbnail: nodePlaygroundThumbnail,
     module: async () => await import("./NodePlayground"),
   },
+  {
+    title: "Speed Meter",
+    type: "SpeedMeterPanel",
+    description: "Display speed meter",
+    help: SpeedMeterHelp,
+    thumbnail: speedMeterThumbnail,
+    module: async () => await import("./SpeedMeter"),
+  },
+
   {
     title: "Tab",
     type: TAB_PANEL_TYPE,
