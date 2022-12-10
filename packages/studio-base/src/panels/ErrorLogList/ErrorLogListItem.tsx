@@ -67,7 +67,7 @@ const ErrorLogListItem = React.memo(({
       {...clickOrTap(() => handleClickItem(item, index))}
     >
       <ListItemAvatar>
-        <Avatar variant='circular' sx={{ bgcolor: red[800], fontSize: 25 }}>
+        <Avatar variant='circular' sx={{ bgcolor: red[800], fontSize: 20, color: 'white' }}>
           {index+1}
         </Avatar>
       </ListItemAvatar>
