@@ -8,6 +8,8 @@ import BlinkerHelp from "./Blinker/index.help.md";
 import blinkerThumbnail from "./Blinker/thumbnail.png";
 import DataSourceInfoHelp from "./DataSourceInfo/index.help.md";
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
+import ErrorLogListHelp from "./ErrorLogList/index.help.md";
+import errorLogListThumbnail from "./ErrorLogList/thumbnail.png";
 import GaugeHelp from "./Gauge/index.help.md";
 import gaugeThumbnail from "./Gauge/thumbnail.png";
 import ImageViewHelp from "./Image/index.help.md";
@@ -241,6 +243,15 @@ const builtin: PanelInfo[] = [
     thumbnail: trafficLightThumbnail,
     module: async () => await import("./TrafficLight"),
   },
+  {
+    title: "Error Log List",
+    type: "ErrorLogListPanel",
+    description: "Display error log list",
+    help: ErrorLogListHelp,
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./ErrorLogList"),
+  },
+
   {
     title: "Tab",
     type: TAB_PANEL_TYPE,
