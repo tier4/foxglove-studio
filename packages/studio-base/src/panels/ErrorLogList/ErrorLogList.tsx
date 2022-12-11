@@ -3,9 +3,11 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import List from '@mui/material/List';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import React, { useState, useMemo } from "react";
 
-import ErrorLogListItem, { ErrorLog, ErrorLogListEmptyItem } from './ErrorLogListItem';
+import ErrorLogListItem, { ErrorLog } from './ErrorLogListItem';
 
 export type ErrorLogListProps = {
   errorLogs?: ErrorLog[],
@@ -15,13 +17,13 @@ export type ErrorLogListProps = {
   desc?: boolean,
 }
 
-function ErrorLogList({
+const ErrorLogList = ({
   errorLogs = [],
   feedbackContentIds = [],
   handleClickItem = () => null,
   handleClickFeedback = () => null,
   desc = false,
-}: ErrorLogListProps): React.ReactElement {
+}: ErrorLogListProps): React.ReactElement => {
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
@@ -44,12 +46,15 @@ function ErrorLogList({
     return errorLogs.concat().sort(sortByTimestamp);
   }, [errorLogs, sortByTimestamp]);
 
+  if (sortedErrorLogs.length === 0) {
+    return <NoErrorLog />;
+  }
+
   return (
     <List
-      // sx={{ width: '100%', paddingBottom: 40 }}
+      sx={{ paddingBottom: 50 }}
     >
-    { sortedErrorLogs.length > 0 ?
-      sortedErrorLogs.map((item, index) => {
+    { sortedErrorLogs.map((item, index) => {
         const isSelected = selectedIndex === index;
         const hasFeedback = feedbackContentIds.includes(item.error_contents);
         return (
@@ -64,12 +69,30 @@ function ErrorLogList({
           />
         );
       })
-      :
-      <ErrorLogListEmptyItem />
     }
     </List>
   )
 }
 
+
+const NoErrorLog = () => {
+  return (
+    <Stack
+      direction="column"
+      justifyContent="center"
+      alignItems="center"
+      spacing={2}
+      sx={{ height: '100%' }}
+    >
+      <Typography
+        variant="h3"
+        color="text.secondary"
+        align="center"
+      >
+        減点がありません
+      </Typography>
+    </Stack>
+  );
+}
 
 export default React.memo(ErrorLogList);

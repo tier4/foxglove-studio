@@ -18,10 +18,20 @@ import React from "react";
 
 
 export type ErrorLog = {
-  error_message: string;
-  error_contents: string;
-  error_score: number;
-  timestamp: string;
+  "timestamp": string;
+  "error_contents":  string;
+  "error_message": string;
+  "error_score": string;
+  "scenario_start_id"?: string;
+  "scenario_end_id"?: string;
+  "position.x"?: string;
+  "position.y"?: string;
+  "position.z"?: string;
+  "orientation.x"?: string;
+  "orientation.y"?: string;
+  "orientation.z"?: string;
+  "orientation.w"?: string;
+  "error_id"?: string;
 }
 
 
@@ -33,22 +43,6 @@ export type ErrorLogListItemProps = {
   handleClickItem: (item: ErrorLog, index: number) => void,
   handleClickFeedback: (error_content: string) => void,
 }
-
-
-export const ErrorLogListEmptyItem = React.memo(() => {
-  return (
-    <ListItem>
-      <ListItemText
-        disableTypography
-        primary={
-          <Typography variant="h5">
-            減点はありません
-          </Typography>
-        }
-      />
-    </ListItem>
-  )
-});
 
 
 const ErrorLogListItem = React.memo(({
