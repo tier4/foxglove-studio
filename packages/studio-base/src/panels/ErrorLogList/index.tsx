@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Alert, Typography } from "@mui/material";
+import Typography from "@mui/material/Typography";
 import { useEffect, useState, useCallback } from "react";
 
 import { Time, fromNanoSec } from "@foxglove/rostime";
@@ -50,7 +50,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
       const modifiedData = data.map((item, index) => ({ ...item, index, kind: 'error' }))
       setErrorLogs(modifiedData);
     }
-    getErrorLog(errorLogUrl).catch(() => setErrorMessage("減点一覧が取得できません"));
+    getErrorLog(errorLogUrl).catch(() => setErrorMessage("データの取得に失敗しました"));
   }, [errorLogUrl]);
 
   useEffect(() => {
@@ -83,25 +83,31 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   return (
     <Stack fullHeight>
       <PanelToolbar helpContent={helpContent} />
-      <Stack
-        fullHeight
-        gap={1}
-        overflowY="scroll"
-        paddingBottom={20}
-      >
-        { errorMessage == undefined ?
+      { errorMessage == undefined ?
+        <Stack
+          fullHeight
+          gap={1}
+          overflowY="scroll"
+          paddingBottom={20}
+        >
           <ErrorLogList
             errorLogs={errorLogs}
             handleClickItem={handleClickItem}
             feedbackContentIds={feedbackContentIds}
             handleClickFeedback={handleClickFeedback}
           />
-          :
-          <Alert severity="error">
-            <Typography variant="h5">{errorMessage}</Typography>
-          </Alert>
-        }
-      </Stack>
+        </Stack>
+        :
+        <Stack
+          flexGrow={1}
+          justifyContent="space-around"
+          alignItems="center"
+          overflow="hidden"
+          padding={1}
+        >
+          <ErrorMessage message={errorMessage} />
+        </Stack>
+      }
       <FeedbackDialog
         open={selectedErrorContent != undefined}
         contentUrl={`${feedbackContentsUrl}${selectedErrorContent}.png`}
@@ -111,11 +117,26 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   );
 }
 
+type ErrorMessageProps = {
+  message: string;
+}
+
+const ErrorMessage = ({ message }: ErrorMessageProps) => {
+  return (
+    <Typography
+      variant="h5"
+      color="error"
+      align="center"
+    >
+      {message}
+    </Typography>
+  );
+}
+
+
 ErrorLogListPanel.panelType = "ErrorMessageList";
 ErrorLogListPanel.defaultConfig = {
-  offsetSec: 3,
-  durationSec: 0,
-  playbackRate: 1.0,
+  offsetSec: 5,
 };
 
 export default Panel(ErrorLogListPanel);
