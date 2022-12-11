@@ -51,9 +51,7 @@ const ErrorLogList = ({
   }
 
   return (
-    <List
-      sx={{ paddingBottom: 50 }}
-    >
+    <List>
     { sortedErrorLogs.map((item, index) => {
         const isSelected = selectedIndex === index;
         const hasFeedback = feedbackContentIds.includes(item.error_contents);
@@ -85,7 +83,7 @@ const NoErrorLog = () => {
       sx={{ height: '100%' }}
     >
       <Typography
-        variant="h3"
+        variant="h5"
         color="text.secondary"
         align="center"
       >

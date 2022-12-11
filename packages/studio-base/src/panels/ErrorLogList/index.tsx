@@ -86,8 +86,8 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
       <Stack
         fullHeight
         gap={1}
-        paddingY={1}
-        paddingX={1}
+        overflowY="scroll"
+        paddingBottom={20}
       >
         { errorMessage == undefined ?
           <ErrorLogList
