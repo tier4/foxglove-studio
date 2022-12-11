@@ -4,6 +4,7 @@
 
 export type Config = {
   offsetSec: number;
+  hiddenScore: boolean;
 };
 
 export type FileType = {

@@ -30,6 +30,7 @@ type Props = {
 export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
   const offsetSec = config.offsetSec ?? 0;
+  const hiddenScore = config.hiddenScore ?? false;
 
   const play = useMessagePipeline(selectPlay);
   const seek = useMessagePipeline(selectSeek);
@@ -83,7 +84,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   return (
     <Stack fullHeight>
       <PanelToolbar helpContent={helpContent} />
-      { errorMessage == undefined ?
+      { errorLogs.length > 0 ?
         <Stack
           fullHeight
           gap={1}
@@ -95,12 +96,23 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
             handleClickItem={handleClickItem}
             feedbackContentIds={feedbackContentIds}
             handleClickFeedback={handleClickFeedback}
+            hiddenScore={hiddenScore}
           />
+        </Stack>
+        : errorMessage == undefined ?
+        <Stack
+          flexGrow={1}
+          justifyContent="center"
+          alignItems="center"
+          overflow="hidden"
+          padding={1}
+        >
+          <EmptyMessage message="減点はありません" />
         </Stack>
         :
         <Stack
           flexGrow={1}
-          justifyContent="space-around"
+          justifyContent="center"
           alignItems="center"
           overflow="hidden"
           padding={1}
@@ -117,17 +129,22 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   );
 }
 
-type ErrorMessageProps = {
+type MessageProps = {
   message: string;
 }
 
-const ErrorMessage = ({ message }: ErrorMessageProps) => {
+const ErrorMessage = ({ message }: MessageProps) => {
   return (
-    <Typography
-      variant="h5"
-      color="error"
-      align="center"
-    >
+    <Typography variant="h5" color="error" align="center">
+      {message}
+    </Typography>
+  );
+}
+
+
+const EmptyMessage = ({ message }: MessageProps) => {
+  return (
+    <Typography variant="h5" color="secondary" align="center">
       {message}
     </Typography>
   );
@@ -137,6 +154,7 @@ const ErrorMessage = ({ message }: ErrorMessageProps) => {
 ErrorLogListPanel.panelType = "ErrorMessageList";
 ErrorLogListPanel.defaultConfig = {
   offsetSec: 5,
+  hiddenScore: false,
 };
 
 export default Panel(ErrorLogListPanel);

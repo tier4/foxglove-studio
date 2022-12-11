@@ -38,10 +38,11 @@ export type ErrorLog = {
 export type ErrorLogListItemProps = {
   index: number;
   isSelected: boolean;
-  item: ErrorLog,
-  hasFeedback: boolean,
-  handleClickItem: (item: ErrorLog, index: number) => void,
-  handleClickFeedback: (error_content: string) => void,
+  item: ErrorLog;
+  hasFeedback: boolean;
+  handleClickItem: (item: ErrorLog, index: number) => void;
+  handleClickFeedback: (error_content: string) => void;
+  hiddenScore?: boolean;
 }
 
 
@@ -52,6 +53,7 @@ const ErrorLogListItem = React.memo(({
   hasFeedback,
   handleClickItem,
   handleClickFeedback,
+  hiddenScore = false,
 }: ErrorLogListItemProps) => {
 
   return (
@@ -69,18 +71,18 @@ const ErrorLogListItem = React.memo(({
         disableTypography
         primary={
           <Typography
-            variant="h5"
+            variant="h6"
             sx={isSelected ? { fontWeight: 900, color: red[500], } : null}
           >
             {item.error_message}
           </Typography>
         }
-        secondary={
+        secondary={!hiddenScore &&
           <Typography
-            variant="h6"
+            variant="subtitle1"
             sx={isSelected ? { fontWeight: 900, color: red[500], } : null}
           >
-            (−{item.error_score})
+            −{item.error_score}点
           </Typography>
         }
       />

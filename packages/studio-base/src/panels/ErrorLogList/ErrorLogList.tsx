@@ -3,18 +3,17 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import List from '@mui/material/List';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import React, { useState, useMemo } from "react";
 
 import ErrorLogListItem, { ErrorLog } from './ErrorLogListItem';
 
 export type ErrorLogListProps = {
-  errorLogs?: ErrorLog[],
-  feedbackContentIds?: string[],
-  handleClickItem?: (item: ErrorLog) => void,
-  handleClickFeedback?: (error_content: string) => void,
-  desc?: boolean,
+  errorLogs?: ErrorLog[];
+  feedbackContentIds?: string[];
+  handleClickItem?: (item: ErrorLog) => void;
+  handleClickFeedback?: (error_content: string) => void;
+  desc?: boolean;
+  hiddenScore?: boolean;
 }
 
 const ErrorLogList = ({
@@ -23,6 +22,7 @@ const ErrorLogList = ({
   handleClickItem = () => null,
   handleClickFeedback = () => null,
   desc = false,
+  hiddenScore = false,
 }: ErrorLogListProps): React.ReactElement => {
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
@@ -46,51 +46,27 @@ const ErrorLogList = ({
     return errorLogs.concat().sort(sortByTimestamp);
   }, [errorLogs, sortByTimestamp]);
 
-  if (sortedErrorLogs.length === 0) {
-    return <NoErrorLog />;
-  }
-
   return (
     <List>
     { sortedErrorLogs.map((item, index) => {
-        const isSelected = selectedIndex === index;
-        const hasFeedback = feedbackContentIds.includes(item.error_contents);
-        return (
-          <ErrorLogListItem
-            key={index}
-            index={index}
-            isSelected={isSelected}
-            item={item}
-            hasFeedback={hasFeedback}
-            handleClickItem={_handleClickItem}
-            handleClickFeedback={handleClickFeedback}
-          />
-        );
-      })
-    }
+      const isSelected = selectedIndex === index;
+      const hasFeedback = feedbackContentIds.includes(item.error_contents);
+      return (
+        <ErrorLogListItem
+          key={index}
+          index={index}
+          isSelected={isSelected}
+          item={item}
+          hiddenScore={hiddenScore}
+          hasFeedback={hasFeedback}
+          handleClickItem={_handleClickItem}
+          handleClickFeedback={handleClickFeedback}
+        />
+      );
+    })}
     </List>
   )
 }
 
-
-const NoErrorLog = () => {
-  return (
-    <Stack
-      direction="column"
-      justifyContent="center"
-      alignItems="center"
-      spacing={2}
-      sx={{ height: '100%' }}
-    >
-      <Typography
-        variant="h5"
-        color="text.secondary"
-        align="center"
-      >
-        減点がありません
-      </Typography>
-    </Stack>
-  );
-}
 
 export default React.memo(ErrorLogList);

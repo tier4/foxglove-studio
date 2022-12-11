@@ -21,9 +21,3 @@ export const Default = (): JSX.Element => (
     errorLogs={errorLogs}
   />
 );
-
-export const NoErrorLog = (): JSX.Element => (
-  <ErrorLogList
-    errorLogs={[]}
-  />
-);
