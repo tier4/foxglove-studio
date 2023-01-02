@@ -45,7 +45,7 @@ jobs:
     name: ${{ matrix.config.name }} (${{ matrix.os }})
 
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           lfs: true
 
@@ -55,7 +55,7 @@ jobs:
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v3.2.1
         with:
           path: |
             .yarn/cache
@@ -72,7 +72,7 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           fetch-depth: 0 # Required for Chromatic
           lfs: true
@@ -83,7 +83,7 @@ jobs:
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v3.2.1
         with:
           path: |
             .yarn/cache
@@ -116,7 +116,7 @@ jobs:
     name: integration (${{ matrix.os }})
 
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           lfs: true
 
@@ -126,7 +126,7 @@ jobs:
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.0.11
+        uses: actions/cache@v3.2.1
         with:
           path: |
             .yarn/cache
