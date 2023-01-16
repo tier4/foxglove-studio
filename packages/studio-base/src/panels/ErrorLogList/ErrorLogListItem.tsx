@@ -46,7 +46,7 @@ export type ErrorLogListItemProps = {
 }
 
 
-const ErrorLogListItem = React.memo(({
+const ErrorLogListItem = ({
   index,
   isSelected,
   item,
@@ -72,7 +72,8 @@ const ErrorLogListItem = React.memo(({
         primary={
           <Typography
             variant="h6"
-            sx={isSelected ? { fontWeight: 900, color: red[500], } : null}
+            // eslint-disable-next-line react/forbid-component-props
+            sx={isSelected ? { fontWeight: 900, color: red[500], } : undefined}
           >
             {item.error_message}
           </Typography>
@@ -80,7 +81,8 @@ const ErrorLogListItem = React.memo(({
         secondary={!hiddenScore &&
           <Typography
             variant="subtitle1"
-            sx={isSelected ? { fontWeight: 900, color: red[500], } : null}
+            // eslint-disable-next-line react/forbid-component-props
+            sx={isSelected ? { fontWeight: 900, color: red[500], } : undefined}
           >
             −{item.error_score}点
           </Typography>
@@ -89,7 +91,8 @@ const ErrorLogListItem = React.memo(({
       { hasFeedback &&
         <ListItemSecondaryAction>
           <IconButton
-            sx={isSelected ? { fontWeight: 900, color: red[500], } : null}
+            // eslint-disable-next-line react/forbid-component-props
+            sx={isSelected ? { fontWeight: 900, color: red[500], } : undefined}
             {...clickOrTap(() => handleClickFeedback(item.error_contents))}
           >
             <HelpIcon style={{ fontSize: 25 }} />
@@ -98,39 +101,37 @@ const ErrorLogListItem = React.memo(({
       }
     </ListItem>
   );
-});
+};
 
 
 // https://gist.github.com/hanakla/37bc63cad897a51e8b7a4bd3d6610d44
-function clickOrTap(handler: any) {
+function clickOrTap(handler: ((event: React.MouseEvent<HTMLInputElement>|React.TouchEvent<HTMLInputElement>) => void) | undefined) {
   return {
-    onClick: (event: any) => {
+    onClick: (event: React.MouseEvent<HTMLInputElement>) => {
       if (typeof handler === 'function') {
         handler(event);
       }
     },
-    onTouchEnd: (event: any) => {
-      if (event.cancelable === false) {
-        // スクロール時はcancellable === falseなのでハンドラーを呼ばない
+    onTouchEnd: (event: React.TouchEvent<HTMLInputElement>) => {
+      // during scrolling
+      if (!event.cancelable) {
         return;
       }
-
       const touch = event.changedTouches[0];
       const bound = event.currentTarget.getBoundingClientRect();
-
-      if (
+      // outside of the element
+      if ((touch != undefined) && (
         touch.clientX < bound.left
         || touch.clientX > bound.right
         || touch.clientY < bound.top
         || touch.clientY > bound.bottom
-      ) {
-        // 領域外で指を離したらハンドラーを呼ばない
+      )) {
         event.preventDefault();
         event.stopPropagation();
         return;
       }
 
-      if (handler == null && ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.currentTarget.tagName)) {
+      if (handler == undefined && ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.currentTarget.tagName)) {
         event.currentTarget.focus();
       } else {
         if (typeof handler === 'function') {
@@ -141,4 +142,4 @@ function clickOrTap(handler: any) {
   };
 }
 
-export default ErrorLogListItem;
+export default React.memo(ErrorLogListItem);
