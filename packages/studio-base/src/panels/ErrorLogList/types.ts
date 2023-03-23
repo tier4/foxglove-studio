@@ -3,8 +3,8 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 export type Config = {
-  offsetSec: number;
-  hiddenScore: boolean;
+  offsetSec?: number;
+  hiddenScore?: boolean;
 };
 
 export type FileType = {
