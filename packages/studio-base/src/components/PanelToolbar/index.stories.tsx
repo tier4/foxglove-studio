@@ -11,7 +11,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import DatabaseIcon from "@mdi/svg/svg/database.svg";
+import { Database20Filled } from "@fluentui/react-icons";
 import { Box } from "@mui/material";
 import { storiesOf } from "@storybook/react";
 import { Mosaic, MosaicWindow } from "react-mosaic-component";
@@ -19,8 +19,8 @@ import { Mosaic, MosaicWindow } from "react-mosaic-component";
 import MockPanelContextProvider from "@foxglove/studio-base/components/MockPanelContextProvider";
 import ToolbarIconButton from "@foxglove/studio-base/components/PanelToolbar/ToolbarIconButton";
 import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
-import HelpInfoProvider from "@foxglove/studio-base/providers/HelpInfoProvider";
 import { PanelStateContextProvider } from "@foxglove/studio-base/providers/PanelStateContextProvider";
+import WorkspaceContextProvider from "@foxglove/studio-base/providers/WorkspaceContextProvider";
 
 import PanelToolbar from "./index";
 
@@ -32,17 +32,17 @@ class MosaicWrapper extends React.Component<{
   public override render() {
     const { width } = this.props;
     return (
-      <Mosaic
-        onChange={() => undefined}
-        renderTile={(id, path) => (
-          <MosaicWindow
-            title="test"
-            path={path}
-            toolbarControls={<div />}
-            renderPreview={() => undefined as any}
-          >
-            <PanelStateContextProvider>
-              <HelpInfoProvider>
+      <WorkspaceContextProvider>
+        <Mosaic
+          onChange={() => undefined}
+          renderTile={(id, path) => (
+            <MosaicWindow
+              title="test"
+              path={path}
+              toolbarControls={<div />}
+              renderPreview={() => undefined as any}
+            >
+              <PanelStateContextProvider>
                 <Box
                   width="100%"
                   height="100%"
@@ -54,13 +54,13 @@ class MosaicWrapper extends React.Component<{
                     {id === "Sibling" ? "Sibling Panel" : this.props.children}
                   </Box>
                 </Box>
-              </HelpInfoProvider>
-            </PanelStateContextProvider>
-          </MosaicWindow>
-        )}
-        value={this.props.layout ?? "dummy"}
-        className="mosaic-foxglove-theme" // prevent the default mosaic theme from being applied
-      />
+              </PanelStateContextProvider>
+            </MosaicWindow>
+          )}
+          value={this.props.layout ?? "dummy"}
+          className="mosaic-foxglove-theme" // prevent the default mosaic theme from being applied
+        />
+      </WorkspaceContextProvider>
     );
   }
 }
@@ -79,7 +79,7 @@ class PanelToolbarWithOpenMenu extends React.PureComponent {
           }
         }}
       >
-        <PanelToolbar helpContent={<div />}>
+        <PanelToolbar>
           <div style={{ width: "100%", lineHeight: "22px", paddingLeft: 5 }}>
             Some controls here
           </div>
@@ -101,7 +101,7 @@ storiesOf("components/PanelToolbar", module)
   .add("non-floating (narrow)", () => {
     return (
       <MosaicWrapper width={268}>
-        <PanelToolbar helpContent={<div />}>
+        <PanelToolbar>
           <div style={{ width: "100%", lineHeight: "22px", paddingLeft: 5 }}>
             Some controls here
           </div>
@@ -112,7 +112,7 @@ storiesOf("components/PanelToolbar", module)
   .add("non-floating (wide with panel name)", () => {
     return (
       <MosaicWrapper width={468}>
-        <PanelToolbar helpContent={<div />}>
+        <PanelToolbar>
           <div style={{ width: "100%", lineHeight: "22px", paddingLeft: 5 }}>
             Some controls here
           </div>
@@ -123,12 +123,12 @@ storiesOf("components/PanelToolbar", module)
   .add("one additional icon", () => {
     const additionalIcons = (
       <ToolbarIconButton title="database icon">
-        <DatabaseIcon />
+        <Database20Filled />
       </ToolbarIconButton>
     );
     return (
       <MosaicWrapper width={468}>
-        <PanelToolbar helpContent={<div />} additionalIcons={additionalIcons}>
+        <PanelToolbar additionalIcons={additionalIcons}>
           <div style={{ width: "100%", lineHeight: "22px", paddingLeft: 5 }}>
             Some controls here
           </div>

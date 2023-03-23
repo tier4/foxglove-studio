@@ -7,15 +7,32 @@ import { AsyncState } from "react-use/lib/useAsyncFn";
 import { DeepReadonly } from "ts-essentials";
 import { StoreApi, useStore } from "zustand";
 
+import { Time } from "@foxglove/rostime";
 import useGuaranteedContext from "@foxglove/studio-base/hooks/useGuaranteedContext";
-import { ConsoleEvent } from "@foxglove/studio-base/services/ConsoleApi";
+
+/**
+ * DataSourceEvent representings a single event within a data source.
+ */
+export type DataSourceEvent = {
+  id: string;
+  createdAt: string;
+  deviceId: string;
+  durationNanos: string;
+  endTime: Time;
+  endTimeInSeconds: number;
+  metadata: Record<string, string>;
+  startTime: Time;
+  startTimeInSeconds: number;
+  timestampNanos: string;
+  updatedAt: string;
+};
 
 /**
  * Represents an event including its fractional position on the timeline.
  */
 export type TimelinePositionedEvent = {
   /** The event. */
-  event: ConsoleEvent;
+  event: DataSourceEvent;
 
   /** The end position of the event, as a value 0-1 relative to the timeline. */
   endPosition: number;
@@ -31,6 +48,9 @@ export type EventsStore = DeepReadonly<{
   /** Used to signal event refreshes. */
   eventFetchCount: number;
 
+  /** Whether events are supported for the currently loaded source. */
+  eventsSupported: boolean;
+
   /** Fetched events for this session. */
   events: AsyncState<TimelinePositionedEvent[]>;
 
@@ -39,6 +59,9 @@ export type EventsStore = DeepReadonly<{
 
   /** The currently selected event, if any. */
   selectedEventId: undefined | string;
+
+  /** The active device under which new events should be created. */
+  deviceId: string | undefined;
 
   /** Refreshes events from api. */
   refreshEvents: () => void;
@@ -49,8 +72,15 @@ export type EventsStore = DeepReadonly<{
   /** Set the fetched events. */
   setEvents: (events: AsyncState<TimelinePositionedEvent[]>) => void;
 
+  /** Set the flag indicating support for events. */
+  // eslint-disable-next-line @foxglove/no-boolean-parameters
+  setEventsSupported: (supported: boolean) => void;
+
   /** Update the current filter expression. */
   setFilter: (filter: string) => void;
+
+  /** Set the active device. */
+  setDeviceId: (deviceId: string | undefined) => void;
 }>;
 
 export const EventsContext = createContext<undefined | StoreApi<EventsStore>>(undefined);

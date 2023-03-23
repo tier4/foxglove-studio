@@ -23,6 +23,17 @@ export const Empty = (): JSX.Element => {
   );
 };
 
+export const WithSettings = (): JSX.Element => {
+  return (
+    <PanelSetup includeSettings>
+      <TopicGraph />
+    </PanelSetup>
+  );
+};
+WithSettings.parameters = {
+  colorScheme: "light",
+};
+
 function TopicsStory({
   topicVisibility: initialTopicVisibility,
 }: {
@@ -79,7 +90,7 @@ export const ReLayout = (): JSX.Element => {
   });
 
   useEffect(() => {
-    setTimeout(() => {
+    const timeOutID = setTimeout(() => {
       setFixture({
         frame: {},
         topics: [{ name: "/topic", schemaName: "std_msgs/Header" }],
@@ -89,6 +100,10 @@ export const ReLayout = (): JSX.Element => {
         },
       });
     }, 100);
+
+    return () => {
+      clearTimeout(timeOutID);
+    };
   }, []);
 
   return (

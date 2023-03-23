@@ -1,25 +1,13 @@
 {
   "name": "web",
   "private": true,
-  "dependencies": {
-    "@foxglove/studio-base": "workspace:*"
-  },
   "devDependencies": {
     "@foxglove/log": "workspace:*",
-    "@mui/icons-material": "5.11.0",
-    "@mui/material": "5.4.1",
-    "@pmmmwh/react-refresh-webpack-plugin": "0.5.4",
-    "@sentry/browser": "7.8.1",
-    "@sentry/tracing": "7.10.0",
-    "@sentry/webpack-plugin": "1.18.8",
-    "@types/copy-webpack-plugin": "10.1.0",
-    "clean-webpack-plugin": "4.0.0",
-    "copy-webpack-plugin": "11.0.0",
-    "html-webpack-plugin": "5.5.0",
-    "idb": "7.0.1",
-    "react": "17.0.2",
-    "react-dom": "17.0.2",
-    "webpack": "5.74.0",
-    "webpack-dev-server": "4.11.0"
+    "@foxglove/studio-web": "workspace:*",
+    "@types/serve-handler": "^6",
+    "playwright": "1.30.0",
+    "serve-handler": "6.1.5",
+    "webpack": "5.76.2",
+    "webpack-dev-server": "4.11.1"
   }
 }

@@ -2,8 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import RulerIcon from "@mdi/svg/svg/ruler.svg";
-import Video3dIcon from "@mdi/svg/svg/video-3d.svg";
+import { Ruler24Filled } from "@fluentui/react-icons";
 import {
   IconButton,
   ListItemIcon,
@@ -18,10 +17,11 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import ReactDOM from "react-dom";
 import { useLatest, useLongPress } from "react-use";
 import { DeepPartial } from "ts-essentials";
+import { makeStyles } from "tss-react/mui";
 import { useDebouncedCallback } from "use-debounce";
 
 import Logger from "@foxglove/log";
-import { Time, toNanoSec } from "@foxglove/rostime";
+import { Time, compare, isGreaterThan, isLessThan, toNanoSec } from "@foxglove/rostime";
 import {
   LayoutActions,
   MessageEvent,
@@ -34,10 +34,12 @@ import {
   Topic,
   VariableValue,
 } from "@foxglove/studio";
+import { AppSetting } from "@foxglove/studio-base/AppSetting";
 import PublishGoalIcon from "@foxglove/studio-base/components/PublishGoalIcon";
 import PublishPointIcon from "@foxglove/studio-base/components/PublishPointIcon";
 import PublishPoseEstimateIcon from "@foxglove/studio-base/components/PublishPoseEstimateIcon";
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
+import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 import { DebugGui } from "./DebugGui";
 import { InteractionContextMenu, Interactions, SelectionObject, TabType } from "./Interactions";
@@ -87,6 +89,29 @@ const PublishClickIcons: Record<PublishClickType, React.ReactNode> = {
   pose_estimate: <PublishPoseEstimateIcon fontSize="inherit" />,
 };
 
+const useStyles = makeStyles()((theme) => ({
+  iconButton: {
+    position: "relative",
+    fontSize: "1rem !important",
+    pointerEvents: "auto",
+    aspectRatio: "1",
+
+    "& svg:not(.MuiSvgIcon-root)": {
+      fontSize: "1rem !important",
+    },
+  },
+  rulerIcon: {
+    transform: "rotate(45deg)",
+  },
+  threeDeeButton: {
+    fontFamily: fonts.MONOSPACE,
+    fontFeatureSettings: theme.typography.caption.fontFeatureSettings,
+    fontSize: theme.typography.caption.fontSize,
+    fontWeight: theme.typography.fontWeightBold,
+    lineHeight: "1em",
+  },
+}));
+
 /**
  * Provides DOM overlay elements on top of the 3D scene (e.g. stats, debug GUI).
  */
@@ -103,7 +128,9 @@ function RendererOverlay(props: {
   publishClickType: PublishClickType;
   onChangePublishClickType: (_: PublishClickType) => void;
   onClickPublish: () => void;
+  timezone: string | undefined;
 }): JSX.Element {
+  const { classes } = useStyles();
   const [clickedPosition, setClickedPosition] = useState<{ clientX: number; clientY: number }>({
     clientX: 0,
     clientY: 0,
@@ -226,24 +253,25 @@ function RendererOverlay(props: {
           selectedObject={selectedObject}
           interactionsTabType={interactionsTabType}
           setInteractionsTabType={setInteractionsTabType}
+          timezone={props.timezone}
         />
         <Paper square={false} elevation={4} style={{ display: "flex", flexDirection: "column" }}>
           <IconButton
+            className={classes.iconButton}
             color={props.perspective ? "info" : "inherit"}
             title={props.perspective ? "Switch to 2D camera" : "Switch to 3D camera"}
             onClick={props.onTogglePerspective}
-            style={{ pointerEvents: "auto" }}
           >
-            <Video3dIcon style={{ width: 16, height: 16 }} />
+            <span className={classes.threeDeeButton}>3D</span>
           </IconButton>
           <IconButton
             data-testid="measure-button"
+            className={classes.iconButton}
             color={props.measureActive ? "info" : "inherit"}
             title={props.measureActive ? "Cancel measuring" : "Measure distance"}
             onClick={props.onClickMeasure}
-            style={{ position: "relative", pointerEvents: "auto" }}
           >
-            <RulerIcon style={{ width: 16, height: 16 }} />
+            <Ruler24Filled className={classes.rulerIcon} />
           </IconButton>
 
           {showPublishControl && (
@@ -410,6 +438,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   }, [canvas, configRef, config.scene.transforms?.enablePreloading]);
 
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
+  const [timezone, setTimezone] = useState<string | undefined>();
   const [topics, setTopics] = useState<ReadonlyArray<Topic> | undefined>();
   const [parameters, setParameters] = useState<ReadonlyMap<string, ParameterValue> | undefined>();
   const [variables, setVariables] = useState<ReadonlyMap<string, VariableValue> | undefined>();
@@ -417,6 +446,9 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   const [currentTime, setCurrentTime] = useState<Time | undefined>();
   const [didSeek, setDidSeek] = useState<boolean>(false);
   const [sharedPanelState, setSharedPanelState] = useState<undefined | Shared3DPanelState>();
+  const [allFrames, setAllFrames] = useState<readonly MessageEvent<unknown>[] | undefined>(
+    undefined,
+  );
 
   const renderRef = useRef({ needsRender: false });
   const [renderDone, setRenderDone] = useState<(() => void) | undefined>();
@@ -503,9 +535,9 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       const id = selection?.renderable.idFromMessage();
       const customVariable = selection?.renderable.selectedIdVariable();
       if (customVariable) {
-        context.setVariable(customVariable, id ?? ReactNull);
+        context.setVariable(customVariable, id);
       }
-      context.setVariable(SELECTED_ID_VARIABLE, id ?? ReactNull);
+      context.setVariable(SELECTED_ID_VARIABLE, id);
     },
     [context],
   );
@@ -571,6 +603,10 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
 
         // Keep UI elements and the renderer aware of the current color scheme
         setColorScheme(renderState.colorScheme);
+        if (renderState.appSettings) {
+          const tz = renderState.appSettings.get(AppSetting.TIMEZONE);
+          setTimezone(typeof tz === "string" ? tz : undefined);
+        }
 
         // We may have new topics - since we are also watching for messages in
         // the current frame, topics may not have changed
@@ -587,6 +623,10 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
         // currentFrame has messages on subscribed topics since the last render call
         deepParseMessageEvents(renderState.currentFrame);
         setMessages(renderState.currentFrame);
+
+        // allFrames has messages on preloaded topics across all frames (as they are loaded)
+        deepParseMessageEvents(renderState.allFrames);
+        setAllFrames(renderState.allFrames);
       });
     };
 
@@ -599,6 +639,8 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
     context.watch("sharedPanelState");
     context.watch("variables");
     context.watch("topics");
+    context.watch("appSettings");
+    context.subscribeAppSettings([AppSetting.TIMEZONE]);
   }, [context, renderer]);
 
   // Build a list of topics to subscribe to
@@ -616,7 +658,9 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       rendererSubscription: RendererSubscription,
       convertTo?: string,
     ) => {
-      if (rendererSubscription.forced === true || config.topics[topic]?.visible === true) {
+      const shouldSubscribe =
+        rendererSubscription.shouldSubscribe ?? ((t) => config.topics[t]?.visible === true);
+      if (shouldSubscribe(topic)) {
         newSubscriptions.push({
           topic,
           preload: rendererSubscription.preload,
@@ -678,6 +722,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   // Flush the renderer's state when the seek count changes
   useEffect(() => {
     if (renderer && didSeek) {
+      // want to clear after the current time only if preloading is not active or if the seek time is after the previous time
       renderer.clear();
       setDidSeek(false);
     }
@@ -690,6 +735,93 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       renderRef.current.needsRender = true;
     }
   }, [backgroundColor, colorScheme, renderer]);
+
+  const allFramesCursorRef = useRef<{
+    // index represents where the last read message is in allFrames
+    index: number;
+    cursorTimeReached?: Time;
+  }>({
+    index: -1,
+    cursorTimeReached: undefined,
+  });
+  // Handle preloaded messages and render a frame if new messages are available
+  // Should be called before `messages` is handled
+  useEffect(() => {
+    // we want didseek to be handled by the renderer first so that transforms aren't cleared after the cursor has been brought up
+
+    if (!renderer || !currentTime) {
+      return;
+    }
+
+    const allFramesCursor = allFramesCursorRef.current;
+    // index always indicates last read-in message
+    let cursor = allFramesCursor.index;
+    let cursorTimeReached = allFramesCursor.cursorTimeReached;
+
+    if (!allFrames || allFrames.length === 0) {
+      // when tf preloading is disabled
+      if (cursor > -1) {
+        allFramesCursorRef.current = { index: -1, cursorTimeReached: undefined };
+      }
+      return;
+    }
+
+    // if a seek occurred and the new time is before the current cursor time, reset the cursor for this read
+    if (didSeek) {
+      if (cursorTimeReached && isGreaterThan(cursorTimeReached, currentTime)) {
+        cursorTimeReached = undefined;
+        cursor = -1;
+      }
+    }
+
+    /**
+     * Assumptions about allFrames needed by allFramesCursor:
+     *  - always sorted by receiveTime
+     *  - preloaded topics/schemas are only ever all removed or all added at once, otherwise it is not stable and would need to be reset
+     *  - allFrame chunks are only ever loaded from beginning to end and does not have any eviction
+     */
+
+    // cursor should never be over allFramesLength, if it some how is, it means the cursor was at the end of `allFrames` prior to eviction and eviction shortened allframes
+    // in this case we should set the cursor to the end of allFrames
+    cursor = Math.min(cursor, allFrames.length - 1);
+    let message;
+
+    let hasAddedMessageEvents = false;
+    // load preloaded messages up to current time
+    while (cursor < allFrames.length - 1) {
+      cursor++;
+      message = allFrames[cursor]!;
+      // read messages until we reach the current time
+      if (isLessThan(currentTime, message.receiveTime)) {
+        cursorTimeReached = currentTime;
+        // reset cursor to last read message index
+        cursor--;
+        break;
+      }
+      if (!hasAddedMessageEvents) {
+        hasAddedMessageEvents = true;
+        // transform tree specific optimization - adding to tree before it's highest cache time is expensive
+        // so we clear it to avoid adding to the tree before the highest cache time
+        renderer.transformTree.clearAfter(toNanoSec(message.receiveTime));
+      }
+
+      renderer.addMessageEvent(message);
+      if (cursor === allFrames.length - 1) {
+        cursorTimeReached = message.receiveTime;
+      }
+    }
+
+    // want to avoid setting anything if nothing has changed
+    if (!hasAddedMessageEvents) {
+      return;
+    }
+
+    allFramesCursorRef.current = { index: cursor, cursorTimeReached };
+    // want to re-render if frames were read and if the current time has been reached to avoid showing intermediate state
+    if (cursorTimeReached && compare(cursorTimeReached, currentTime) === 0) {
+      renderRef.current.needsRender = true;
+    }
+  }, [renderer, currentTime, allFrames, didSeek]);
 
   // Handle messages and render a frame if new messages are available
   useEffect(() => {
@@ -942,6 +1074,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
               renderer?.publishClickTool.setPublishClickType(type);
               renderer?.publishClickTool.start();
             }}
+            timezone={timezone}
           />
         </RendererContext.Provider>
       </div>

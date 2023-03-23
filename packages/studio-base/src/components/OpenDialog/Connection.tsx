@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Alert, Link, Tab, Tabs, Typography, useMediaQuery, useTheme } from "@mui/material";
-import { useState, useMemo, useCallback, useLayoutEffect } from "react";
+import { useState, useMemo, useCallback, useLayoutEffect, FormEvent } from "react";
 import { makeStyles } from "tss-react/mui";
 
 import { BuiltinIcon } from "@foxglove/studio-base/components/BuiltinIcon";
@@ -59,17 +59,12 @@ const useStyles = makeStyles()((theme) => ({
     gridArea: "sidebar",
     overflowY: "auto",
   },
-  tabs: {},
   tab: {
-    svg: {
-      fontSize: "inherit",
-    },
-    "> span, > .MuiSvgIcon-root": {
+    "> svg:not(.MuiSvgIcon-root)": {
       display: "flex",
+      flex: "none",
       color: theme.palette.primary.main,
       marginRight: theme.spacing(1.5),
-      height: theme.typography.pxToRem(21),
-      width: theme.typography.pxToRem(21),
     },
     [theme.breakpoints.up("md")]: {
       textAlign: "right",
@@ -149,9 +144,20 @@ export default function Connection(props: ConnectionProps): JSX.Element {
       return;
     }
     selectSource(selectedSource.id, { type: "connection", params: fieldValues });
-  }, [selectedSource, fieldValues, selectSource]);
+    onCancel?.();
+  }, [onCancel, selectedSource, fieldValues, selectSource]);
 
   const disableOpen = selectedSource?.disabledReason != undefined || fieldErrors.size > 0;
+
+  const onSubmit = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      if (!disableOpen) {
+        onOpen();
+      }
+    },
+    [disableOpen, onOpen],
+  );
 
   return (
     <View onBack={onBack} onCancel={onCancel} onOpen={disableOpen ? undefined : onOpen}>
@@ -163,10 +169,7 @@ export default function Connection(props: ConnectionProps): JSX.Element {
         </header>
         <div className={classes.sidebar}>
           <Tabs
-            classes={{
-              root: classes.tabs,
-              indicator: classes.indicator,
-            }}
+            classes={{ indicator: classes.indicator }}
             variant="scrollable"
             textColor="inherit"
             orientation={mdUp ? "vertical" : "horizontal"}
@@ -195,54 +198,62 @@ export default function Connection(props: ConnectionProps): JSX.Element {
         </div>
 
         <Stack className={classes.form} key={selectedSource?.id} flex="1 0">
-          <Stack className={classes.formInner} gap={2}>
-            {selectedSource?.disabledReason == undefined && selectedSource?.warning && (
-              <Alert severity="warning">{selectedSource.warning}</Alert>
-            )}
-            {selectedSource?.disabledReason != undefined && (
-              <Alert severity="warning">{selectedSource.disabledReason}</Alert>
-            )}
+          <form onSubmit={onSubmit}>
+            <Stack className={classes.formInner} gap={2}>
+              {selectedSource?.disabledReason == undefined && selectedSource?.warning && (
+                <Alert severity="warning">{selectedSource.warning}</Alert>
+              )}
+              {selectedSource?.disabledReason != undefined && (
+                <Alert severity="warning">{selectedSource.disabledReason}</Alert>
+              )}
 
-            {selectedSource?.description && <Typography>{selectedSource.description}</Typography>}
-            {selectedSource?.formConfig != undefined && (
-              <Stack flexGrow={1} justifyContent="space-between">
-                <Stack gap={2}>
-                  {selectedSource.formConfig.fields.map((field) => (
-                    <FormField
-                      key={field.id}
-                      field={field}
-                      disabled={selectedSource.disabledReason != undefined}
-                      onError={(err) => {
-                        setFieldErrors((existing) => {
-                          existing.set(field.id, err);
-                          return new Map(existing);
-                        });
-                      }}
-                      onChange={(newValue) => {
-                        setFieldErrors((existing) => {
-                          existing.delete(field.id);
-                          return new Map(existing);
-                        });
-                        setFieldValues((existing) => {
-                          return {
-                            ...existing,
-                            [field.id]: newValue,
-                          };
-                        });
-                      }}
-                    />
-                  ))}
+              {selectedSource?.description && <Typography>{selectedSource.description}</Typography>}
+              {selectedSource?.formConfig != undefined && (
+                <Stack flexGrow={1} justifyContent="space-between">
+                  <Stack gap={2}>
+                    {selectedSource.formConfig.fields.map((field) => (
+                      <FormField
+                        key={field.id}
+                        field={field}
+                        disabled={selectedSource.disabledReason != undefined}
+                        onError={(err) => {
+                          setFieldErrors((existing) => {
+                            existing.set(field.id, err);
+                            return new Map(existing);
+                          });
+                        }}
+                        onChange={(newValue) => {
+                          setFieldErrors((existing) => {
+                            existing.delete(field.id);
+                            return new Map(existing);
+                          });
+                          setFieldValues((existing) => {
+                            return {
+                              ...existing,
+                              [field.id]: newValue,
+                            };
+                          });
+                        }}
+                      />
+                    ))}
+                  </Stack>
                 </Stack>
+              )}
+              <Stack direction="row" gap={1}>
+                {(selectedSource?.docsLinks ?? []).map((item) => (
+                  <Link
+                    key={item.url}
+                    color="primary"
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {item.label ? `View docs for ${item.label}` : "View docs"}
+                  </Link>
+                ))}
               </Stack>
-            )}
-            <Stack direction="row" gap={1}>
-              {(selectedSource?.docsLinks ?? []).map((item) => (
-                <Link key={item.url} color="primary" href={item.url}>
-                  {item.label ? `View docs for ${item.label}` : "View docs"}.
-                </Link>
-              ))}
             </Stack>
-          </Stack>
+          </form>
         </Stack>
       </Stack>
     </View>

@@ -53,11 +53,26 @@ export class ArrayMap<K, V> {
     return this._list.pop();
   }
 
+  /** Removes the element with the given key, if it exists */
+  public remove(key: K): void {
+    const index = this.binarySearch(key);
+    if (index >= 0) {
+      this._list.splice(index, 1);
+    }
+  }
+
   /** Removes all elements with keys greater than the given key. */
   public removeAfter(key: K): void {
     const index = this.binarySearch(key);
     const greaterThanIndex = index >= 0 ? index + 1 : ~index;
     this._list.length = greaterThanIndex;
+  }
+
+  /** Removes all elements with keys less than the given key. */
+  public removeBefore(key: K): void {
+    const index = this.binarySearch(key);
+    const lessThanIndex = index >= 0 ? index : ~index;
+    this._list.splice(0, lessThanIndex);
   }
 
   /** Access the first key/value tuple in the list, without modifying the list. */

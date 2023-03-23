@@ -5,13 +5,13 @@
 import * as THREE from "three";
 import { clamp } from "three/src/math/MathUtils";
 
+import { RenderableMarker } from "./RenderableMarker";
+import { makeStandardMaterial } from "./materials";
 import type { Renderer } from "../../Renderer";
 import { rgbToThreeColor } from "../../color";
 import { arrowHeadSubdivisions, arrowShaftSubdivisions, DetailLevel } from "../../lod";
 import { getRotationTo } from "../../math";
 import { Marker } from "../../ros";
-import { RenderableMarker } from "./RenderableMarker";
-import { makeStandardMaterial } from "./materials";
 
 const SHAFT_LENGTH = 0.77;
 const SHAFT_DIAMETER = 1.0;
@@ -173,7 +173,7 @@ function createShaftEdgesGeometry(shaftGeometry: THREE.CylinderGeometry): THREE.
   // We only want the outline of the base of the shaft, not the top of the
   // cylinder where it connects to the cone. Create a new position buffer
   // attribute with the first half of the vertices discarded
-  const positionsAttrib = shaftEdgesGeometry.getAttribute("position");
+  const positionsAttrib = shaftEdgesGeometry.getAttribute("position") as THREE.BufferAttribute;
   const positions = Array.from(positionsAttrib.array);
   const newCount = (positions.length / 3 / 2) * 3;
   const newVertices = positions.slice(newCount, positions.length);

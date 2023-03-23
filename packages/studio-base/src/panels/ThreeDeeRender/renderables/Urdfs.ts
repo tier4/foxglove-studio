@@ -13,6 +13,11 @@ import { SettingsTreeAction, SettingsTreeChildren, SettingsTreeFields } from "@f
 import { eulerToQuaternion } from "@foxglove/studio-base/util/geometry";
 import isDesktopApp from "@foxglove/studio-base/util/isDesktopApp";
 
+import { RenderableCube } from "./markers/RenderableCube";
+import { RenderableCylinder } from "./markers/RenderableCylinder";
+import { RenderableMeshResource } from "./markers/RenderableMeshResource";
+import { RenderableSphere } from "./markers/RenderableSphere";
+import { missingTransformMessage, MISSING_TRANSFORM } from "./transforms";
 import { BaseUserData, Renderable } from "../Renderable";
 import { Renderer } from "../Renderer";
 import { PartialMessageEvent, SceneExtension } from "../SceneExtension";
@@ -35,11 +40,6 @@ import {
 } from "../settings";
 import { Pose, makePose, TransformTree } from "../transforms";
 import { updatePose } from "../updatePose";
-import { RenderableCube } from "./markers/RenderableCube";
-import { RenderableCylinder } from "./markers/RenderableCylinder";
-import { RenderableMeshResource } from "./markers/RenderableMeshResource";
-import { RenderableSphere } from "./markers/RenderableSphere";
-import { missingTransformMessage, MISSING_TRANSFORM } from "./transforms";
 
 const log = Logger.getLogger(__filename);
 
@@ -161,7 +161,7 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     renderer.on("parametersChange", this.handleParametersChange);
     renderer.addCustomLayerAction({
       layerId: LAYER_ID,
-      label: "Add Unified Robot Description Format (URDF)",
+      label: "Add URDF",
       icon: "PrecisionManufacturing",
       handler: this.handleAddUrdf,
     });
@@ -259,6 +259,13 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
 
   public override removeAllRenderables(): void {
     // Re-add coordinate frames and transforms since the scene has been cleared
+    this._refreshTransforms();
+  }
+
+  /**
+   * Re-add coordinate frames and transforms corresponding to existing custom URDFs
+   */
+  private _refreshTransforms() {
     for (const [instanceId, frames] of this.framesByInstanceId) {
       this._loadFrames(instanceId, frames);
     }
@@ -336,6 +343,19 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
           this.remove(renderable);
           this.renderables.delete(instanceId);
         }
+
+        // Remove transforms from the TF tree
+        const transforms = this.transformsByInstanceId.get(instanceId);
+        if (transforms) {
+          for (const { parent, child } of transforms) {
+            this.renderer.removeTransform(child, parent, 0n);
+          }
+        }
+        this.framesByInstanceId.delete(instanceId);
+        this.transformsByInstanceId.delete(instanceId);
+
+        // Re-add coordinate frames in case the deleted URDF shared frame names with other URDFs
+        this._refreshTransforms();
 
         // Update the settings tree
         this.updateSettingsTree();
@@ -558,7 +578,12 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     // Parse the URDF
     const loadedRenderable = renderable;
     parseUrdf(urdf)
-      .then((parsed) => this._loadRobot(loadedRenderable, parsed))
+      .then((parsed) => {
+        this._loadRobot(loadedRenderable, parsed);
+        // the frame from the settings update is called before the robot is loaded
+        // need to queue another animation frame after robot has been loaded
+        this.renderer.queueAnimationFrame();
+      })
       .catch((unknown) => {
         const err = unknown as Error;
         log.error(`Failed to parse URDF: ${err.message}`);
@@ -582,7 +607,8 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     renderable.removeChildren();
 
     const createChild = (frameId: string, i: number, visual: UrdfVisual): void => {
-      const childRenderable = createRenderable(visual, robot, i, frameId, renderer);
+      const baseUrl = renderable.userData.url;
+      const childRenderable = createRenderable(visual, robot, i, frameId, renderer, baseUrl);
       // Set the childRenderable settingsPath so errors route to the correct place
       childRenderable.userData.settingsPath = renderable.userData.settingsPath;
       renderable.userData.renderables.set(childRenderable.name, childRenderable);
@@ -672,6 +698,7 @@ function createRenderable(
   id: number,
   frameId: string,
   renderer: Renderer,
+  baseUrl: string | undefined,
 ): Renderable {
   const name = `${frameId}-${id}-${visual.geometry.geometryType}`;
   const orientation = eulerToQuaternion(visual.origin.rpy);
@@ -699,7 +726,7 @@ function createRenderable(
     case "mesh": {
       // Use embedded materials only when no override material is defined in the URDF
       const embedded = !visual.material ? EmbeddedMaterialUsage.Use : EmbeddedMaterialUsage.Ignore;
-      const marker = createMeshMarker(frameId, pose, embedded, visual.geometry, color);
+      const marker = createMeshMarker(frameId, pose, embedded, visual.geometry, baseUrl, color);
       return new RenderableMeshResource(name, marker, undefined, renderer);
     }
     default:
@@ -751,6 +778,7 @@ function createMeshMarker(
   pose: Pose,
   embeddedMaterialUsage: EmbeddedMaterialUsage,
   mesh: UrdfGeometryMesh,
+  baseUrl: string | undefined,
   color: ColorRGBA,
 ): Marker {
   const scale = mesh.scale ?? VEC3_ONE;
@@ -768,7 +796,7 @@ function createMeshMarker(
     points: [],
     colors: [],
     text: "",
-    mesh_resource: mesh.filename,
+    mesh_resource: new URL(mesh.filename, baseUrl).toString(),
     mesh_use_embedded_materials: embeddedMaterialUsage === EmbeddedMaterialUsage.Use,
   };
 }

@@ -21,7 +21,6 @@ import {
   Initalization,
   MessageIteratorArgs,
   GetBackfillMessagesArgs,
-  IterableSourceInitializeArgs,
 } from "../IIterableSource";
 
 export class RosDb3IterableSource implements IIterableSource {
@@ -36,6 +35,7 @@ export class RosDb3IterableSource implements IIterableSource {
 
   public async initialize(): Promise<Initalization> {
     const res = await fetch(
+      // foxglove-depcheck-used: babel-plugin-transform-import-meta
       new URL("@foxglove/sql.js/dist/sql-wasm.wasm", import.meta.url).toString(),
     );
     const sqlWasm = await (await res.blob()).arrayBuffer();
@@ -149,13 +149,4 @@ export class RosDb3IterableSource implements IIterableSource {
   ): Promise<MessageEvent<unknown>[]> {
     return [];
   }
-}
-
-export function initialize(args: IterableSourceInitializeArgs): RosDb3IterableSource {
-  const files = args.file ? [args.file] : args.files;
-  if (files) {
-    return new RosDb3IterableSource(files);
-  }
-
-  throw new Error("files required");
 }

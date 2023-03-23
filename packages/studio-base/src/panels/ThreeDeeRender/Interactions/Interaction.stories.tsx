@@ -14,7 +14,6 @@
 import { Stack } from "@mui/material";
 import { storiesOf } from "@storybook/react";
 
-import MockPanelContextProvider from "@foxglove/studio-base/components/MockPanelContextProvider";
 import PanelSetup from "@foxglove/studio-base/stories/PanelSetup";
 import { PointCloud2 } from "@foxglove/studio-base/types/Messages";
 
@@ -31,6 +30,12 @@ const markerObject = {
     x: 2,
     y: 2,
     z: 4,
+  },
+  orientation: {
+    x: 0,
+    y: 0,
+    z: Math.sin(Math.PI / 8),
+    w: Math.cos(Math.PI / 8),
   },
   color: {
     r: 1,
@@ -273,12 +278,10 @@ function PanelSetupWithData({
   children,
   title,
   onMount,
-  disableAutoOpenClickedObject = true,
 }: {
   children: React.ReactNode;
   title: React.ReactNode;
   onMount?: (el: HTMLDivElement) => void;
-  disableAutoOpenClickedObject?: boolean;
 }) {
   return (
     <PanelSetup
@@ -295,21 +298,19 @@ function PanelSetupWithData({
         },
       }}
     >
-      <MockPanelContextProvider config={{ disableAutoOpenClickedObject }}>
-        <div
-          style={{ margin: 16 }}
-          ref={(el) => {
-            if (el && onMount) {
-              onMount(el);
-            }
-          }}
-        >
-          <p>{title}</p>
-          <Stack direction="row" flex="auto">
-            {children}
-          </Stack>
-        </div>
-      </MockPanelContextProvider>
+      <div
+        style={{ margin: 16 }}
+        ref={(el) => {
+          if (el && onMount) {
+            onMount(el);
+          }
+        }}
+      >
+        <p>{title}</p>
+        <Stack direction="row" flex="auto">
+          {children}
+        </Stack>
+      </div>
     </PanelSetup>
   );
 }

@@ -16,6 +16,7 @@ export type Config = {
   layer: string;
   topicColors: Record<string, string>;
   zoomLevel?: number;
+  maxNativeZoom?: number;
 };
 
 export function validateCustomUrl(url: string): Error | undefined {
@@ -28,6 +29,17 @@ export function validateCustomUrl(url: string): Error | undefined {
   }
 
   return undefined;
+}
+
+function isGeoJSONSchema(schemaName: string) {
+  switch (schemaName) {
+    case "foxglove_msgs/GeoJSON":
+    case "foxglove_msgs/msg/GeoJSON":
+    case "foxglove.GeoJSON":
+      return true;
+    default:
+      return false;
+  }
 }
 
 export function buildSettingsTree(
@@ -69,14 +81,14 @@ export function buildSettingsTree(
   );
 
   const eligibleFollowTopicOptions = filterMap(eligibleTopics, (topic) =>
-    config.disabledTopics.includes(topic.name)
+    config.disabledTopics.includes(topic.name) || isGeoJSONSchema(topic.schemaName)
       ? undefined
       : { label: topic.name, value: topic.name },
   );
   const followTopicOptions = [{ label: "Off", value: "" }, ...eligibleFollowTopicOptions];
   const generalSettings: SettingsTreeFields = {
     layer: {
-      label: "Tile Layer",
+      label: "Tile layer",
       input: "select",
       value: config.layer,
       options: [
@@ -100,6 +112,16 @@ export function buildSettingsTree(
       value: config.customTileUrl,
       error,
     };
+
+    generalSettings.maxNativeZoom = {
+      label: "Max tile level",
+      input: "select",
+      value: config.maxNativeZoom,
+      options: [18, 19, 20, 21, 22, 23, 24].map((num) => {
+        return { label: String(num), value: num };
+      }),
+      help: "Highest zoom supported by the custom map source. See https://leafletjs.com/examples/zoom-levels/ for more information.",
+    };
   }
 
   generalSettings.followTopic = {
@@ -112,7 +134,6 @@ export function buildSettingsTree(
   const settings: SettingsTreeNodes = {
     general: {
       label: "General",
-      icon: "Settings",
       fields: generalSettings,
     },
     topics: {

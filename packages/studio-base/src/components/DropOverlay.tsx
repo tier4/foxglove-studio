@@ -22,6 +22,7 @@ const useStyles = makeStyles()((theme) => ({
     pointerEvents: "none",
     padding: theme.spacing(5),
     boxShadow: "none",
+    maxHeight: "none", // override inset for titlebar area on Windows desktop app
   },
   inner: {
     borderRadius: 16,
@@ -48,7 +49,7 @@ function DropOverlay(props: PropsWithChildren<{ open: boolean }>): JSX.Element {
       classes={{ paperFullScreen: classes.outer }}
     >
       <div className={classes.inner}>
-        <Typography variant="h1" align="center" component="div">
+        <Typography variant="h1" align="center">
           {props.children}
         </Typography>
       </div>

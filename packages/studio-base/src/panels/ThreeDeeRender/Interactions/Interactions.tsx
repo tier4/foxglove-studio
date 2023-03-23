@@ -11,7 +11,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import CursorIcon from "@mdi/svg/svg/cursor-default.svg";
+import { Cursor24Regular } from "@fluentui/react-icons";
 import { Typography } from "@mui/material";
 
 import type { LayoutActions } from "@foxglove/studio";
@@ -20,10 +20,10 @@ import ExpandingToolbar, {
   ToolGroupFixedSizePane,
 } from "@foxglove/studio-base/components/ExpandingToolbar";
 
-import { Pose } from "../transforms";
 import ObjectDetails from "./ObjectDetails";
 import TopicLink from "./TopicLink";
 import { InteractionData } from "./types";
+import { Pose } from "../transforms";
 
 // ts-prune-ignore-next
 export const OBJECT_TAB_TYPE = "Selected object";
@@ -42,6 +42,7 @@ type Props = {
   setInteractionsTabType: (arg0?: TabType) => void;
   addPanel: LayoutActions["addPanel"];
   selectedObject?: SelectionObject;
+  timezone: string | undefined;
 };
 
 const InteractionsBaseComponent = React.memo<Props>(function InteractionsBaseComponent({
@@ -49,6 +50,7 @@ const InteractionsBaseComponent = React.memo<Props>(function InteractionsBaseCom
   selectedObject,
   interactionsTabType,
   setInteractionsTabType,
+  timezone,
 }: Props) {
   const selectedInteractionData = selectedObject?.object.interactionData;
   const originalMessage = selectedInteractionData?.originalMessage;
@@ -57,7 +59,7 @@ const InteractionsBaseComponent = React.memo<Props>(function InteractionsBaseCom
   return (
     <ExpandingToolbar
       tooltip="Inspect objects"
-      icon={<CursorIcon />}
+      icon={<Cursor24Regular />}
       selectedTab={interactionsTabType}
       onSelectTab={(newSelectedTab) => setInteractionsTabType(newSelectedTab)}
     >
@@ -68,10 +70,15 @@ const InteractionsBaseComponent = React.memo<Props>(function InteractionsBaseCom
               {selectedInteractionData.topic && (
                 <TopicLink addPanel={addPanel} topic={selectedInteractionData.topic} />
               )}
-              {instanceDetails ? <ObjectDetails selectedObject={instanceDetails} /> : <></>}
+              {instanceDetails ? (
+                <ObjectDetails selectedObject={instanceDetails} timezone={timezone} />
+              ) : (
+                <></>
+              )}
               <ObjectDetails
                 selectedObject={originalMessage}
                 interactionData={selectedInteractionData}
+                timezone={timezone}
               />
             </>
           ) : (

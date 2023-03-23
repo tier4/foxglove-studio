@@ -7,7 +7,6 @@ import { screen } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
-import ConsoleApiContext from "@foxglove/studio-base/context/ConsoleApiContext";
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
 
 import { CreateEventDialog } from "./CreateEventDialog";
@@ -17,16 +16,12 @@ export default {
   title: "components/CreateEventDialog",
   decorators: [
     (StoryFn: Story): JSX.Element => {
-      const consoleApi = {} as any;
-
       return (
-        <ConsoleApiContext.Provider value={consoleApi}>
-          <EventsProvider>
-            <MockMessagePipelineProvider>
-              <StoryFn />
-            </MockMessagePipelineProvider>
-          </EventsProvider>
-        </ConsoleApiContext.Provider>
+        <EventsProvider>
+          <MockMessagePipelineProvider>
+            <StoryFn />
+          </MockMessagePipelineProvider>
+        </EventsProvider>
       );
     },
   ],
@@ -36,11 +31,11 @@ export default {
 };
 
 export function Empty(): JSX.Element {
-  return <CreateEventDialog deviceId="dummyDevice" onClose={() => undefined} />;
+  return <CreateEventDialog onClose={() => undefined} />;
 }
 
 export const Normal: Story = () => {
-  return <CreateEventDialog deviceId="dummyDevice" onClose={() => {}} />;
+  return <CreateEventDialog onClose={() => {}} />;
 };
 
 Normal.play = async () => {
@@ -67,7 +62,7 @@ Normal.play = async () => {
 };
 
 export const WithDuplicates: Story = () => {
-  return <CreateEventDialog deviceId="dummyDevice" onClose={() => {}} />;
+  return <CreateEventDialog onClose={() => {}} />;
 };
 
 WithDuplicates.play = async () => {

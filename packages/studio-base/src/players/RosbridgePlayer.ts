@@ -11,7 +11,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { isEqual, sortBy, transform } from "lodash";
+import { isEqual, sortBy, transform, keyBy } from "lodash";
 import { v4 as uuidv4 } from "uuid";
 
 import { debouncePromise } from "@foxglove/den/async";
@@ -21,7 +21,7 @@ import roslib from "@foxglove/roslibjs";
 import { parse as parseMessageDefinition } from "@foxglove/rosmsg";
 import { LazyMessageReader } from "@foxglove/rosmsg-serialization";
 import { MessageReader as ROS2MessageReader } from "@foxglove/rosmsg2-serialization";
-import { Time, fromMillis, toSec, isGreaterThan } from "@foxglove/rostime";
+import { Time, fromMillis, toSec } from "@foxglove/rostime";
 import { ParameterValue } from "@foxglove/studio";
 import PlayerProblemManager from "@foxglove/studio-base/players/PlayerProblemManager";
 import {
@@ -36,10 +36,10 @@ import {
   PlayerPresence,
   PlayerMetricsCollectorInterface,
   TopicStats,
+  TopicWithSchemaName,
 } from "@foxglove/studio-base/players/types";
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
 import { bagConnectionsToDatatypes } from "@foxglove/studio-base/util/bagConnectionsHelper";
-import { getTopicsByTopicName } from "@foxglove/studio-base/util/selectors";
 
 const log = Log.getLogger(__dirname);
 
@@ -89,7 +89,7 @@ export default class RosbridgePlayer implements Player {
   private _isRefreshing = false; // True if currently refreshing the node graph.
   private _listener?: (arg0: PlayerState) => Promise<void>; // Listener for _emitState().
   private _closed: boolean = false; // Whether the player has been completely closed using close().
-  private _providerTopics?: Topic[]; // Topics as published by the WebSocket.
+  private _providerTopics?: TopicWithSchemaName[]; // Topics as published by the WebSocket.
   private _providerTopicsStats = new Map<string, TopicStats>(); // topic names to topic statistics.
   private _providerDatatypes?: RosDatatypes; // Datatypes as published by the WebSocket.
   private _publishedTopics = new Map<string, Set<string>>(); // A map of topic names to the set of publisher IDs publishing each topic.
@@ -244,7 +244,7 @@ export default class RosbridgePlayer implements Player {
       this._problems.removeProblem("topicsAndRawTypesTimeout");
 
       const topicsMissingDatatypes: string[] = [];
-      const topics: Topic[] = [];
+      const topics: TopicWithSchemaName[] = [];
       const datatypeDescriptions = [];
       const messageReaders: Record<string, LazyMessageReader | ROS2MessageReader> = {};
 
@@ -278,10 +278,13 @@ export default class RosbridgePlayer implements Player {
         const parsedDefinition = parseMessageDefinition(messageDefinition, {
           ros2: this._rosVersion === 2,
         });
-        messageReaders[type] ??=
-          this._rosVersion !== 2
-            ? new LazyMessageReader(parsedDefinition)
-            : new ROS2MessageReader(parsedDefinition);
+        // https://github.com/typescript-eslint/typescript-eslint/issues/6632
+        if (!messageReaders[type]) {
+          messageReaders[type] =
+            this._rosVersion !== 2
+              ? new LazyMessageReader(parsedDefinition)
+              : new ROS2MessageReader(parsedDefinition);
+        }
       }
 
       // We call requestTopics on a timeout to check for new topics. If there are no changes to topics
@@ -443,7 +446,7 @@ export default class RosbridgePlayer implements Player {
     this._parsedTopics = new Set(subscriptions.map(({ topic }) => topic));
 
     // See what topics we actually can subscribe to.
-    const availableTopicsByTopicName = getTopicsByTopicName(this._providerTopics ?? []);
+    const availableTopicsByTopicName = keyBy(this._providerTopics ?? [], ({ name }) => name);
     const topicNames = subscriptions
       .map(({ topic }) => topic)
       .filter((topicName) => availableTopicsByTopicName[topicName]);
@@ -535,12 +538,6 @@ export default class RosbridgePlayer implements Player {
               this._providerTopicsStats.set(topicName, stats);
             }
             stats.numMessages++;
-            stats.firstMessageTime ??= receiveTime;
-            if (stats.lastMessageTime == undefined) {
-              stats.lastMessageTime = receiveTime;
-            } else if (isGreaterThan(receiveTime, stats.lastMessageTime)) {
-              stats.lastMessageTime = receiveTime;
-            }
           }
         } catch (error) {
           this._problems.addProblem(problemId, {
@@ -585,6 +582,10 @@ export default class RosbridgePlayer implements Player {
   public publish({ topic, msg }: PublishPayload): void {
     const publisher = this._topicPublishers.get(topic);
     if (!publisher) {
+      if (this._advertisements.some((opts) => opts.topic === topic)) {
+        // Topic was advertised but the connection is not yet established
+        return;
+      }
       throw new Error(
         `Tried to publish on a topic that is not registered as a publisher: ${topic}`,
       );

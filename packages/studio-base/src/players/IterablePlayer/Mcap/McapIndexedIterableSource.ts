@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Mcap0IndexedReader, Mcap0Types } from "@mcap/core";
+import { McapIndexedReader, McapTypes } from "@mcap/core";
 
 import Logger from "@foxglove/log";
 import { ParsedChannel, parseChannel } from "@foxglove/mcap-support";
@@ -21,15 +21,15 @@ import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
 const log = Logger.getLogger(__filename);
 
 export class McapIndexedIterableSource implements IIterableSource {
-  private reader: Mcap0IndexedReader;
+  private reader: McapIndexedReader;
   private channelInfoById = new Map<
     number,
-    { channel: Mcap0Types.Channel; parsedChannel: ParsedChannel; schemaName: string }
+    { channel: McapTypes.Channel; parsedChannel: ParsedChannel; schemaName: string | undefined }
   >();
   private start?: Time;
   private end?: Time;
 
-  public constructor(reader: Mcap0IndexedReader) {
+  public constructor(reader: McapIndexedReader) {
     this.reader = reader;
   }
 
@@ -49,17 +49,11 @@ export class McapIndexedIterableSource implements IIterableSource {
     const topicsByName = new Map<string, Topic>();
     const datatypes: RosDatatypes = new Map();
     const problems: PlayerProblem[] = [];
+    const publishersByTopic = new Map<string, Set<string>>();
 
     for (const channel of this.reader.channelsById.values()) {
-      if (channel.schemaId === 0) {
-        problems.push({
-          severity: "error",
-          message: `Channel ${channel.id} has no schema; channels without schemas are not supported`,
-        });
-        continue;
-      }
       const schema = this.reader.schemasById.get(channel.schemaId);
-      if (schema == undefined) {
+      if (channel.schemaId !== 0 && schema == undefined) {
         problems.push({
           severity: "error",
           message: `Missing schema info for schema id ${channel.schemaId} (channel ${channel.id}, topic ${channel.topic})`,
@@ -78,11 +72,11 @@ export class McapIndexedIterableSource implements IIterableSource {
         });
         continue;
       }
-      this.channelInfoById.set(channel.id, { channel, parsedChannel, schemaName: schema.name });
+      this.channelInfoById.set(channel.id, { channel, parsedChannel, schemaName: schema?.name });
 
       let topic = topicsByName.get(channel.topic);
       if (!topic) {
-        topic = { name: channel.topic, schemaName: schema.name };
+        topic = { name: channel.topic, schemaName: schema?.name };
         topicsByName.set(channel.topic, topic);
 
         const numMessages = this.reader.statistics?.channelMessageCounts.get(channel.id);
@@ -90,6 +84,18 @@ export class McapIndexedIterableSource implements IIterableSource {
           topicStats.set(channel.topic, { numMessages: Number(numMessages) });
         }
       }
+
+      // Track the publisher for this topic. "callerid" is defined in the MCAP ROS 1 Well-known
+      // profile at <https://mcap.dev/specification/appendix.html>. We skip the profile check to
+      // allow non-ROS profiles to utilize this functionality as well
+      const publisherId = channel.metadata.get("callerid") ?? String(channel.id);
+      let publishers = publishersByTopic.get(channel.topic);
+      if (!publishers) {
+        publishers = new Set();
+        publishersByTopic.set(channel.topic, publishers);
+      }
+      publishers.add(publisherId);
+
       // Final datatypes is an unholy union of schemas across all channels
       for (const [name, datatype] of parsedChannel.datatypes) {
         datatypes.set(name, datatype);
@@ -106,7 +112,7 @@ export class McapIndexedIterableSource implements IIterableSource {
       datatypes,
       profile: this.reader.header.profile,
       problems,
-      publishersByTopic: new Map(),
+      publishersByTopic,
       topicStats,
     };
   }
@@ -145,9 +151,9 @@ export class McapIndexedIterableSource implements IIterableSource {
             topic: channelInfo.channel.topic,
             receiveTime: fromNanoSec(message.logTime),
             publishTime: fromNanoSec(message.publishTime),
-            message: channelInfo.parsedChannel.deserializer(message.data),
+            message: channelInfo.parsedChannel.deserialize(message.data),
             sizeInBytes: message.data.byteLength,
-            schemaName: channelInfo.schemaName,
+            schemaName: channelInfo.schemaName ?? "",
           },
         };
       } catch (error) {
@@ -189,9 +195,9 @@ export class McapIndexedIterableSource implements IIterableSource {
             topic: channelInfo.channel.topic,
             receiveTime: fromNanoSec(message.logTime),
             publishTime: fromNanoSec(message.publishTime),
-            message: channelInfo.parsedChannel.deserializer(message.data),
+            message: channelInfo.parsedChannel.deserialize(message.data),
             sizeInBytes: message.data.byteLength,
-            schemaName: channelInfo.schemaName,
+            schemaName: channelInfo.schemaName ?? "",
           });
         } catch (err) {
           log.error(err);

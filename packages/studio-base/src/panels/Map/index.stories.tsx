@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Story, StoryContext } from "@storybook/react";
+import userEvent from "@testing-library/user-event";
 import { cloneDeep, tap } from "lodash";
 import { useState } from "react";
 import { useTimeoutFn } from "react-use";
@@ -37,7 +38,9 @@ function makeGeoJsonMessage(center: { lat: number; lon: number }) {
     features: [
       {
         type: "Feature",
-        properties: {},
+        properties: {
+          name: "Named Line",
+        },
         geometry: {
           type: "LineString",
           coordinates: [
@@ -49,7 +52,9 @@ function makeGeoJsonMessage(center: { lat: number; lon: number }) {
       },
       {
         type: "Feature",
-        properties: {},
+        properties: {
+          name: "Named Polygon",
+        },
         geometry: {
           type: "Polygon",
           coordinates: [
@@ -64,6 +69,7 @@ function makeGeoJsonMessage(center: { lat: number; lon: number }) {
       {
         type: "Feature",
         properties: {
+          name: "Named Point",
           "marker-color": "#7f7e7e",
           "marker-size": "medium",
           "marker-symbol": "1",
@@ -426,7 +432,7 @@ export const GeoJSON = (): JSX.Element => {
   }, 1000);
 
   return (
-    <PanelSetup fixture={fixture}>
+    <PanelSetup fixture={fixture} includeSettings>
       <MapPanel
         overrideConfig={{
           topicColors: { "/geo": "#00ffaa", "/geo2": "#aa00ff" },
@@ -441,4 +447,11 @@ GeoJSON.parameters = {
     delay: 2000,
   },
   colorScheme: "light",
+};
+GeoJSON.play = async () => {
+  const user = userEvent.setup();
+  const followSelect = document.querySelectorAll("div[role=button][aria-haspopup=listbox]")[1];
+  if (followSelect) {
+    await user.click(followSelect);
+  }
 };

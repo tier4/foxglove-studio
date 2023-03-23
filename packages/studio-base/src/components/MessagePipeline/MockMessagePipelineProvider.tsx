@@ -41,6 +41,7 @@ const NO_DATATYPES = new Map();
 function noop() {}
 
 type MockMessagePipelineProps = {
+  name?: string;
   presence?: PlayerPresence;
   topics?: Topic[];
   topicStats?: Map<string, TopicStats>;
@@ -98,6 +99,7 @@ function getPublicState(
 
   return {
     playerState: {
+      name: props.name,
       presence: props.presence ?? PlayerPresence.PRESENT,
       playerId: props.playerId ?? "1",
       progress: props.progress ?? {},
@@ -124,7 +126,6 @@ function getPublicState(
             },
     },
     subscriptions: [],
-    publishers: [],
     sortedTopics:
       props.topics === prevState?.mockProps.topics
         ? prevState?.public.sortedTopics ?? []
@@ -242,6 +243,7 @@ export default function MockMessagePipelineProvider(
         player: undefined,
         dispatch,
         publishersById: {},
+        allPublishers: [],
         subscriptionsById: new Map(),
         subscriberIdsByTopic: new Map(),
         newTopicsBySubscriberId: new Map(),

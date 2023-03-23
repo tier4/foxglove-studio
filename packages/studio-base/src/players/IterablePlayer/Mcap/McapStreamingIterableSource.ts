@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Mcap0StreamReader, Mcap0Types } from "@mcap/core";
+import { McapStreamReader, McapTypes } from "@mcap/core";
 import { isEqual } from "lodash";
 
 import { loadDecompressHandlers, parseChannel, ParsedChannel } from "@foxglove/mcap-support";
@@ -56,16 +56,16 @@ export class McapStreamingIterableSource implements IIterableSource {
     const channelIdsWithErrors = new Set<number>();
 
     const messagesByChannel = new Map<number, MessageEvent<unknown>[]>();
-    const schemasById = new Map<number, Mcap0Types.TypedMcapRecords["Schema"]>();
+    const schemasById = new Map<number, McapTypes.TypedMcapRecords["Schema"]>();
     const channelInfoById = new Map<
       number,
-      { channel: Mcap0Types.Channel; parsedChannel: ParsedChannel; schemaName: string }
+      { channel: McapTypes.Channel; parsedChannel: ParsedChannel; schemaName: string | undefined }
     >();
 
     let startTime: Time | undefined;
     let endTime: Time | undefined;
     let profile: string | undefined;
-    function processRecord(record: Mcap0Types.TypedMcapRecord) {
+    function processRecord(record: McapTypes.TypedMcapRecord) {
       switch (record.type) {
         default:
           break;
@@ -97,13 +97,8 @@ export class McapStreamingIterableSource implements IIterableSource {
           if (channelIdsWithErrors.has(record.id)) {
             break;
           }
-          if (record.schemaId === 0) {
-            throw new Error(
-              `Channel ${record.id} has no schema; channels without schemas are not supported`,
-            );
-          }
           const schema = schemasById.get(record.schemaId);
-          if (!schema) {
+          if (record.schemaId !== 0 && !schema) {
             throw new Error(
               `Encountered channel with schema id ${record.schemaId} but no prior schema`,
             );
@@ -114,7 +109,7 @@ export class McapStreamingIterableSource implements IIterableSource {
             channelInfoById.set(record.id, {
               channel: record,
               parsedChannel,
-              schemaName: schema.name,
+              schemaName: schema?.name,
             });
             messagesByChannel.set(record.id, []);
           } catch (error) {
@@ -150,16 +145,16 @@ export class McapStreamingIterableSource implements IIterableSource {
             topic: channelInfo.channel.topic,
             receiveTime,
             publishTime: fromNanoSec(record.publishTime),
-            message: channelInfo.parsedChannel.deserializer(record.data),
+            message: channelInfo.parsedChannel.deserialize(record.data),
             sizeInBytes: record.data.byteLength,
-            schemaName: channelInfo.schemaName,
+            schemaName: channelInfo.schemaName ?? "",
           });
           break;
         }
       }
     }
 
-    const reader = new Mcap0StreamReader({ decompressHandlers });
+    const reader = new McapStreamReader({ decompressHandlers });
     for (let result; (result = await streamReader.read()), !result.done; ) {
       reader.append(result.value);
       for (let record; (record = reader.nextRecord()); ) {
@@ -172,6 +167,7 @@ export class McapStreamingIterableSource implements IIterableSource {
     const topics: Topic[] = [];
     const topicStats = new Map<string, TopicStats>();
     const datatypes: RosDatatypes = new Map();
+    const publishersByTopic = new Map<string, Set<string>>();
 
     for (const { channel, parsedChannel, schemaName } of channelInfoById.values()) {
       topics.push({ name: channel.topic, schemaName });
@@ -179,6 +175,18 @@ export class McapStreamingIterableSource implements IIterableSource {
       if (numMessages != undefined) {
         topicStats.set(channel.topic, { numMessages });
       }
+
+      // Track the publisher for this topic. "callerid" is defined in the MCAP ROS 1 Well-known
+      // profile at <https://mcap.dev/specification/appendix.html>. We skip the profile check to
+      // allow non-ROS profiles to utilize this functionality as well
+      const publisherId = channel.metadata.get("callerid") ?? String(channel.id);
+      let publishers = publishersByTopic.get(channel.topic);
+      if (!publishers) {
+        publishers = new Set();
+        publishersByTopic.set(channel.topic, publishers);
+      }
+      publishers.add(publisherId);
+
       // Final datatypes is an unholy union of schemas across all channels
       for (const [name, datatype] of parsedChannel.datatypes) {
         datatypes.set(name, datatype);
@@ -201,7 +209,7 @@ export class McapStreamingIterableSource implements IIterableSource {
     }
 
     problems.push({
-      message: "This file unindexed. Unindexed files may have degraded performance.",
+      message: "This file is unindexed. Unindexed files may have degraded performance.",
       tip: "See the mcap spec: https://mcap.dev/specification/index.html#summary-section",
       severity: "warn",
     });
@@ -213,7 +221,7 @@ export class McapStreamingIterableSource implements IIterableSource {
       datatypes,
       profile,
       problems,
-      publishersByTopic: new Map(),
+      publishersByTopic,
       topicStats,
     };
   }

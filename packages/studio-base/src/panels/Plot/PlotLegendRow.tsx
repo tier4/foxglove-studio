@@ -2,114 +2,119 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import {
-  Close as CloseIcon,
-  Error as ErrorIcon,
-  Remove as RemoveIcon,
-  MoreVert as MoreVertIcon,
-} from "@mui/icons-material";
-import { IconButton, Tooltip, Typography, useTheme } from "@mui/material";
-import { ComponentProps, useCallback, useMemo, useState } from "react";
+import { ErrorCircle16Filled, Square24Filled, Square24Regular } from "@fluentui/react-icons";
+import { Checkbox, Tooltip, Typography } from "@mui/material";
+import { ComponentProps, useMemo, useState } from "react";
 import { makeStyles } from "tss-react/mui";
 import { v4 as uuidv4 } from "uuid";
 
-import MessagePathInput from "@foxglove/studio-base/components/MessagePathSyntax/MessagePathInput";
+import { usePanelContext } from "@foxglove/studio-base/components/PanelContext";
 import TimeBasedChart from "@foxglove/studio-base/components/TimeBasedChart";
+import { useSelectedPanels } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import { useHoverValue } from "@foxglove/studio-base/context/TimelineInteractionStateContext";
+import { useWorkspaceActions } from "@foxglove/studio-base/context/WorkspaceContext";
+import { plotPathDisplayName } from "@foxglove/studio-base/panels/Plot/types";
 import { getLineColor } from "@foxglove/studio-base/util/plotColors";
+import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
-import PathSettingsModal from "./PathSettingsModal";
-import { PlotPath, isReferenceLinePlotPathType } from "./internalTypes";
-import { plotableRosTypes, PlotXAxisVal } from "./types";
+import { PlotPath } from "./internalTypes";
 
 type PlotLegendRowProps = {
+  currentTime?: number;
+  datasets: ComponentProps<typeof TimeBasedChart>["data"]["datasets"];
+  hasMismatchedDataLength: boolean;
   index: number;
-  xAxisVal: PlotXAxisVal;
+  onClickPath: () => void;
   path: PlotPath;
   paths: PlotPath[];
-  hasMismatchedDataLength: boolean;
-  datasets: ComponentProps<typeof TimeBasedChart>["data"]["datasets"];
-  currentTime?: number;
   savePaths: (paths: PlotPath[]) => void;
   showPlotValuesInLegend: boolean;
 };
 
-const useStyles = makeStyles()((theme) => ({
+const ROW_HEIGHT = 28;
+
+const useStyles = makeStyles<void, "plotName">()((theme, _params, classes) => ({
   root: {
     display: "contents",
+    cursor: "pointer",
 
-    "&:hover, &:focus-within": {
-      "& .MuiIconButton-root": {
-        backgroundColor: theme.palette.action.hover,
-      },
+    "&:hover": {
       "& > *:last-child": {
         opacity: 1,
       },
       "& > *": {
-        backgroundColor: theme.palette.action.hover,
+        backgroundColor: theme.palette.background.paper,
+        backgroundImage: `linear-gradient(${[
+          "0deg",
+          theme.palette.action.focus,
+          theme.palette.action.focus,
+        ].join(" ,")})`,
       },
     },
   },
+  showPlotValue: {
+    [`.${classes.plotName}`]: {
+      gridColumn: "span 1",
+    },
+  },
   listIcon: {
-    padding: theme.spacing(0.25),
-    position: "sticky",
-    left: 0,
-    // creates an opaque background for the sticky element
-    backgroundImage: `linear-gradient(${theme.palette.background.paper}, ${theme.palette.background.paper})`,
-    backgroundBlendMode: "overlay",
-  },
-  legendIconButton: {
-    padding: `${theme.spacing(0.125)} !important`,
-    marginLeft: theme.spacing(0.25),
-  },
-  inputWrapper: {
     display: "flex",
     alignItems: "center",
-    padding: theme.spacing(0.25),
+    position: "sticky",
+    height: ROW_HEIGHT,
+    left: 0,
+  },
+  checkbox: {
+    fontSize: "1em",
+    padding: theme.spacing(0.975),
+    borderRadius: 0,
+
+    "svg:not(.MuiSvgIcon-root)": {
+      fontSize: "1em",
+    },
+  },
+  disabledPathLabel: {
+    opacity: 0.5,
+  },
+  plotName: {
+    display: "flex",
+    alignItems: "center",
+    height: ROW_HEIGHT,
+    padding: theme.spacing(0, 1.5, 0, 0.5),
+    gridColumn: "span 2",
+    fontFeatureSettings: `${fonts.SANS_SERIF_FEATURE_SETTINGS}, "zero"`,
+
+    ".MuiTypography-root": {
+      whiteSpace: "nowrap",
+    },
   },
   plotValue: {
     display: "flex",
     alignItems: "center",
-    padding: theme.spacing(0.25),
+    height: ROW_HEIGHT,
+    padding: theme.spacing(0.25, 1, 0.25, 0.25),
   },
-  actionButton: {
-    padding: `${theme.spacing(0.25)} !important`,
-    color: theme.palette.text.secondary,
-
-    "&:hover": {
-      color: theme.palette.text.primary,
-    },
-  },
-  actions: {
-    display: "flex",
-    flexDirection: "row",
-    alignItems: "center",
-    padding: theme.spacing(0.25),
-    gap: theme.spacing(0.25),
-    position: "sticky",
-    right: 0,
-    opacity: 0,
-    // creates an opaque background for the sticky element
-    backgroundImage: `linear-gradient(${theme.palette.background.paper}, ${theme.palette.background.paper})`,
-    backgroundBlendMode: "overlay",
-
-    "&:hover": {
-      opacity: 1,
-    },
+  errorIcon: {
+    color: theme.palette.error.main,
   },
 }));
 
-export default function PlotLegendRow({
+export function PlotLegendRow({
+  currentTime,
+  datasets,
+  hasMismatchedDataLength,
   index,
-  xAxisVal,
+  onClickPath,
   path,
   paths,
-  hasMismatchedDataLength,
-  datasets,
-  currentTime,
   savePaths,
   showPlotValuesInLegend,
 }: PlotLegendRowProps): JSX.Element {
+  const { openPanelSettings } = useWorkspaceActions();
+  const { id: panelId } = usePanelContext();
+  const { setSelectedPanelIds } = useSelectedPanels();
+  const { classes, cx } = useStyles();
+
   const correspondingData = useMemo(() => {
     if (!showPlotValuesInLegend) {
       return [];
@@ -123,14 +128,9 @@ export default function PlotLegendRow({
     isTimestampScale: true,
   });
 
-  const theme = useTheme();
-
-  const currentDisplay = useMemo(() => {
+  const currentValue = useMemo(() => {
     if (!showPlotValuesInLegend) {
-      return {
-        value: undefined,
-        color: "inherit",
-      };
+      return undefined;
     }
     const timeToCompare = hoverValue?.value ?? currentTime;
 
@@ -141,154 +141,74 @@ export default function PlotLegendRow({
       }
       value = pt.y;
     }
-    return {
-      value,
-      color: hoverValue?.value != undefined ? theme.palette.warning.main : "inherit",
-    };
-  }, [showPlotValuesInLegend, hoverValue?.value, currentTime, theme.palette, correspondingData]);
+    return value;
+  }, [showPlotValuesInLegend, hoverValue?.value, currentTime, correspondingData]);
 
-  const legendIconColor = path.enabled
-    ? getLineColor(path.color, index)
-    : theme.palette.text.secondary;
-
-  const { classes } = useStyles();
-
-  const isReferenceLinePlotPath = isReferenceLinePlotPathType(path);
-
-  const onInputChange = useCallback(
-    (value: string, idx?: number) => {
-      if (idx == undefined) {
-        throw new Error("index not set");
-      }
-      const newPaths = paths.slice();
-      const newPath = newPaths[idx];
-      if (newPath) {
-        newPaths[idx] = { ...newPath, value: value.trim() };
-      }
-      savePaths(newPaths);
-    },
-    [paths, savePaths],
-  );
-
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
-
-  const messagePathInputStyle = useMemo(() => {
-    return { textDecoration: !path.enabled ? "line-through" : undefined };
-  }, [path.enabled]);
-
-  const legendIcon = useMemo(
-    () => (
+  return (
+    <div
+      className={cx(classes.root, {
+        [classes.showPlotValue]: showPlotValuesInLegend,
+      })}
+      onClick={() => {
+        setSelectedPanelIds([panelId]);
+        openPanelSettings();
+        onClickPath();
+      }}
+    >
       <div className={classes.listIcon}>
-        <IconButton
-          className={classes.legendIconButton}
-          centerRipple={false}
+        <Checkbox
+          className={classes.checkbox}
+          checked={path.enabled}
           size="small"
           title="Toggle visibility"
-          onClick={() => {
+          style={{ color: getLineColor(path.color, index) }}
+          icon={<Square24Regular />}
+          checkedIcon={<Square24Filled />}
+          onChange={(event) => {
+            event.stopPropagation();
+
             const newPaths = paths.slice();
             const newPath = newPaths[index];
+
             if (newPath) {
               newPaths[index] = { ...newPath, enabled: !newPath.enabled };
             }
             savePaths(newPaths);
           }}
-        >
-          <RemoveIcon style={{ color: legendIconColor }} color="inherit" />
-        </IconButton>
-      </div>
-    ),
-    [classes, index, legendIconColor, paths, savePaths],
-  );
-
-  const input = useMemo(
-    () => (
-      <div className={classes.inputWrapper}>
-        <MessagePathInput
-          supportsMathModifiers
-          path={path.value}
-          onChange={onInputChange}
-          validTypes={plotableRosTypes}
-          placeholder="Enter a topic name or a number"
-          index={index}
-          autoSize
-          disableAutocomplete={isReferenceLinePlotPath}
-          inputStyle={messagePathInputStyle}
         />
+      </div>
+      <div
+        className={classes.plotName}
+        style={{ gridColumn: !showPlotValuesInLegend ? "span 2" : undefined }}
+      >
+        <Typography
+          noWrap={showPlotValuesInLegend}
+          flex="auto"
+          variant="body2"
+          className={cx({ [classes.disabledPathLabel]: !path.enabled })}
+        >
+          {plotPathDisplayName(path, index)}
+        </Typography>
         {hasMismatchedDataLength && (
           <Tooltip
             placement="top"
             title="Mismatch in the number of elements in x-axis and y-axis messages"
           >
-            <ErrorIcon fontSize="small" color="error" />
+            <ErrorCircle16Filled className={classes.errorIcon} />
           </Tooltip>
         )}
       </div>
-    ),
-    [
-      classes.inputWrapper,
-      hasMismatchedDataLength,
-      index,
-      isReferenceLinePlotPath,
-      messagePathInputStyle,
-      onInputChange,
-      path.value,
-    ],
-  );
-
-  const plotValue = showPlotValuesInLegend && (
-    <div className={classes.plotValue} style={{ color: currentDisplay.color }}>
-      <Typography component="div" variant="body2" align="right" color="inherit">
-        {currentDisplay.value ?? ""}
-      </Typography>
-    </div>
-  );
-
-  const actions = useMemo(
-    () => (
-      <div className={classes.actions}>
-        <IconButton
-          className={classes.actionButton}
-          size="small"
-          title="Edit settings"
-          onClick={() => setSettingsModalOpen(true)}
-        >
-          <MoreVertIcon fontSize="small" />
-        </IconButton>
-        <IconButton
-          className={classes.actionButton}
-          size="small"
-          title={`Remove ${path.value}`}
-          onClick={() => {
-            const newPaths = paths.slice();
-            newPaths.splice(index, 1);
-            savePaths(newPaths);
-          }}
-        >
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </div>
-    ),
-    [classes.actionButton, classes.actions, index, path.value, paths, savePaths],
-  );
-
-  return (
-    <div className={classes.root}>
-      <div style={{ position: "absolute" }}>
-        {settingsModalOpen && (
-          <PathSettingsModal
-            xAxisVal={xAxisVal}
-            path={path}
-            paths={paths}
-            index={index}
-            savePaths={savePaths}
-            onDismiss={() => setSettingsModalOpen(false)}
-          />
-        )}
-      </div>
-      {legendIcon}
-      {input}
-      {plotValue}
-      {actions}
+      {showPlotValuesInLegend && (
+        <div className={classes.plotValue}>
+          <Typography
+            variant="body2"
+            align="right"
+            color={hoverValue?.value != undefined ? "warning.main" : "text.secondary"}
+          >
+            {currentValue ?? ""}
+          </Typography>
+        </div>
+      )}
     </div>
   );
 }

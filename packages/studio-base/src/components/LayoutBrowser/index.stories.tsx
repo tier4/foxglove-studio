@@ -7,14 +7,13 @@ import { fireEvent, screen } from "@testing-library/dom";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
 
-import AnalyticsProvider from "@foxglove/studio-base/context/AnalyticsProvider";
 import { LayoutData } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
 import LayoutStorageContext from "@foxglove/studio-base/context/LayoutStorageContext";
-import ModalHost from "@foxglove/studio-base/context/ModalHost";
 import { UserProfileStorageContext } from "@foxglove/studio-base/context/UserProfileStorageContext";
 import CurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider";
 import { defaultPlaybackConfig } from "@foxglove/studio-base/providers/CurrentLayoutProvider/reducers";
 import LayoutManagerProvider from "@foxglove/studio-base/providers/LayoutManagerProvider";
+import WorkspaceContextProvider from "@foxglove/studio-base/providers/WorkspaceContextProvider";
 import { ISO8601Timestamp, Layout, LayoutID } from "@foxglove/studio-base/services/ILayoutStorage";
 import LayoutManager from "@foxglove/studio-base/services/LayoutManager/LayoutManager";
 import MockLayoutStorage from "@foxglove/studio-base/services/MockLayoutStorage";
@@ -128,19 +127,15 @@ function WithSetup(Child: Story, ctx: StoryContext): JSX.Element {
   );
   return (
     <div style={{ display: "flex", height: "100%", width: 320 }}>
-      <ModalHost>
-        <AnalyticsProvider>
-          <UserProfileStorageContext.Provider value={userProfile}>
-            <LayoutStorageContext.Provider value={storage}>
-              <LayoutManagerProvider>
-                <CurrentLayoutProvider>
-                  <Child />
-                </CurrentLayoutProvider>
-              </LayoutManagerProvider>
-            </LayoutStorageContext.Provider>
-          </UserProfileStorageContext.Provider>
-        </AnalyticsProvider>
-      </ModalHost>
+      <UserProfileStorageContext.Provider value={userProfile}>
+        <LayoutStorageContext.Provider value={storage}>
+          <LayoutManagerProvider>
+            <CurrentLayoutProvider>
+              <Child />
+            </CurrentLayoutProvider>
+          </LayoutManagerProvider>
+        </LayoutStorageContext.Provider>
+      </UserProfileStorageContext.Provider>
     </div>
   );
 }
@@ -383,3 +378,14 @@ DeleteLastLayout.parameters = {
   colorScheme: "dark",
 };
 DeleteLastLayout.play = async () => await deleteLayoutInteraction(0);
+
+export function SignInPrompt(_args: unknown): JSX.Element {
+  return (
+    <WorkspaceContextProvider>
+      <LayoutBrowser supportsSignIn />
+    </WorkspaceContextProvider>
+  );
+}
+SignInPrompt.parameters = {
+  colorScheme: "light",
+};

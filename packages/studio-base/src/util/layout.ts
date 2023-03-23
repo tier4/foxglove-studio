@@ -10,7 +10,6 @@
 //   This source code is licensed under the Apache License, Version 2.0,
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
-import { captureException } from "@sentry/core";
 import { compact, flatMap, xor, uniq } from "lodash";
 import {
   createRemoveUpdate,
@@ -30,6 +29,7 @@ import {
   ConfigsPayload,
   SaveConfigsPayload,
 } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
+import { reportError } from "@foxglove/studio-base/reportError";
 import { TabConfig, TabLocation, TabPanelConfig } from "@foxglove/studio-base/types/layouts";
 import {
   PanelConfig,
@@ -39,6 +39,9 @@ import {
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 
 const log = Logger.getLogger(__filename);
+
+/** Key injected into panel configs for user-selected title (overrides setDefaultPanelTitle) */
+export const PANEL_TITLE_CONFIG_KEY = "foxglovePanelTitle";
 
 // given a panel type, create a unique id for a panel
 // with the type embedded within the id
@@ -294,13 +297,13 @@ export const validateTabPanelConfig = (config?: PanelConfig): config is TabPanel
       "A non-Tab panel config is being operated on as if it were a Tab panel.",
     );
     log.info(`Invalid Tab panel config: ${error.message}`, config);
-    captureException(error);
+    reportError(error);
     return false;
   }
   if (config.activeTabIdx >= config.tabs.length) {
     const error = new Error("A Tab panel has an activeTabIdx for a nonexistent tab.");
     log.info(`Invalid Tab panel config: ${error.message}`, config);
-    captureException(error);
+    reportError(error);
     return false;
   }
   return true;

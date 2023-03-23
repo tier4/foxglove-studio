@@ -14,7 +14,7 @@ import {
   ListItemText,
   styled as muiStyled,
 } from "@mui/material";
-import { useState, useCallback, useMemo, useEffect, MouseEvent } from "react";
+import { useState, useCallback, useMemo, useEffect, MouseEvent, useRef } from "react";
 
 import { Time, isTimeInRangeInclusive } from "@foxglove/rostime";
 import Stack from "@foxglove/studio-base/components/Stack";
@@ -25,7 +25,6 @@ import {
   formatTime,
   getValidatedTimeAndMethodFromString,
 } from "@foxglove/studio-base/util/formatTime";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 import { formatTimeRaw } from "@foxglove/studio-base/util/time";
 
 type PlaybackTimeDisplayMethodProps = {
@@ -61,7 +60,7 @@ const StyledTextField = muiStyled(TextField)<{ error?: boolean }>(({ error, them
     },
   },
   ".MuiInputBase-input": {
-    fontFeatureSettings: `${fonts.SANS_SERIF_FEATURE_SETTINGS}, 'zero' !important`,
+    fontFeatureSettings: `${theme.typography.fontFeatureSettings}, 'zero' !important`,
     minWidth: "20ch",
   },
   ".MuiIconButton-root": {
@@ -161,6 +160,7 @@ export default function PlaybackTimeDisplayMethod({
   onPause,
   isPlaying,
 }: PlaybackTimeDisplayMethodProps): JSX.Element {
+  const timeOutID = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const timeFormat = useAppTimeFormat();
   const timeRawString = useMemo(
     () => (currentTime ? formatTimeRaw(currentTime) : undefined),
@@ -222,6 +222,12 @@ export default function PlaybackTimeDisplayMethod({
       setIsEditing(false);
       setHasError(false);
     }
+
+    return () => {
+      if (timeOutID.current != undefined) {
+        clearTimeout(timeOutID.current);
+      }
+    };
   }, [hasError, inputText, isPlaying]);
 
   return (
@@ -260,7 +266,7 @@ export default function PlaybackTimeDisplayMethod({
             onBlur={(e) => {
               onSubmit(e);
               setIsEditing(false);
-              setTimeout(() => setHasError(false), 600);
+              timeOutID.current = setTimeout(() => setHasError(false), 600);
             }}
             onChange={(event) => setInputText(event.target.value)}
           />

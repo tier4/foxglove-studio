@@ -17,14 +17,14 @@ import RawMessages, { PREV_MSG_METHOD } from "@foxglove/studio-base/panels/RawMe
 import PanelSetup from "@foxglove/studio-base/stories/PanelSetup";
 
 import {
-  fixture,
-  enumFixture,
   enumAdvancedFixture,
-  withMissingData,
+  enumFixture,
+  fixture,
+  multipleMessagesFilter,
+  multipleNumberMessagesFixture,
   topicsToDiffFixture,
   topicsWithIdsToDiffFixture,
-  multipleNumberMessagesFixture,
-  multipleMessagesFilter,
+  withMissingData,
 } from "./fixture";
 
 const noDiffConfig = {
@@ -51,6 +51,29 @@ storiesOf("panels/RawMessages", module)
     return (
       <PanelSetup fixture={fixture}>
         <RawMessages overrideConfig={{ topicPath: "/msgs/big_topic", ...noDiffConfig } as any} />
+      </PanelSetup>
+    );
+  })
+  .add("schemaless", () => {
+    return (
+      <PanelSetup
+        fixture={{
+          topics: [{ name: "foo", schemaName: undefined }],
+          datatypes: new Map(),
+          frame: {
+            ["foo"]: [
+              {
+                topic: "foo",
+                schemaName: "",
+                message: { bar: 1 },
+                receiveTime: { sec: 0, nsec: 0 },
+                sizeInBytes: 0,
+              },
+            ],
+          },
+        }}
+      >
+        <RawMessages overrideConfig={{ topicPath: "foo", ...noDiffConfig } as any} />
       </PanelSetup>
     );
   })

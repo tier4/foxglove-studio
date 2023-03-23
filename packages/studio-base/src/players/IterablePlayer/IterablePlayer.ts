@@ -135,7 +135,7 @@ export class IterablePlayer implements Player {
   private _metricsCollector: PlayerMetricsCollectorInterface;
   private _subscriptions: SubscribePayload[] = [];
   private _allTopics: Set<string> = new Set();
-  private _partialTopics: Set<string> = new Set();
+  private _preloadTopics: Set<string> = new Set();
 
   private _progress: Progress = {};
   private _id: string = uuidv4();
@@ -252,10 +252,14 @@ export class IterablePlayer implements Player {
 
   public seekPlayback(time: Time): void {
     // Wait to perform seek until initialization is complete
-    if (this._state === "preinit" || this._state === "initialize" || !this._start || !this._end) {
+    if (this._state === "preinit" || this._state === "initialize") {
       log.debug(`Ignoring seek, state=${this._state}`);
       this._seekTarget = time;
       return;
+    }
+
+    if (!this._start || !this._end) {
+      throw new Error("invariant: initialized but no start/end set");
     }
 
     // Limit seek to within the valid range
@@ -277,7 +281,6 @@ export class IterablePlayer implements Player {
     this._seekTarget = targetTime;
     this._untilTime = undefined;
 
-    this._blockLoader?.setActiveTime(targetTime);
     this._setState("seek-backfill");
   }
 
@@ -287,20 +290,20 @@ export class IterablePlayer implements Player {
     this._metricsCollector.setSubscriptions(newSubscriptions);
 
     const allTopics = new Set(this._subscriptions.map((subscription) => subscription.topic));
-    const partialTopics = new Set(
+    const preloadTopics = new Set(
       filterMap(this._subscriptions, (sub) =>
         sub.preloadType !== "partial" ? sub.topic : undefined,
       ),
     );
 
     // If there are no changes to topics there's no reason to perform a "seek" to trigger loading
-    if (isEqual(allTopics, this._allTopics) && isEqual(partialTopics, this._partialTopics)) {
+    if (isEqual(allTopics, this._allTopics) && isEqual(preloadTopics, this._preloadTopics)) {
       return;
     }
 
     this._allTopics = allTopics;
-    this._partialTopics = partialTopics;
-    this._blockLoader?.setTopics(this._partialTopics);
+    this._preloadTopics = preloadTopics;
+    this._blockLoader?.setTopics(this._preloadTopics);
 
     // If the player is playing, the playing state will detect any subscription changes and adjust
     // iterators accordignly. However if we are idle or already seeking then we need to manually
@@ -346,17 +349,6 @@ export class IterablePlayer implements Player {
     this._nextState = newState;
     this._abort?.abort();
     this._abort = undefined;
-
-    // Support moving between idle (pause) and play and preserving the playback iterator
-    if (newState !== "idle" && newState !== "play" && this._playbackIterator) {
-      log.debug("Ending playback iterator because next state is not IDLE or PLAY");
-      const oldIterator = this._playbackIterator;
-      this._playbackIterator = undefined;
-      void oldIterator.return?.().catch((err) => {
-        log.error(err);
-      });
-    }
-
     void this._runState();
   }
 
@@ -377,6 +369,14 @@ export class IterablePlayer implements Player {
         this._nextState = undefined;
 
         log.debug(`Start state: ${state}`);
+
+        // If we are going into a state other than play or idle we throw away the playback iterator since
+        // we will need to make a new one.
+        if (state !== "idle" && state !== "play" && this._playbackIterator) {
+          log.debug("Ending playback iterator because next state is not IDLE or PLAY");
+          await this._playbackIterator.return?.();
+          this._playbackIterator = undefined;
+        }
 
         switch (state) {
           case "preinit":
@@ -443,6 +443,12 @@ export class IterablePlayer implements Player {
         datatypes,
         name,
       } = await this._bufferedSource.initialize();
+
+      // Prior to initialization, the seekTarget may have been set to an out-of-bounds value
+      // This brings the value in bounds
+      if (this._seekTarget) {
+        this._seekTarget = clampTime(this._seekTarget, start, end);
+      }
 
       this._profile = profile;
       this._start = start;
@@ -516,8 +522,7 @@ export class IterablePlayer implements Player {
       // playback.
       await delay(START_DELAY_MS);
 
-      this._blockLoader?.setActiveTime(this._start);
-      this._blockLoader?.setTopics(this._partialTopics);
+      this._blockLoader?.setTopics(this._preloadTopics);
 
       // Block loadings is constantly running and tries to keep the preloaded messages in memory
       this._blockLoadingProcess = this.startBlockLoading();
@@ -533,11 +538,13 @@ export class IterablePlayer implements Player {
 
     const next = add(this._currentTime, { sec: 0, nsec: 1 });
 
+    log.debug("Ending previous iterator");
     await this._playbackIterator?.return?.();
 
     // set the playIterator to the seek time
-    log.debug("Initializing forward iterator from", next);
     await this._bufferedSource.stopProducer();
+
+    log.debug("Initializing forward iterator from", next);
     this._playbackIterator = this._bufferedSource.messageIterator({
       topics: Array.from(this._allTopics),
       start: next,
@@ -646,10 +653,16 @@ export class IterablePlayer implements Player {
   // Process a seek request. The seek is performed by requesting a getBackfillMessages from the source.
   // This provides the last message on all subscribed topics.
   private async _stateSeekBackfill() {
-    const targetTime = this._seekTarget;
-    if (!targetTime) {
+    if (!this._start || !this._end) {
+      throw new Error("invariant: stateSeekBackfill prior to initialization");
+    }
+
+    if (!this._seekTarget) {
       return;
     }
+
+    // Ensure the seek time is always within the data source bounds
+    const targetTime = clampTime(this._seekTarget, this._start, this._end);
 
     this._lastMessageEvent = undefined;
 
@@ -731,9 +744,6 @@ export class IterablePlayer implements Player {
 
     let activeData: PlayerStateActiveData | undefined;
     if (this._start && this._end && this._currentTime) {
-      // Notify the block loader about the current time so it tries to keep current time loaded
-      this._blockLoader?.setActiveTime(this._currentTime);
-
       activeData = {
         messages,
         totalBytesReceived: this._receivedBytes,
@@ -972,6 +982,10 @@ export class IterablePlayer implements Player {
     try {
       while (this._isPlaying && !this._hasError && !this._nextState) {
         if (compare(this._currentTime, this._end) >= 0) {
+          // Playback has ended. Reset internal trackers for maintaining the playback speed.
+          this._lastTickMillis = undefined;
+          this._lastRangeMillis = undefined;
+          this._lastStamp = undefined;
           this._setState("idle");
           return;
         }

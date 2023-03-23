@@ -10,7 +10,7 @@ import StateTransitionsIcon from "@mui/icons-material/PowerInput";
 import ScatterPlotIcon from "@mui/icons-material/ScatterPlot";
 import LineChartIcon from "@mui/icons-material/ShowChart";
 import { IconButtonProps, Tooltip, TooltipProps } from "@mui/material";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import { withStyles, makeStyles } from "tss-react/mui";
 
 import HoverableIconButton from "@foxglove/studio-base/components/HoverableIconButton";
@@ -76,7 +76,8 @@ const emptyAction: ValueActionItem = {
 
 const MAX_ACTION_ITEMS = 4;
 
-export default function Value(props: ValueProps): JSX.Element {
+function Value(props: ValueProps): JSX.Element {
+  const timeOutID = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const {
     arrLabel,
     basePath,
@@ -110,7 +111,7 @@ export default function Value(props: ValueProps): JSX.Element {
       .copy(value)
       .then(() => {
         setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
+        timeOutID.current = setTimeout(() => setCopied(false), 1500);
       })
       .catch((e) => console.warn(e));
   }, []);
@@ -187,6 +188,14 @@ export default function Value(props: ValueProps): JSX.Element {
   }, [availableActions.length]);
   const { classes, cx } = useStyles();
 
+  useEffect(() => {
+    return () => {
+      if (timeOutID.current != undefined) {
+        clearTimeout(timeOutID.current);
+      }
+    };
+  }, []);
+
   return (
     <Stack inline flexWrap="wrap" direction="row" alignItems="center" gap={0.25}>
       <HighlightedValue itemLabel={itemLabel} />
@@ -212,3 +221,7 @@ export default function Value(props: ValueProps): JSX.Element {
     </Stack>
   );
 }
+
+// In practice this seems to be an expensive component to render.
+// Memoization provides a very noticeable performance boost.
+export default React.memo(Value);
