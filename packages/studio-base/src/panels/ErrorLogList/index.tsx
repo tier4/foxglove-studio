@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import Typography from "@mui/material/Typography";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 
 import { Time, fromNanoSec } from "@foxglove/rostime";
 import {
@@ -17,7 +17,6 @@ import Stack from "@foxglove/studio-base/components/Stack";
 import ErrorLogList from "./ErrorLogList";
 import { ErrorLog } from "./ErrorLogListItem";
 import FeedbackDialog from "./FeedbackDialog";
-import helpContent from "./index.help.md";
 import { Config, FileType } from "./types";
 
 const selectSeek = (ctx: MessagePipelineContext) => ctx.seekPlayback;
@@ -28,7 +27,6 @@ type Props = {
 };
 
 export function ErrorLogListPanel({ config }: Props): JSX.Element {
-
   const offsetSec = config.offsetSec ?? 0;
   const hiddenScore = config.hiddenScore ?? false;
 
@@ -37,8 +35,8 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [feedbackContentIds, setFeedbackContentIds] = useState<string[]>([]);
-  const [selectedErrorContent, setSelectedErrorContent] = useState<string|undefined>(undefined);
-  const [errorMessage, setErrorMessage] = useState<string|undefined>(undefined);
+  const [selectedErrorContent, setSelectedErrorContent] = useState<string | undefined>(undefined);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const params = new URLSearchParams(window.location.search);
   const errorLogUrl = params.get("error-log-url") ?? "";
@@ -48,9 +46,9 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
     const getErrorLog = async (url: string) => {
       const res = await fetch(url);
       const data: ErrorLog[] = await res.json();
-      const modifiedData = data.map((item, index) => ({ ...item, index, kind: 'error' }))
+      const modifiedData = data.map((item, index) => ({ ...item, index, kind: "error" }));
       setErrorLogs(modifiedData);
-    }
+    };
     getErrorLog(errorLogUrl).catch(() => setErrorMessage("データの取得に失敗しました"));
   }, [errorLogUrl]);
 
@@ -58,24 +56,30 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
     const getFeedbackContentIds = async (url: string) => {
       const res = await fetch(url);
       const data: FileType[] = await res.json();
-      const contentIds = data.map(d => d.name.replace('.png', ''));
+      const contentIds = data.map((d) => d.name.replace(".png", ""));
       setFeedbackContentIds(contentIds);
-    }
+    };
     getFeedbackContentIds(feedbackContentsUrl).catch(() => setFeedbackContentIds([]));
   }, [feedbackContentsUrl]);
 
-  const handleClickItem = useCallback((item: ErrorLog) => {
-    const timestamp = BigInt(item.timestamp);
-    const playbackTime: Time = fromNanoSec(timestamp);
-    playbackTime.sec -= offsetSec;
-    seek?.(playbackTime);
-    play?.();
-  }, [offsetSec, play, seek]);
+  const handleClickItem = useCallback(
+    (item: ErrorLog) => {
+      const timestamp = BigInt(item.timestamp);
+      const playbackTime: Time = fromNanoSec(timestamp);
+      playbackTime.sec -= offsetSec;
+      seek?.(playbackTime);
+      play?.();
+    },
+    [offsetSec, play, seek],
+  );
 
-  const handleCloseFeedbackDialog = useCallback((event: any) => {
-    event.preventDefault();
-    setSelectedErrorContent(undefined);
-  }, []);
+  const handleCloseFeedbackDialog = useCallback(
+    (event: React.MouseEvent<HTMLInputElement>): void => {
+      event.preventDefault();
+      setSelectedErrorContent(undefined);
+    },
+    [],
+  );
 
   const handleClickFeedback = useCallback((error_content: string) => {
     setSelectedErrorContent(error_content);
@@ -83,14 +87,9 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
   return (
     <Stack fullHeight>
-      <PanelToolbar helpContent={helpContent} />
-      { errorLogs.length > 0 ?
-        <Stack
-          fullHeight
-          gap={1}
-          overflowY="scroll"
-          paddingBottom={20}
-        >
+      <PanelToolbar />
+      {errorLogs.length > 0 ? (
+        <Stack fullHeight gap={1} overflowY="scroll" paddingBottom={20}>
           <ErrorLogList
             errorLogs={errorLogs}
             handleClickItem={handleClickItem}
@@ -99,7 +98,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
             hiddenScore={hiddenScore}
           />
         </Stack>
-        : errorMessage == undefined ?
+      ) : errorMessage == undefined ? (
         <Stack
           flexGrow={1}
           justifyContent="center"
@@ -109,7 +108,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
         >
           <EmptyMessage message="減点はありません" />
         </Stack>
-        :
+      ) : (
         <Stack
           flexGrow={1}
           justifyContent="center"
@@ -119,7 +118,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
         >
           <ErrorMessage message={errorMessage} />
         </Stack>
-      }
+      )}
       <FeedbackDialog
         open={selectedErrorContent != undefined}
         contentUrl={`${feedbackContentsUrl}${selectedErrorContent}.png`}
@@ -131,25 +130,23 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
 type MessageProps = {
   message: string;
-}
+};
 
-const ErrorMessage = ({ message }: MessageProps) => {
+const ErrorMessage = memo(function ErrorMessage({ message }: MessageProps) {
   return (
     <Typography variant="h5" color="error" align="center">
       {message}
     </Typography>
   );
-}
+});
 
-
-const EmptyMessage = ({ message }: MessageProps) => {
+const EmptyMessage = memo(function EmptyMessage({ message }: MessageProps) {
   return (
     <Typography variant="h5" color="secondary" align="center">
       {message}
     </Typography>
   );
-}
-
+});
 
 ErrorLogListPanel.panelType = "ErrorMessageList";
 ErrorLogListPanel.defaultConfig = {
