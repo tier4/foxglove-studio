@@ -4,10 +4,8 @@
 import { PanelInfo } from "@foxglove/studio-base/context/PanelCatalogContext";
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 
-import BlinkerHelp from "./Blinker/index.help.md";
 import blinkerThumbnail from "./Blinker/thumbnail.png";
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
-import ErrorLogListHelp from "./ErrorLogList/index.help.md";
 import errorLogListThumbnail from "./ErrorLogList/thumbnail.png";
 import gaugeThumbnail from "./Gauge/thumbnail.png";
 import imageViewThumbnail from "./Image/thumbnail.png";
@@ -19,7 +17,6 @@ import parametersThumbnail from "./Parameters/thumbnail.png";
 import plotThumbnail from "./Plot/thumbnail.png";
 import publishThumbnail from "./Publish/thumbnail.png";
 import rawMessagesThumbnail from "./RawMessages/thumbnail.png";
-import SpeedMeterHelp from "./SpeedMeter/index.help.md";
 import speedMeterThumbnail from "./SpeedMeter/thumbnail.png";
 import stateTransitionsThumbnail from "./StateTransitions/thumbnail.png";
 import tabThumbnail from "./Tab/thumbnail.png";
@@ -179,7 +176,6 @@ export const builtin: PanelInfo[] = [
     title: "Speed Meter",
     type: "SpeedMeterPanel",
     description: "Display speed meter",
-    help: SpeedMeterHelp,
     thumbnail: speedMeterThumbnail,
     module: async () => await import("./SpeedMeter"),
   },
@@ -187,7 +183,6 @@ export const builtin: PanelInfo[] = [
     title: "Blinker",
     type: "BlinkerPanel",
     description: "Display blinker status",
-    help: BlinkerHelp,
     thumbnail: blinkerThumbnail,
     module: async () => await import("./Blinker"),
   },
@@ -203,7 +198,6 @@ export const builtin: PanelInfo[] = [
     title: "Error Log List",
     type: "ErrorLogListPanel",
     description: "Display error log list",
-    help: ErrorLogListHelp,
     thumbnail: errorLogListThumbnail,
     module: async () => await import("./ErrorLogList"),
   },

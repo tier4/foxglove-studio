@@ -1,1 +1,0 @@
-Display error log list.
