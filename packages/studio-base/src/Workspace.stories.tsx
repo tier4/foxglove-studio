@@ -2,22 +2,21 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Story } from "@storybook/react";
 import { fireEvent, screen } from "@testing-library/dom";
 
 import MultiProvider from "@foxglove/studio-base/components/MultiProvider";
 import Panel from "@foxglove/studio-base/components/Panel";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
-import LayoutStorageContext from "@foxglove/studio-base/context/LayoutStorageContext";
+import ConsoleApiContext from "@foxglove/studio-base/context/ConsoleApiContext";
+import LayoutManagerContext from "@foxglove/studio-base/context/LayoutManagerContext";
 import PanelCatalogContext, {
   PanelCatalog,
   PanelInfo,
 } from "@foxglove/studio-base/context/PanelCatalogContext";
 import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
-import LayoutManagerProvider from "@foxglove/studio-base/providers/LayoutManagerProvider";
+import { ILayoutStorage, Layout, LayoutID } from "@foxglove/studio-base/services/ILayoutStorage";
 import LayoutManager from "@foxglove/studio-base/services/LayoutManager/LayoutManager";
-import MockLayoutStorage from "@foxglove/studio-base/services/MockLayoutStorage";
 import PanelSetup from "@foxglove/studio-base/stories/PanelSetup";
 
 import Workspace from "./Workspace";
@@ -28,19 +27,6 @@ export default {
   parameters: {
     colorScheme: "light",
   },
-  decorators: [
-    (StoryFn: Story): JSX.Element => {
-      const storage = new MockLayoutStorage(LayoutManager.LOCAL_STORAGE_NAMESPACE, []);
-
-      return (
-        <LayoutStorageContext.Provider value={storage}>
-          <LayoutManagerProvider>
-            <StoryFn />
-          </LayoutManagerProvider>
-        </LayoutStorageContext.Provider>
-      );
-    },
-  ],
 };
 
 class MockPanelCatalog implements PanelCatalog {
@@ -71,13 +57,56 @@ class MockPanelCatalog implements PanelCatalog {
   }
 }
 
+class MockLayoutStorage implements ILayoutStorage {
+  private storage: { [namespace: string]: { [id: LayoutID]: Layout } };
+
+  public constructor() {
+    this.storage = {};
+  }
+
+  public async list(namespace: string): Promise<readonly Layout[]> {
+    return Object.values(this.storage[namespace] ?? {});
+  }
+  public async get(namespace: string, id: LayoutID): Promise<Layout | undefined> {
+    return this.storage[namespace]?.[id];
+  }
+  public async put(namespace: string, layout: Layout): Promise<Layout> {
+    const namespaceStorage = this.storage[namespace] ?? {};
+    namespaceStorage[layout.id] = layout;
+    this.storage[namespace] = namespaceStorage;
+
+    return layout;
+  }
+  public async delete(namespace: string, id: LayoutID): Promise<void> {
+    delete this.storage[namespace]?.[id];
+  }
+
+  public async importLayouts(params: {
+    fromNamespace: string;
+    toNamespace: string;
+  }): Promise<void> {
+    const fromNamespaceStorage = this.storage[params.fromNamespace] ?? {};
+    const toNamespaceStorage = this.storage[params.toNamespace] ?? {};
+
+    const newToNamespaceStorage = {
+      ...toNamespaceStorage,
+      ...JSON.parse(JSON.stringify(fromNamespaceStorage) ?? "{}"),
+    };
+    this.storage[params.toNamespace] = newToNamespaceStorage;
+  }
+}
+
 export function Basic(): JSX.Element {
   const providers = [
     /* eslint-disable react/jsx-key */
     <PanelSetup>{undefined}</PanelSetup>,
+    <ConsoleApiContext.Provider value={{} as any} />,
     <EventsProvider />,
     <PanelCatalogContext.Provider value={new MockPanelCatalog()} />,
     <MockCurrentLayoutProvider initialState={{ layout: "Fake" }} />,
+    <LayoutManagerContext.Provider
+      value={new LayoutManager({ local: new MockLayoutStorage(), remote: undefined })}
+    />,
     /* eslint-enable react/jsx-key */
   ];
   return (
