@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 
 import Log from "@foxglove/log";
+import { LayoutID } from "@foxglove/studio-base";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -18,8 +19,6 @@ import { usePlayerSelection } from "@foxglove/studio-base/context/PlayerSelectio
 import useCallbackWithToast from "@foxglove/studio-base/hooks/useCallbackWithToast";
 import { PlayerPresence } from "@foxglove/studio-base/players/types";
 import { AppURLState, parseAppURLState } from "@foxglove/studio-base/util/appURLState";
-
-import { LayoutID } from "../services/ConsoleApi";
 
 const selectPlayerPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence;
 const selectSeek = (ctx: MessagePipelineContext) => ctx.seekPlayback;
