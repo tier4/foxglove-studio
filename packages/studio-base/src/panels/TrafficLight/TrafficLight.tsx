@@ -13,7 +13,7 @@ import Stack from "@foxglove/studio-base/components/Stack";
 
 import TrafficLightIcon from "./TrafficLightIcon";
 import { settingsActionReducer, useSettingsTree } from "./settings";
-import { Config } from "./types";
+import type { Config } from "./types";
 
 type Props = {
   context: PanelExtensionContext;
@@ -142,6 +142,7 @@ export function TrafficLight({ context }: Props): JSX.Element {
 
   useEffect(() => {
     context.saveState(config);
+    context.setDefaultPanelTitle(config.path === "" ? undefined : config.path);
   }, [config, context]);
 
   useEffect(() => {
@@ -191,10 +192,7 @@ export function TrafficLight({ context }: Props): JSX.Element {
   }, [renderDone]);
 
   const rawValue =
-    typeof state.latestMatchingQueriedData === "number"
-      ? state.latestMatchingQueriedData
-      : 0;
-
+    typeof state.latestMatchingQueriedData === "number" ? state.latestMatchingQueriedData : 0;
 
   return (
     <Stack fullHeight>

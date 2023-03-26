@@ -4,6 +4,7 @@
 
 import ForwardIcon from "@mui/icons-material/Forward";
 import { styled } from "@mui/material";
+import React from "react";
 
 const BlinkForwardIcon = styled(ForwardIcon)({
   "@keyframes pulsate": {
@@ -12,7 +13,7 @@ const BlinkForwardIcon = styled(ForwardIcon)({
     },
     to: {
       opacity: 0,
-    }
+    },
   },
   animation: "pulsate 0.6s infinite ease",
 });
@@ -22,16 +23,13 @@ type BlinkerIconProps = {
   direction: string;
 };
 
-export default function BlinkerIcon({ on, direction }: BlinkerIconProps) {
-
+const BlinkerIcon = ({ on, direction }: BlinkerIconProps) => {
   const style = {
-    transform: (direction === "left") ? "scaleX(-1)" : null,
+    transform: direction === "left" ? "scaleX(-1)" : undefined,
     fontSize: "3.5rem",
   };
 
-  return ( on ?
-    <BlinkForwardIcon sx={{ ...style, color: "yellow" }} />
-    :
-    <ForwardIcon sx={style} />
-  );
-}
+  return on ? <BlinkForwardIcon sx={{ ...style, color: "yellow" }} /> : <ForwardIcon sx={style} />;
+};
+
+export default React.memo(BlinkerIcon);
