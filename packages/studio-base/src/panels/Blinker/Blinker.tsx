@@ -13,7 +13,7 @@ import Stack from "@foxglove/studio-base/components/Stack";
 
 import BlinkerIcon from "./BlinkerIcon";
 import { settingsActionReducer, useSettingsTree } from "./settings";
-import { Config } from "./types";
+import type { Config } from "./types";
 
 type Props = {
   context: PanelExtensionContext;
@@ -22,7 +22,7 @@ type Props = {
 const defaultConfig: Config = {
   path: "",
   on: 1,
-  reverse: false
+  reverse: false,
 };
 
 type State = {
@@ -198,7 +198,6 @@ export function Blinker({ context }: Props): JSX.Element {
       ? on === state.latestMatchingQueriedData
       : false;
 
-
   return (
     <Stack fullHeight>
       <Stack
@@ -209,10 +208,7 @@ export function Blinker({ context }: Props): JSX.Element {
         padding={1}
       >
         <Stack direction="column" alignItems="center" gap={2}>
-          <BlinkerIcon
-            on={rawValue}
-            direction={reverse ? "right" : "left"}
-          />
+          <BlinkerIcon on={rawValue} direction={reverse ? "right" : "left"} />
         </Stack>
       </Stack>
     </Stack>
