@@ -56,11 +56,6 @@ function useFeatures(): Feature[] {
       description: <>{t("legacyPlotPanelDescription")}</>,
     },
     {
-      key: AppSetting.ENABLE_URDF_VIEWER,
-      name: t("urdfPanel"),
-      description: <>{t("urdfPanelDescription")}</>,
-    },
-    {
       key: AppSetting.ENABLE_MEMORY_USE_INDICATOR,
       name: t("memoryUseIndicator"),
       description: <>{t("memoryUseIndicatorDescription")}</>,
@@ -78,7 +73,11 @@ function useFeatures(): Feature[] {
     {
       key: AppSetting.ENABLE_ROS2_NATIVE_DATA_SOURCE,
       name: t("ros2NativeConnection"),
-      description: <>{t("ros2NativeConnectionDescription")}</>,
+      description: (
+        <>
+          {t("ros2NativeConnectionDescription")} {t("restartTheAppForChangesToTakeEffect")}
+        </>
+      ),
     },
   ];
 

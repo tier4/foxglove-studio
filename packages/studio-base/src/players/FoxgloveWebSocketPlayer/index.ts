@@ -23,6 +23,7 @@ import {
   PlayerCapabilities,
   PlayerMetricsCollectorInterface,
   PlayerPresence,
+  PlayerProblem,
   PlayerState,
   PublishPayload,
   SubscribePayload,
@@ -43,6 +44,7 @@ import {
   ServiceCallRequest,
   ServiceCallResponse,
   Parameter,
+  StatusLevel,
 } from "@foxglove/ws-protocol";
 
 import { JsonMessageWriter } from "./JsonMessageWriter";
@@ -309,7 +311,27 @@ export default class FoxgloveWebSocketPlayer implements Player {
     });
 
     this._client.on("status", (event) => {
-      log.info("Status:", event);
+      const msg = `FoxgloveWebSocket: ${event.message}`;
+      if (event.level === StatusLevel.INFO) {
+        log.info(msg);
+      } else if (event.level === StatusLevel.WARNING) {
+        log.warn(msg);
+      } else {
+        log.error(msg);
+      }
+
+      const problem: PlayerProblem = {
+        message: event.message,
+        severity: statusLevelToProblemSeverity(event.level),
+      };
+
+      if (event.message === "Send buffer limit reached") {
+        problem.tip =
+          "Server is dropping messages to the client. Check if you are subscribing to large or frequent topics or adjust your server send buffer limit.";
+      }
+
+      this._problems.addProblem(event.message, problem);
+      this._emitState();
     });
 
     this._client.on("advertise", (newChannels) => {
@@ -818,7 +840,13 @@ export default class FoxgloveWebSocketPlayer implements Player {
     }
 
     if (clientChannel.encoding === "json") {
-      const message = Buffer.from(JSON.stringify(msg) ?? "");
+      // Ensure that typed arrays are encoded as arrays and not objects.
+      const replacer = (_key: string, value: unknown) => {
+        return ArrayBuffer.isView(value)
+          ? Array.from(value as unknown as ArrayLike<unknown>)
+          : value;
+      };
+      const message = Buffer.from(JSON.stringify(msg, replacer) ?? "");
       this._client.sendMessage(clientChannel.id, message);
     } else if (
       ROS_ENCODINGS.includes(clientChannel.encoding) &&
@@ -962,4 +990,14 @@ function dataTypeToFullName(dataType: string): string {
     return `${parts[0]}/msg/${parts[1]}`;
   }
   return dataType;
+}
+
+function statusLevelToProblemSeverity(level: StatusLevel): PlayerProblem["severity"] {
+  if (level === StatusLevel.INFO) {
+    return "info";
+  } else if (level === StatusLevel.WARNING) {
+    return "warn";
+  } else {
+    return "error";
+  }
 }

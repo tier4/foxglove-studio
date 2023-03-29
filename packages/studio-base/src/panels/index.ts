@@ -26,7 +26,6 @@ import threeDeeRenderThumbnail from "./ThreeDeeRender/thumbnail.png";
 import topicGraphThumbnail from "./TopicGraph/thumbnail.png";
 import TrafficLightHelp from "./TrafficLight/index.help.md";
 import trafficLightThumbnail from "./TrafficLight/thumbnail.png";
-import URDFViewerThumbnail from "./URDFViewer/thumbnail.png";
 import variableSliderThumbnail from "./VariableSlider/thumbnail.png";
 import diagnosticStatusThumbnail from "./diagnostics/thumbnails/diagnostic-status.png";
 import diagnosticSummaryThumbnail from "./diagnostics/thumbnails/diagnostic-summary.png";
@@ -238,12 +237,4 @@ export const legacyPlot: PanelInfo = {
   title: "Legacy Plot",
   type: "LegacyPlot",
   module: async () => await import("./LegacyPlot"),
-};
-
-export const urdfViewer: PanelInfo = {
-  title: "URDF Viewer",
-  type: "URDFViewer",
-  description: "Visualize Unified Robot Description Format files.",
-  thumbnail: URDFViewerThumbnail,
-  module: async () => await import("./URDFViewer"),
 };
