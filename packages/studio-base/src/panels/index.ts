@@ -201,7 +201,13 @@ export const builtin: PanelInfo[] = [
     thumbnail: errorLogListThumbnail,
     module: async () => await import("./ErrorLogList"),
   },
-
+  {
+    title: "Error Log List For Rosbag Player",
+    type: "ErrorLogListPanelForRosbagPlayer",
+    description: "Display error log list",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./ErrorLogListForRosbagPlayer"),
+  },
   {
     title: "Tab",
     type: TAB_PANEL_TYPE,
