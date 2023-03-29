@@ -11,6 +11,7 @@ import {
   IconButton,
   Typography,
   Avatar,
+  ListItem,
 } from "@mui/material";
 import { red, grey } from "@mui/material/colors";
 import React from "react";
@@ -60,39 +61,41 @@ const ErrorLogListItem = ({
   const style = isSelected ? { fontWeight: 900, color: red[500] } : {};
 
   return (
-    <ListItemButton onClick={onClickItem} onTouchEnd={onTouchEndItem}>
-      <ListItemAvatar>
-        <Avatar
-          variant="circular"
-          // eslint-disable-next-line react/forbid-component-props
-          sx={{ bgcolor: isSelected ? red[800] : grey[600], fontSize: 20, color: "white" }}
-        >
-          {index + 1}
-        </Avatar>
-      </ListItemAvatar>
-      <ListItemText
-        disableTypography
-        primary={
-          <Typography
-            variant="h6"
+    <ListItem>
+      <ListItemButton onClick={onClickItem} onTouchEnd={onTouchEndItem}>
+        <ListItemAvatar>
+          <Avatar
+            variant="circular"
             // eslint-disable-next-line react/forbid-component-props
-            sx={style}
+            sx={{ bgcolor: isSelected ? red[800] : grey[600], fontSize: 20, color: "white" }}
           >
-            {item.error_message}
-          </Typography>
-        }
-        secondary={
-          !hiddenScore && (
+            {index + 1}
+          </Avatar>
+        </ListItemAvatar>
+        <ListItemText
+          disableTypography
+          primary={
             <Typography
-              variant="subtitle1"
+              variant="h6"
               // eslint-disable-next-line react/forbid-component-props
               sx={style}
             >
-              −{item.error_score}点
+              {item.error_message}
             </Typography>
-          )
-        }
-      />
+          }
+          secondary={
+            !hiddenScore && (
+              <Typography
+                variant="subtitle1"
+                // eslint-disable-next-line react/forbid-component-props
+                sx={style}
+              >
+                −{item.error_score}点
+              </Typography>
+            )
+          }
+        />
+      </ListItemButton>
       {hasFeedback && (
         <ListItemSecondaryAction>
           <IconButton
@@ -106,7 +109,7 @@ const ErrorLogListItem = ({
           </IconButton>
         </ListItemSecondaryAction>
       )}
-    </ListItemButton>
+    </ListItem>
   );
 };
 

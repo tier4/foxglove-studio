@@ -6,17 +6,22 @@ import ErrorLogListItem from "./ErrorLogListItem";
 
 export default {
   component: ErrorLogListItem,
-  title: 'components/ErrorLogListItem',
+  title: "components/ErrorLogListItem",
 };
 
 export const Default = (): JSX.Element => (
   <ErrorLogListItem
     index={1}
     isSelected={false}
-    item={{ error_message: "テストエラー", error_contents: "Error", error_score: "5", timestamp: "12345" }}
+    item={{
+      error_message: "テストエラー",
+      error_contents: "Error",
+      error_score: "5",
+      timestamp: "12345",
+    }}
     hasFeedback={true}
     handleClickItem={console.log}
-    handleClickFeedback={console.log}
+    handleClickFeedback={() => alert("feedback")}
   />
 );
 
@@ -24,10 +29,15 @@ export const WithoutFeedback = (): JSX.Element => (
   <ErrorLogListItem
     index={1}
     isSelected={false}
-    item={{ error_message: "テストエラー", error_contents: "Error", error_score: "5", timestamp: "12345" }}
+    item={{
+      error_message: "テストエラー",
+      error_contents: "Error",
+      error_score: "5",
+      timestamp: "12345",
+    }}
     hasFeedback={false}
     handleClickItem={console.log}
-    handleClickFeedback={console.log}
+    handleClickFeedback={() => alert("feedback")}
   />
 );
 
@@ -35,9 +45,14 @@ export const Selected = (): JSX.Element => (
   <ErrorLogListItem
     index={1}
     isSelected={true}
-    item={{ error_message: "テストエラー", error_contents: "Error", error_score: "5", timestamp: "12345" }}
+    item={{
+      error_message: "テストエラー",
+      error_contents: "Error",
+      error_score: "5",
+      timestamp: "12345",
+    }}
     hasFeedback={true}
     handleClickItem={console.log}
-    handleClickFeedback={console.log}
+    handleClickFeedback={() => alert("feedback")}
   />
 );
