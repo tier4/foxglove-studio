@@ -209,6 +209,13 @@ export const builtin: PanelInfo[] = [
     module: async () => await import("./ErrorLogListForRosbagPlayer"),
   },
   {
+    title: "Rosbag Player Controller",
+    type: "RosbagPlayerController",
+    description: "Controller for rosbag player",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./RosbagPlayerController"),
+  },
+  {
     title: "Tab",
     type: TAB_PANEL_TYPE,
     description: "Group related panels into tabs.",
