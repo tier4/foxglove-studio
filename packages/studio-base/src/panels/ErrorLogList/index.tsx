@@ -6,6 +6,8 @@ import Typography from "@mui/material/Typography";
 import { useEffect, useState, useCallback, memo } from "react";
 
 import { Time, fromNanoSec } from "@foxglove/rostime";
+import ErrorLogList from "@foxglove/studio-base/components/ErrorLogList/ErrorLogList";
+import { ErrorLog } from "@foxglove/studio-base/components/ErrorLogList/ErrorLogListItem";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -14,8 +16,6 @@ import Panel from "@foxglove/studio-base/components/Panel";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
 
-import ErrorLogList from "./ErrorLogList";
-import { ErrorLog } from "./ErrorLogListItem";
 import FeedbackDialog from "./FeedbackDialog";
 import { Config, FileType } from "./types";
 
