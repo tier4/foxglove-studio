@@ -85,6 +85,8 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
       // Use blank url params so the data source is set in the url
       urlParams: { url },
       sourceId: this.id,
+      // improve loading performance by not preloading the first message
+      enablePreload: false,
     });
   }
 
