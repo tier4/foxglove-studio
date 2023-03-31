@@ -9,7 +9,7 @@ import { ConfigParams, devServerConfig, mainConfig } from "@foxglove/studio-web/
 const params: ConfigParams = {
   outputPath: path.resolve(__dirname, ".webpack"),
   contextPath: path.resolve(__dirname, "src"),
-  entrypoint: "./entrypoint.tsx",
+  entrypoint: "./index.tsx",
   prodSourceMap: "source-map",
 };
 
