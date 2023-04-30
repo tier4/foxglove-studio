@@ -8,6 +8,7 @@
 // - jfaust https://github.com/jfaust
 
 import * as THREE from "three";
+import { assert } from "ts-essentials";
 
 import type { Renderable } from "./Renderable";
 
@@ -19,7 +20,6 @@ const PIXEL_WIDTH = 31;
 
 const WHITE_COLOR = new THREE.Color(0xffffff);
 
-const AlwaysPickObject = (_obj: THREE.Object3D) => true;
 // This works around an incorrect method definition, where passing null is valid
 const NullScene = ReactNull as unknown as THREE.Scene;
 
@@ -30,6 +30,11 @@ export type PickedRenderable = {
 
 export type PickerOptions = {
   debug?: boolean;
+  /**
+   * Disable the setting of the projection matrix in the picking pass.
+   * Use this if you are setting the projection matrix of the camera manually elsewhere
+   */
+  disableSetViewOffset?: boolean;
 };
 
 /**
@@ -47,20 +52,16 @@ export class Picker {
   private gl: THREE.WebGLRenderer;
   private scene: THREE.Scene;
   private camera?: Camera;
-  private shouldPickObjectCB: (object: THREE.Object3D) => boolean;
   private materialCache = new Map<number, THREE.ShaderMaterial>();
   private emptyScene: THREE.Scene;
   private pixelBuffer: Uint8Array;
   private currClearColor = new THREE.Color();
   private pickingTarget: THREE.WebGLRenderTarget;
-  private debug: boolean;
   private isDebugPass = false;
 
-  public constructor(gl: THREE.WebGLRenderer, scene: THREE.Scene, options: PickerOptions = {}) {
+  public constructor(gl: THREE.WebGLRenderer, scene: THREE.Scene) {
     this.gl = gl;
     this.scene = scene;
-    this.shouldPickObjectCB = AlwaysPickObject;
-    this.debug = options.debug ?? false;
 
     // This is the PIXEL_WIDTH x PIXEL_WIDTH render target we use to do the picking
     this.pickingTarget = new THREE.WebGLRenderTarget(PIXEL_WIDTH, PIXEL_WIDTH, {
@@ -88,31 +89,21 @@ export class Picker {
     x: number,
     y: number,
     camera: THREE.OrthographicCamera | THREE.PerspectiveCamera,
-    shouldPickObject = AlwaysPickObject,
+    options: PickerOptions = {},
   ): number {
     // Use the onAfterRender callback to actually render geometry for picking
     this.emptyScene.onAfterRender = this.handleAfterRender;
+
     this.camera = camera;
-    this.shouldPickObjectCB = shouldPickObject;
-    const hw = (PIXEL_WIDTH / 2) | 0;
-    const pixelRatio = this.gl.getPixelRatio();
-    const xi = Math.max(0, x * pixelRatio - hw);
-    const yi = Math.max(0, y * pixelRatio - hw);
-    const w = this.gl.domElement.width;
-    const h = this.gl.domElement.height;
-    // Set the projection matrix to only look at the pixels we are interested in
-    camera.setViewOffset(w, h, xi, yi, PIXEL_WIDTH, PIXEL_WIDTH);
-    const currRenderTarget = this.gl.getRenderTarget();
-    const currAlpha = this.gl.getClearAlpha();
-    this.gl.getClearColor(this.currClearColor);
-    this.gl.setRenderTarget(this.pickingTarget);
-    this.gl.setClearColor(WHITE_COLOR, 1);
-    this.gl.clear();
+    const { xInView, yInView } = this.#updateCameraForPickAndGetPickCoordsInView(x, y, options);
+
+    const originalRenderState = this.#prepareGLRendererForPick();
+
     this.gl.render(this.emptyScene, camera);
-    this.gl.readRenderTargetPixels(this.pickingTarget, hw, hw, 1, 1, this.pixelBuffer);
-    this.gl.setRenderTarget(currRenderTarget);
-    this.gl.setClearColor(this.currClearColor, currAlpha);
-    camera.clearViewOffset();
+    this.gl.readRenderTargetPixels(this.pickingTarget, xInView, yInView, 1, 1, this.pixelBuffer);
+
+    this.#cleanUpGlRendererFromPick(originalRenderState);
+    this.#resetCameraFromPick(options);
 
     const val =
       (this.pixelBuffer[0]! << 24) +
@@ -120,7 +111,7 @@ export class Picker {
       (this.pixelBuffer[2]! << 8) +
       this.pixelBuffer[3]!;
 
-    if (this.debug) {
+    if (options.debug === true) {
       this.pickDebugRender(camera);
     }
 
@@ -132,31 +123,22 @@ export class Picker {
     y: number,
     camera: THREE.OrthographicCamera | THREE.PerspectiveCamera,
     renderable: Renderable,
+    options: PickerOptions = {},
   ): number {
     this.emptyScene.onAfterRender = this.makeHandleInstanceAfterRender(renderable);
+
     this.camera = camera;
+    const { xInView, yInView } = this.#updateCameraForPickAndGetPickCoordsInView(x, y, options);
 
-    const hw = (PIXEL_WIDTH / 2) | 0;
-    const pixelRatio = this.gl.getPixelRatio();
-    const xi = Math.max(0, x * pixelRatio - hw);
-    const yi = Math.max(0, y * pixelRatio - hw);
-    const w = this.gl.domElement.width;
-    const h = this.gl.domElement.height;
-    // Set the projection matrix to only look at the pixels we are interested in
-    camera.setViewOffset(w, h, xi, yi, PIXEL_WIDTH, PIXEL_WIDTH);
-    const currRenderTarget = this.gl.getRenderTarget();
-    const currAlpha = this.gl.getClearAlpha();
-    this.gl.getClearColor(this.currClearColor);
-    this.gl.setRenderTarget(this.pickingTarget);
-    this.gl.setClearColor(WHITE_COLOR, 1);
-    this.gl.clear();
-    this.gl.render(this.emptyScene, camera);
-    this.gl.readRenderTargetPixels(this.pickingTarget, hw, hw, 1, 1, this.pixelBuffer);
-    this.gl.setRenderTarget(currRenderTarget);
-    this.gl.setClearColor(this.currClearColor, currAlpha);
-    camera.clearViewOffset();
+    const originalRenderState = this.#prepareGLRendererForPick();
 
-    if (this.debug) {
+    this.gl.render(this.emptyScene, this.camera);
+    this.gl.readRenderTargetPixels(this.pickingTarget, xInView, yInView, 1, 1, this.pixelBuffer);
+
+    this.#cleanUpGlRendererFromPick(originalRenderState);
+    this.#resetCameraFromPick(options);
+
+    if (options.debug === true) {
       this.pickInstanceDebugRender(camera, renderable);
     }
 
@@ -166,6 +148,65 @@ export class Picker {
       (this.pixelBuffer[2]! << 8) +
       this.pixelBuffer[3]!
     );
+  }
+
+  #updateCameraForPickAndGetPickCoordsInView(
+    x: number,
+    y: number,
+    options: PickerOptions,
+  ): { xInView: number; yInView: number } {
+    assert(this.camera, "camera must be set before updating for pick");
+    const w = this.gl.domElement.width;
+    const h = this.gl.domElement.height;
+    const pixelRatio = this.gl.getPixelRatio();
+
+    if (options.disableSetViewOffset !== true) {
+      const hw = (PIXEL_WIDTH / 2) | 0;
+      const xi = Math.max(0, x * pixelRatio - hw);
+      const yi = Math.max(0, y * pixelRatio - hw);
+      // Set the projection matrix to only look at the pixels we are interested in
+      this.camera.setViewOffset(w, h, xi, yi, PIXEL_WIDTH, PIXEL_WIDTH);
+      return { xInView: hw, yInView: hw };
+    } else {
+      if (this.pickingTarget.width !== w || this.pickingTarget.height !== h) {
+        this.pickingTarget.setSize(w, h);
+      }
+      const xi = Math.max(0, x * pixelRatio);
+      // Flip y coordinate to match WebGL coordinate system
+      const yi = Math.max(0, h - y * pixelRatio);
+      return { xInView: xi, yInView: yi };
+    }
+  }
+
+  #resetCameraFromPick(options: PickerOptions): void {
+    assert(this.camera, "camera must be set before resetting from pick");
+    if (options.disableSetViewOffset !== true) {
+      this.camera.clearViewOffset();
+    }
+  }
+
+  #prepareGLRendererForPick(): {
+    originalRenderTarget: THREE.WebGLRenderTarget | ReactNull;
+    originalAlpha: number;
+  } {
+    const originalRenderTarget = this.gl.getRenderTarget();
+    const originalAlpha = this.gl.getClearAlpha();
+    this.gl.getClearColor(this.currClearColor);
+    this.gl.setRenderTarget(this.pickingTarget);
+    this.gl.setClearColor(WHITE_COLOR, 1);
+    this.gl.clear();
+    return { originalRenderTarget, originalAlpha };
+  }
+
+  #cleanUpGlRendererFromPick({
+    originalRenderTarget,
+    originalAlpha,
+  }: {
+    originalRenderTarget: THREE.WebGLRenderTarget | ReactNull;
+    originalAlpha: number;
+  }): void {
+    this.gl.setRenderTarget(originalRenderTarget);
+    this.gl.setClearColor(this.currClearColor, originalAlpha);
   }
 
   public pickDebugRender(camera: THREE.OrthographicCamera | THREE.PerspectiveCamera): void {
@@ -240,8 +281,7 @@ export class Picker {
     const geometry = renderItem.geometry;
     if (
       !geometry || // Skip if geometry is not defined
-      renderItem.object.userData.picking === false || // Skip if object is marked no picking
-      !this.shouldPickObjectCB(object) // Skip if user callback returns false
+      renderItem.object.userData.picking === false // Skip if object is marked no picking
     ) {
       return;
     }

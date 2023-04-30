@@ -6,7 +6,10 @@ import { createContext, Dispatch, SetStateAction, useMemo, useState } from "reac
 import { DeepReadonly } from "ts-essentials";
 import { StoreApi, useStore } from "zustand";
 
+import { IDataSourceFactory } from "@foxglove/studio-base";
 import { AppSetting } from "@foxglove/studio-base/AppSetting";
+import { AppSettingsTab } from "@foxglove/studio-base/components/AppSettingsDialog/AppSettingsDialog";
+import { DataSourceDialogItem } from "@foxglove/studio-base/components/DataSourceDialog";
 import { useCurrentUser } from "@foxglove/studio-base/context/CurrentUserContext";
 import { useAppConfigurationValue } from "@foxglove/studio-base/hooks";
 import useGuaranteedContext from "@foxglove/studio-base/hooks/useGuaranteedContext";
@@ -20,24 +23,35 @@ export type SidebarItemKey =
   | "help"
   | "layouts"
   | "panel-settings"
-  | "preferences"
+  | "app-settings"
   | "studio-logs-settings"
   | "variables";
 
-const LeftSidebarItemKeys = ["panel-settings", "topics"] as const;
+const LeftSidebarItemKeys = ["panel-settings", "topics", "problems"] as const;
 export type LeftSidebarItemKey = (typeof LeftSidebarItemKeys)[number];
 
 const RightSidebarItemKeys = ["events", "variables", "studio-logs-settings"] as const;
 export type RightSidebarItemKey = (typeof RightSidebarItemKeys)[number];
 
 export type WorkspaceContextStore = DeepReadonly<{
-  layoutMenuOpen: boolean;
+  dataSourceDialog: {
+    activeDataSource: undefined | IDataSourceFactory;
+    item: undefined | DataSourceDialogItem;
+    open: boolean;
+  };
   leftSidebarOpen: boolean;
   rightSidebarOpen: boolean;
   leftSidebarItem: undefined | LeftSidebarItemKey;
   leftSidebarSize: undefined | number;
   rightSidebarItem: undefined | RightSidebarItemKey;
   rightSidebarSize: undefined | number;
+  playbackControls: {
+    repeat: boolean;
+  };
+  prefsDialogState: {
+    initialTab: undefined | AppSettingsTab;
+    open: boolean;
+  };
   sidebarItem: undefined | SidebarItemKey;
 }>;
 
@@ -48,8 +62,12 @@ export const WorkspaceContext = createContext<undefined | StoreApi<WorkspaceCont
 WorkspaceContext.displayName = "WorkspaceContext";
 
 export const WorkspaceStoreSelectors = {
-  selectPanelSettingsOpen: (store: WorkspaceContextStore): boolean =>
-    store.sidebarItem === "panel-settings" || store.leftSidebarItem === "panel-settings",
+  selectPanelSettingsOpen: (store: WorkspaceContextStore): boolean => {
+    return (
+      store.sidebarItem === "panel-settings" ||
+      (store.leftSidebarOpen && store.leftSidebarItem === "panel-settings")
+    );
+  },
 };
 
 /**
@@ -64,13 +82,23 @@ export function useWorkspaceStore<T>(
 }
 
 export type WorkspaceActions = {
-  openPanelSettings: () => void;
+  dataSourceDialogActions: {
+    close: () => void;
+    open: (item: DataSourceDialogItem, dataSource?: IDataSourceFactory) => void;
+  };
   openAccountSettings: () => void;
+  openPanelSettings: () => void;
   openLayoutBrowser: () => void;
+  playbackControlActions: {
+    setRepeat: Dispatch<SetStateAction<boolean>>;
+  };
+  prefsDialogActions: {
+    close: () => void;
+    open: (initialTab?: AppSettingsTab) => void;
+  };
   selectSidebarItem: (selectedSidebarItem: undefined | SidebarItemKey) => void;
   selectLeftSidebarItem: (item: undefined | LeftSidebarItemKey) => void;
   selectRightSidebarItem: (item: undefined | RightSidebarItemKey) => void;
-  setLayoutMenuOpen: Dispatch<SetStateAction<boolean>>;
   setLeftSidebarOpen: Dispatch<SetStateAction<boolean>>;
   setLeftSidebarSize: (size: undefined | number) => void;
   setRightSidebarOpen: Dispatch<SetStateAction<boolean>>;
@@ -102,25 +130,57 @@ export function useWorkspaceActions(): WorkspaceActions {
 
   return useMemo(() => {
     return {
+      dataSourceDialogActions: {
+        close: () => {
+          set({ dataSourceDialog: { activeDataSource: undefined, item: undefined, open: false } });
+        },
+
+        open: (
+          selectedDataSourceDialogItem: DataSourceDialogItem,
+          dataSource?: IDataSourceFactory,
+        ) => {
+          set({
+            dataSourceDialog: {
+              activeDataSource: dataSource,
+              item: selectedDataSourceDialogItem,
+              open: true,
+            },
+          });
+        },
+      },
+
+      openAccountSettings: () => supportsAccountSettings && set({ sidebarItem: "account" }),
+
       openPanelSettings: () =>
         enableNewTopNav
           ? set({ leftSidebarItem: "panel-settings", leftSidebarOpen: true })
           : set({ sidebarItem: "panel-settings" }),
 
-      openAccountSettings: () => supportsAccountSettings && set({ sidebarItem: "account" }),
+      openLayoutBrowser: () => set({ sidebarItem: "layouts" }),
 
-      openLayoutBrowser: () =>
-        enableNewTopNav ? set({ layoutMenuOpen: true }) : set({ sidebarItem: "layouts" }),
-
-      setLayoutMenuOpen: (setter: SetStateAction<boolean>) => {
-        set((oldValue) => {
-          const layoutMenuOpen = setterValue(setter, oldValue.layoutMenuOpen);
-          return { layoutMenuOpen };
-        });
+      playbackControlActions: {
+        setRepeat: (setter: SetStateAction<boolean>) => {
+          set((oldValue) => {
+            const repeat = setterValue(setter, oldValue.playbackControls.repeat);
+            return { playbackControls: { repeat } };
+          });
+        },
       },
 
-      selectSidebarItem: (selectedSidebarItem: undefined | SidebarItemKey) =>
-        set({ sidebarItem: selectedSidebarItem }),
+      prefsDialogActions: {
+        close: () => set({ prefsDialogState: { open: false, initialTab: undefined } }),
+        open: (initialTab?: AppSettingsTab) => {
+          set({ prefsDialogState: { open: true, initialTab } });
+        },
+      },
+
+      selectSidebarItem: (selectedSidebarItem: undefined | SidebarItemKey) => {
+        if (selectedSidebarItem === "app-settings") {
+          set({ prefsDialogState: { open: true, initialTab: undefined } });
+        } else {
+          set({ sidebarItem: selectedSidebarItem });
+        }
+      },
 
       selectLeftSidebarItem: (selectedLeftSidebarItem: undefined | LeftSidebarItemKey) => {
         set({

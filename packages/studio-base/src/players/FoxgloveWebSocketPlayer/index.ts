@@ -79,7 +79,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
   private _url: string; // WebSocket URL.
   private _name: string;
   private _client?: FoxgloveClient; // The client when we're connected.
-  private _id: string = uuidv4(); // Unique ID for this player.
+  private _id: string = uuidv4(); // Unique ID for this player session.
   private _serverCapabilities: string[] = [];
   private _playerCapabilities: (typeof PlayerCapabilities)[keyof typeof PlayerCapabilities][] = [];
   private _supportedEncodings?: string[];
@@ -117,6 +117,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
   private _parameters = new Map<string, ParameterValue>();
   private _getParameterInterval?: ReturnType<typeof setInterval>;
   private _openTimeout?: ReturnType<typeof setInterval>;
+  private _connectionAttemptTimeout?: ReturnType<typeof setInterval>;
   private _unresolvedPublications: AdvertiseOptions[] = [];
   private _publicationsByTopic = new Map<string, Publication>();
   private _serviceCallEncoding?: string;
@@ -160,6 +161,13 @@ export default class FoxgloveWebSocketPlayer implements Player {
     }
     log.info(`Opening connection to ${this._url}`);
 
+    // Set a timeout to abort the connection if we are still not connected by then.
+    // This will abort hanging connection attempts that can for whatever reason not
+    // establish a connection with the server.
+    this._connectionAttemptTimeout = setTimeout(() => {
+      this._client?.close();
+    }, 10000);
+
     this._client = new FoxgloveClient({
       ws:
         typeof Worker !== "undefined"
@@ -171,11 +179,14 @@ export default class FoxgloveWebSocketPlayer implements Player {
       if (this._closed) {
         return;
       }
+      if (this._connectionAttemptTimeout != undefined) {
+        clearTimeout(this._connectionAttemptTimeout);
+      }
       this._presence = PlayerPresence.PRESENT;
+      this._resetSessionState();
       this._problems.clear();
       this._channelsById.clear();
       this._channelsByTopic.clear();
-      this._setupPublishers();
       this._servicesByName.clear();
       this._serviceResponseCbs.clear();
       this._parameters.clear();
@@ -183,7 +194,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
       this._publishedTopics = undefined;
       this._subscribedTopics = undefined;
       this._advertisedServices = undefined;
-
+      this._publicationsByTopic.clear();
       this._datatypes = new Map();
 
       for (const topic of this._resolvedSubscriptionsByTopic.keys()) {
@@ -195,6 +206,18 @@ export default class FoxgloveWebSocketPlayer implements Player {
 
     this._client.on("error", (err) => {
       log.error(err);
+
+      if (
+        (err as unknown as undefined | { message?: string })?.message != undefined &&
+        err.message.includes("insecure WebSocket connection")
+      ) {
+        this._problems.addProblem("ws:connection-failed", {
+          severity: "error",
+          message: "Insecure WebSocket connection",
+          tip: `Check that the WebSocket server at ${this._url} is reachable and supports protocol version ${FoxgloveClient.SUPPORTED_SUBPROTOCOL}.`,
+        });
+        this._emitState();
+      }
     });
 
     // Note: We've observed closed being called not only when an already open connection is closed
@@ -210,6 +233,9 @@ export default class FoxgloveWebSocketPlayer implements Player {
       if (this._getParameterInterval != undefined) {
         clearInterval(this._getParameterInterval);
         this._getParameterInterval = undefined;
+      }
+      if (this._connectionAttemptTimeout != undefined) {
+        clearTimeout(this._connectionAttemptTimeout);
       }
 
       this._client?.close();
@@ -232,6 +258,13 @@ export default class FoxgloveWebSocketPlayer implements Player {
           message: `Server sent an invalid or missing capabilities field: '${event.capabilities}'`,
         });
       }
+
+      const newSessionId = event.sessionId ?? uuidv4();
+      if (this._id !== newSessionId) {
+        this._resetSessionState();
+      }
+
+      this._id = newSessionId;
       this._name = `${this._url}\n${event.name}`;
       this._serverCapabilities = Array.isArray(event.capabilities) ? event.capabilities : [];
       this._serverPublishesTime = this._serverCapabilities.includes(ServerCapability.time);
@@ -267,6 +300,7 @@ export default class FoxgloveWebSocketPlayer implements Player {
 
       if (event.capabilities.includes(ServerCapability.clientPublish)) {
         this._playerCapabilities = this._playerCapabilities.concat(PlayerCapabilities.advertise);
+        this._setupPublishers();
       }
       if (event.capabilities.includes(ServerCapability.services)) {
         this._serviceCallEncoding = event.supportedEncodings?.find((e) =>
@@ -981,6 +1015,18 @@ export default class FoxgloveWebSocketPlayer implements Player {
 
     this._unresolvedPublications = [];
     this._emitState();
+  }
+
+  private _resetSessionState(): void {
+    this._startTime = undefined;
+    this._endTime = undefined;
+    this._clockTime = undefined;
+    this._topicsStats = new Map();
+    this._parsedMessages = [];
+    this._receivedBytes = 0;
+    this._hasReceivedMessage = false;
+    this._problems.clear();
+    this._parameters.clear();
   }
 }
 

@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { PropsWithChildren, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
 import { AppSetting } from "@foxglove/studio-base/AppSetting";
 import Panel from "@foxglove/studio-base/components/Panel";
@@ -25,9 +26,10 @@ export default function PanelCatalogProvider(
   props: PropsWithChildren<unknown>,
 ): React.ReactElement {
   const [showDebugPanels = false] = useAppConfigurationValue<boolean>(AppSetting.SHOW_DEBUG_PANELS);
-  const [enableLegacyPlotPanel = false] = useAppConfigurationValue<boolean>(
-    AppSetting.ENABLE_LEGACY_PLOT_PANEL,
+  const [enableNewImagePanel = false] = useAppConfigurationValue<boolean>(
+    AppSetting.ENABLE_NEW_IMAGE_PANEL,
   );
+  const { t } = useTranslation("panels");
 
   const extensionPanels = useExtensionCatalog((state) => state.installedPanels);
 
@@ -57,21 +59,35 @@ export default function PanelCatalogProvider(
     });
   }, [extensionPanels]);
 
+  // Re-call the function when the language changes to ensure that the panel's information is successfully translated
+  const allPanelsInfo = useMemo(() => {
+    return {
+      builtin: panels.getBuiltin(t),
+      debug: panels.getDebug(t),
+      newImage: panels.getNewImage(t),
+    };
+  }, [t]);
+
   const allPanels = useMemo(() => {
-    return [...panels.builtin, ...panels.debug, panels.legacyPlot, ...wrappedExtensionPanels];
-  }, [wrappedExtensionPanels]);
+    return [
+      ...allPanelsInfo.builtin,
+      ...allPanelsInfo.debug,
+      allPanelsInfo.newImage,
+      ...wrappedExtensionPanels,
+    ];
+  }, [wrappedExtensionPanels, allPanelsInfo]);
 
   const visiblePanels = useMemo(() => {
-    const panelList = [...panels.builtin];
+    const panelList = [...allPanelsInfo.builtin];
     if (showDebugPanels) {
-      panelList.push(...panels.debug);
+      panelList.push(...allPanelsInfo.debug);
     }
-    if (enableLegacyPlotPanel) {
-      panelList.push(panels.legacyPlot);
+    if (enableNewImagePanel) {
+      panelList.push(allPanelsInfo.newImage);
     }
     panelList.push(...wrappedExtensionPanels);
     return panelList;
-  }, [enableLegacyPlotPanel, showDebugPanels, wrappedExtensionPanels]);
+  }, [enableNewImagePanel, showDebugPanels, wrappedExtensionPanels, allPanelsInfo]);
 
   const panelsByType = useMemo(() => {
     const byType = new Map<string, PanelInfo>();

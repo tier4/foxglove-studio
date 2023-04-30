@@ -12,6 +12,7 @@ import {
   Paper,
   useTheme,
 } from "@mui/material";
+import { Immutable } from "immer";
 import { cloneDeep, isEqual, merge } from "lodash";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
@@ -41,17 +42,18 @@ import PublishPoseEstimateIcon from "@foxglove/studio-base/components/PublishPos
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
-import { DebugGui } from "./DebugGui";
+import type {
+  RendererConfig,
+  RendererSubscription,
+  FollowMode,
+  RendererEvents,
+  IRenderer,
+  ImageModeConfig,
+} from "./IRenderer";
 import { InteractionContextMenu, Interactions, SelectionObject, TabType } from "./Interactions";
 import type { PickedRenderable } from "./Picker";
 import { Renderable, SELECTED_ID_VARIABLE } from "./Renderable";
-import {
-  FollowMode,
-  Renderer,
-  RendererConfig,
-  RendererEvents,
-  RendererSubscription,
-} from "./Renderer";
+import { LegacyImageConfig, Renderer } from "./Renderer";
 import { RendererContext, useRenderer, useRendererEvent } from "./RendererContext";
 import { Stats } from "./Stats";
 import { CameraState, DEFAULT_CAMERA_STATE, MouseEventObject } from "./camera";
@@ -62,9 +64,10 @@ import {
   PublishRos1Datatypes,
   PublishRos2Datatypes,
 } from "./publish";
-import { DEFAULT_PUBLISH_SETTINGS } from "./renderables/CoreSettings";
 import type { LayerSettingsTransform } from "./renderables/FrameAxes";
 import { PublishClickEvent, PublishClickType } from "./renderables/PublishClickTool";
+import { DEFAULT_PUBLISH_SETTINGS } from "./renderables/PublishSettings";
+import { InterfaceMode } from "./types";
 
 const log = Logger.getLogger(__filename);
 
@@ -73,8 +76,6 @@ type Shared3DPanelState = {
   followMode: FollowMode;
   followTf: undefined | string;
 };
-
-const SHOW_DEBUG: true | false = false;
 
 const PANEL_STYLE: React.CSSProperties = {
   width: "100%",
@@ -116,6 +117,7 @@ const useStyles = makeStyles()((theme) => ({
  * Provides DOM overlay elements on top of the 3D scene (e.g. stats, debug GUI).
  */
 function RendererOverlay(props: {
+  interfaceMode: InterfaceMode;
   canvas: HTMLCanvasElement | ReactNull;
   addPanel: LayoutActions["addPanel"];
   enableStats: boolean;
@@ -142,9 +144,6 @@ function RendererOverlay(props: {
   const [interactionsTabType, setInteractionsTabType] = useState<TabType | undefined>(undefined);
   const renderer = useRenderer();
 
-  // Publish control is only available if the canPublish prop is true and we have a fixed frame in the renderer
-  const showPublishControl: boolean = props.canPublish && renderer?.fixedFrameId != undefined;
-
   // Toggle object selection mode on/off in the renderer
   useEffect(() => {
     if (renderer) {
@@ -162,12 +161,6 @@ function RendererOverlay(props: {
   const stats = props.enableStats ? (
     <div id="stats" style={{ position: "absolute", top: "10px", left: "10px" }}>
       <Stats />
-    </div>
-  ) : undefined;
-
-  const debug = SHOW_DEBUG ? (
-    <div id="debug" style={{ position: "absolute", top: "70px", left: "10px" }}>
-      <DebugGui />
     </div>
   ) : undefined;
 
@@ -234,6 +227,76 @@ function RendererOverlay(props: {
 
   const theme = useTheme();
 
+  // Publish control is only available if the canPublish prop is true and we have a fixed frame in the renderer
+  const showPublishControl =
+    props.interfaceMode === "3d" && props.canPublish && renderer?.fixedFrameId != undefined;
+  const publishControls = showPublishControl && (
+    <>
+      <IconButton
+        {...longPressPublishEvent}
+        color={props.publishActive ? "info" : "inherit"}
+        title={props.publishActive ? "Click to cancel" : "Click to publish"}
+        ref={publickClickButtonRef}
+        onClick={props.onClickPublish}
+        data-testid="publish-button"
+        style={{ fontSize: "1rem", pointerEvents: "auto" }}
+      >
+        {selectedPublishClickIcon}
+        <div
+          style={{
+            borderBottom: "6px solid currentColor",
+            borderRight: "6px solid transparent",
+            bottom: 0,
+            left: 0,
+            height: 0,
+            width: 0,
+            margin: theme.spacing(0.25),
+            position: "absolute",
+          }}
+        />
+      </IconButton>
+      <Menu
+        id="publish-menu"
+        anchorEl={publickClickButtonRef.current}
+        anchorOrigin={{ vertical: "top", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+        open={publishMenuExpanded}
+        onClose={() => setPublishMenuExpanded(false)}
+      >
+        <MenuItem
+          selected={props.publishClickType === "pose_estimate"}
+          onClick={() => {
+            props.onChangePublishClickType("pose_estimate");
+            setPublishMenuExpanded(false);
+          }}
+        >
+          <ListItemIcon>{PublishClickIcons.pose_estimate}</ListItemIcon>
+          <ListItemText>Publish pose estimate</ListItemText>
+        </MenuItem>
+        <MenuItem
+          selected={props.publishClickType === "pose"}
+          onClick={() => {
+            props.onChangePublishClickType("pose");
+            setPublishMenuExpanded(false);
+          }}
+        >
+          <ListItemIcon>{PublishClickIcons.pose}</ListItemIcon>
+          <ListItemText>Publish pose</ListItemText>
+        </MenuItem>
+        <MenuItem
+          selected={props.publishClickType === "point"}
+          onClick={() => {
+            props.onChangePublishClickType("point");
+            setPublishMenuExpanded(false);
+          }}
+        >
+          <ListItemIcon>{PublishClickIcons.point}</ListItemIcon>
+          <ListItemText>Publish point</ListItemText>
+        </MenuItem>
+      </Menu>
+    </>
+  );
+
   return (
     <React.Fragment>
       <div
@@ -255,92 +318,29 @@ function RendererOverlay(props: {
           setInteractionsTabType={setInteractionsTabType}
           timezone={props.timezone}
         />
-        <Paper square={false} elevation={4} style={{ display: "flex", flexDirection: "column" }}>
-          <IconButton
-            className={classes.iconButton}
-            color={props.perspective ? "info" : "inherit"}
-            title={props.perspective ? "Switch to 2D camera" : "Switch to 3D camera"}
-            onClick={props.onTogglePerspective}
-          >
-            <span className={classes.threeDeeButton}>3D</span>
-          </IconButton>
-          <IconButton
-            data-testid="measure-button"
-            className={classes.iconButton}
-            color={props.measureActive ? "info" : "inherit"}
-            title={props.measureActive ? "Cancel measuring" : "Measure distance"}
-            onClick={props.onClickMeasure}
-          >
-            <Ruler24Filled className={classes.rulerIcon} />
-          </IconButton>
+        {props.interfaceMode === "3d" && (
+          <Paper square={false} elevation={4} style={{ display: "flex", flexDirection: "column" }}>
+            <IconButton
+              className={classes.iconButton}
+              color={props.perspective ? "info" : "inherit"}
+              title={props.perspective ? "Switch to 2D camera" : "Switch to 3D camera"}
+              onClick={props.onTogglePerspective}
+            >
+              <span className={classes.threeDeeButton}>3D</span>
+            </IconButton>
+            <IconButton
+              data-testid="measure-button"
+              className={classes.iconButton}
+              color={props.measureActive ? "info" : "inherit"}
+              title={props.measureActive ? "Cancel measuring" : "Measure distance"}
+              onClick={props.onClickMeasure}
+            >
+              <Ruler24Filled className={classes.rulerIcon} />
+            </IconButton>
 
-          {showPublishControl && (
-            <>
-              <IconButton
-                {...longPressPublishEvent}
-                color={props.publishActive ? "info" : "inherit"}
-                title={props.publishActive ? "Click to cancel" : "Click to publish"}
-                ref={publickClickButtonRef}
-                onClick={props.onClickPublish}
-                data-testid="publish-button"
-                style={{ fontSize: "1rem", pointerEvents: "auto" }}
-              >
-                {selectedPublishClickIcon}
-                <div
-                  style={{
-                    borderBottom: "6px solid currentColor",
-                    borderRight: "6px solid transparent",
-                    bottom: 0,
-                    left: 0,
-                    height: 0,
-                    width: 0,
-                    margin: theme.spacing(0.25),
-                    position: "absolute",
-                  }}
-                />
-              </IconButton>
-              <Menu
-                id="publish-menu"
-                anchorEl={publickClickButtonRef.current}
-                anchorOrigin={{ vertical: "top", horizontal: "left" }}
-                transformOrigin={{ vertical: "top", horizontal: "right" }}
-                open={publishMenuExpanded}
-                onClose={() => setPublishMenuExpanded(false)}
-              >
-                <MenuItem
-                  selected={props.publishClickType === "pose_estimate"}
-                  onClick={() => {
-                    props.onChangePublishClickType("pose_estimate");
-                    setPublishMenuExpanded(false);
-                  }}
-                >
-                  <ListItemIcon>{PublishClickIcons.pose_estimate}</ListItemIcon>
-                  <ListItemText>Publish pose estimate</ListItemText>
-                </MenuItem>
-                <MenuItem
-                  selected={props.publishClickType === "pose"}
-                  onClick={() => {
-                    props.onChangePublishClickType("pose");
-                    setPublishMenuExpanded(false);
-                  }}
-                >
-                  <ListItemIcon>{PublishClickIcons.pose}</ListItemIcon>
-                  <ListItemText>Publish pose</ListItemText>
-                </MenuItem>
-                <MenuItem
-                  selected={props.publishClickType === "point"}
-                  onClick={() => {
-                    props.onChangePublishClickType("point");
-                    setPublishMenuExpanded(false);
-                  }}
-                >
-                  <ListItemIcon>{PublishClickIcons.point}</ListItemIcon>
-                  <ListItemText>Publish point</ListItemText>
-                </MenuItem>
-              </Menu>
-            </>
-          )}
-        </Paper>
+            {publishControls}
+          </Paper>
+        )}
       </div>
       {clickedObjects.length > 1 && !selectedObject && (
         <InteractionContextMenu
@@ -360,23 +360,22 @@ function RendererOverlay(props: {
         />
       )}
       {stats}
-      {debug}
     </React.Fragment>
   );
 }
 
-function useRendererProperty<K extends keyof Renderer>(
-  renderer: Renderer | undefined,
+function useRendererProperty<K extends keyof IRenderer>(
+  renderer: IRenderer | undefined,
   key: K,
   event: keyof RendererEvents,
-  fallback: () => Renderer[K],
-): Renderer[K] {
-  const [value, setValue] = useState(() => renderer?.[key] ?? fallback());
+  fallback: () => IRenderer[K],
+): IRenderer[K] {
+  const [value, setValue] = useState<IRenderer[K]>(() => renderer?.[key] ?? fallback());
   useEffect(() => {
     if (!renderer) {
       return;
     }
-    const onChange = () => setValue(renderer[key]);
+    const onChange = () => setValue(() => renderer[key]);
     onChange();
 
     renderer.addListener(event, onChange);
@@ -390,11 +389,15 @@ function useRendererProperty<K extends keyof Renderer>(
 /**
  * A panel that renders a 3D scene. This is a thin wrapper around a `Renderer` instance.
  */
-export function ThreeDeeRender({ context }: { context: PanelExtensionContext }): JSX.Element {
+export function ThreeDeeRender(props: {
+  context: PanelExtensionContext;
+  interfaceMode: InterfaceMode;
+}): JSX.Element {
+  const { context, interfaceMode } = props;
   const { initialState, saveState } = context;
 
   // Load and save the persisted panel configuration
-  const [config, setConfig] = useState<RendererConfig>(() => {
+  const [config, setConfig] = useState<Immutable<RendererConfig>>(() => {
     const partialConfig = initialState as DeepPartial<RendererConfig> | undefined;
 
     // Initialize the camera from default settings overlaid with persisted settings
@@ -409,6 +412,16 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       Partial<LayerSettingsTransform>
     >;
 
+    // Merge in config from the legacy Image panel
+    const legacyImageConfig = partialConfig as DeepPartial<LegacyImageConfig> | undefined;
+    const imageMode: ImageModeConfig = {
+      imageTopic: legacyImageConfig?.cameraTopic,
+      ...partialConfig?.imageMode,
+      annotations: partialConfig?.imageMode?.annotations as
+        | ImageModeConfig["annotations"]
+        | undefined,
+    };
+
     return {
       cameraState,
       followMode: partialConfig?.followMode ?? "follow-pose",
@@ -418,6 +431,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       topics: partialConfig?.topics ?? {},
       layers: partialConfig?.layers ?? {},
       publish,
+      imageMode,
     };
   });
   const configRef = useLatest(config);
@@ -425,17 +439,17 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   const backgroundColor = config.scene.backgroundColor;
 
   const [canvas, setCanvas] = useState<HTMLCanvasElement | ReactNull>(ReactNull);
-  const [renderer, setRenderer] = useState<Renderer | undefined>(undefined);
-  const rendererRef = useRef<Renderer | undefined>(undefined);
+  const [renderer, setRenderer] = useState<IRenderer | undefined>(undefined);
+  const rendererRef = useRef<IRenderer | undefined>(undefined);
   useEffect(() => {
-    const newRenderer = canvas ? new Renderer(canvas, configRef.current) : undefined;
+    const newRenderer = canvas ? new Renderer(canvas, configRef.current, interfaceMode) : undefined;
     setRenderer(newRenderer);
     rendererRef.current = newRenderer;
     return () => {
       rendererRef.current?.dispose();
       rendererRef.current = undefined;
     };
-  }, [canvas, configRef, config.scene.transforms?.enablePreloading]);
+  }, [canvas, configRef, config.scene.transforms?.enablePreloading, interfaceMode]);
 
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
   const [timezone, setTimezone] = useState<string | undefined>();
@@ -476,6 +490,9 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
     const listener = () => {
       if (renderer) {
         const newCameraState = renderer.getCameraState();
+        if (!newCameraState) {
+          return;
+        }
         // This needs to be before `setConfig` otherwise flickering will occur during
         // non-follow mode playback
         renderer.setCameraState(newCameraState);
@@ -484,7 +501,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
         if (config.scene.syncCamera === true) {
           context.setSharedPanelState({
             cameraState: newCameraState,
-            followMode: renderer.followMode,
+            followMode: config.followMode,
             followTf: effectiveRendererFrameId,
           });
         }
@@ -492,7 +509,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
     };
     renderer?.addListener("cameraMove", listener);
     return () => void renderer?.removeListener("cameraMove", listener);
-  }, [config.scene.syncCamera, context, effectiveRendererFrameId, renderer]);
+  }, [config.scene.syncCamera, config.followMode, context, effectiveRendererFrameId, renderer]);
 
   // Handle user changes in the settings sidebar
   const actionHandler = useCallback(
@@ -510,25 +527,25 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
           if (updatedCameraState !== initialCameraState && config.scene.syncCamera === true) {
             context.setSharedPanelState({
               cameraState: updatedCameraState,
-              followMode: renderer.followMode,
+              followMode: config.followMode,
               followTf: renderer.followFrameId,
             });
           }
         }
       }),
-    [config.scene.syncCamera, context, renderer],
+    [config.followMode, config.scene.syncCamera, context, renderer],
   );
 
   // Maintain the settings tree
   const [settingsTree, setSettingsTree] = useState<SettingsTreeNodes | undefined>(undefined);
   const updateSettingsTree = useCallback(
-    (curRenderer: Renderer) => setSettingsTree(curRenderer.settings.tree()),
+    (curRenderer: IRenderer) => setSettingsTree(curRenderer.settings.tree()),
     [],
   );
   useRendererEvent("settingsTreeChange", updateSettingsTree, renderer);
 
   // Save the panel configuration when it changes
-  const updateConfig = useCallback((curRenderer: Renderer) => setConfig(curRenderer.config), []);
+  const updateConfig = useCallback((curRenderer: IRenderer) => setConfig(curRenderer.config), []);
   useRendererEvent("configChange", updateConfig, renderer);
 
   // Write to a global variable when the current selection changes
@@ -580,7 +597,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
 
   // Save panel settings whenever they change
   const throttledSave = useDebouncedCallback(
-    (newConfig: RendererConfig) => saveState(newConfig),
+    (newConfig: Immutable<RendererConfig>) => saveState(newConfig),
     1000,
     { leading: false, trailing: true, maxWait: 1000 },
   );
@@ -656,15 +673,30 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
     const newSubscriptions: Subscription[] = [];
 
     const addSubscription = (
-      topic: string,
+      topic: Topic,
       rendererSubscription: RendererSubscription,
       convertTo?: string,
     ) => {
-      const shouldSubscribe =
-        rendererSubscription.shouldSubscribe ?? ((t) => config.topics[t]?.visible === true);
-      if (shouldSubscribe(topic)) {
+      let shouldSubscribe = rendererSubscription.shouldSubscribe?.(topic.name);
+      if (shouldSubscribe == undefined) {
+        if (config.topics[topic.name]?.visible === true) {
+          shouldSubscribe = true;
+        } else if (
+          config.imageMode.annotations?.some(
+            (sub) =>
+              sub.topic === topic.name &&
+              sub.schemaName === (convertTo ?? topic.schemaName) &&
+              sub.settings.visible,
+          ) === true
+        ) {
+          shouldSubscribe = true;
+        } else {
+          shouldSubscribe = false;
+        }
+      }
+      if (shouldSubscribe) {
         newSubscriptions.push({
-          topic,
+          topic: topic.name,
           preload: rendererSubscription.preload,
           convertTo,
         });
@@ -673,14 +705,14 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
 
     for (const topic of topics) {
       for (const rendererSubscription of topicHandlers.get(topic.name) ?? []) {
-        addSubscription(topic.name, rendererSubscription);
+        addSubscription(topic, rendererSubscription);
       }
       for (const rendererSubscription of schemaHandlers.get(topic.schemaName) ?? []) {
-        addSubscription(topic.name, rendererSubscription);
+        addSubscription(topic, rendererSubscription);
       }
       for (const schemaName of topic.convertibleTo ?? []) {
         for (const rendererSubscription of schemaHandlers.get(schemaName) ?? []) {
-          addSubscription(topic.name, rendererSubscription, schemaName);
+          addSubscription(topic, rendererSubscription, schemaName);
         }
       }
     }
@@ -688,7 +720,17 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
     // Sort the list to make comparisons stable
     newSubscriptions.sort((a, b) => a.topic.localeCompare(b.topic));
     setTopicsToSubscribe((prev) => (isEqual(prev, newSubscriptions) ? prev : newSubscriptions));
-  }, [topics, config.topics, schemaHandlers, topicHandlers]);
+  }, [
+    topics,
+    config.topics,
+    // Need to update subscriptions when imagemode topics change
+    // shouldSubscribe values will be re-evaluated
+    config.imageMode.calibrationTopic,
+    config.imageMode.imageTopic,
+    schemaHandlers,
+    topicHandlers,
+    config.imageMode.annotations,
+  ]);
 
   // Notify the extension context when our subscription list changes
   useEffect(() => {
@@ -716,7 +758,16 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   // Keep the renderer currentTime up to date and handle seeking
   useEffect(() => {
     const newTimeNs = currentTime ? toNanoSec(currentTime) : undefined;
-    if (!renderer || newTimeNs == undefined || newTimeNs === renderer.currentTime) {
+
+    /*
+     * NOTE AROUND SEEK HANDLING
+     * Seeking MUST be handled even if there is no change in current time.  When there is a subscription
+     * change while paused, the player goes into `seek-backfill` which sets didSeek to true.
+     *
+     * We cannot early return here when there is no change in current time due to that, otherwise it would
+     * handle seek next time the current time changes and clear the backfilled messages and transforms.
+     */
+    if (!renderer || newTimeNs == undefined) {
       return;
     }
     const oldTimeNs = renderer.currentTime;
@@ -776,7 +827,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       return;
     }
 
-    if (sharedPanelState.followMode !== renderer.followMode) {
+    if (sharedPanelState.followMode !== config.followMode) {
       renderer.setCameraSyncError(
         `Follow mode must be ${sharedPanelState.followMode} to sync camera.`,
       );
@@ -794,7 +845,13 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
       }));
       renderer.setCameraSyncError(undefined);
     }
-  }, [config.scene.syncCamera, effectiveRendererFrameId, renderer, sharedPanelState]);
+  }, [
+    config.scene.syncCamera,
+    config.followMode,
+    effectiveRendererFrameId,
+    renderer,
+    sharedPanelState,
+  ]);
 
   // Render a new frame if requested
   useEffect(() => {
@@ -944,12 +1001,12 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
   }, [publishActive, renderer]);
 
   const onTogglePerspective = useCallback(() => {
-    const currentState = renderer?.getCameraState().perspective ?? false;
+    const currentState = renderer?.getCameraState()?.perspective ?? false;
     actionHandler({
       action: "update",
       payload: {
         input: "boolean",
-        path: ["scene", "cameraState", "perspective"],
+        path: ["cameraState", "perspective"],
         value: !currentState,
       },
     });
@@ -985,6 +1042,7 @@ export function ThreeDeeRender({ context }: { context: PanelExtensionContext }):
         />
         <RendererContext.Provider value={renderer}>
           <RendererOverlay
+            interfaceMode={interfaceMode}
             canvas={canvas}
             addPanel={addPanel}
             enableStats={config.scene.enableStats ?? false}

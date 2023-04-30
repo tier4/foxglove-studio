@@ -3,8 +3,9 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Box } from "@mui/material";
-import { fireEvent } from "@testing-library/dom";
-import produce from "immer";
+import { StoryObj } from "@storybook/react";
+import { fireEvent, userEvent } from "@storybook/testing-library";
+import { produce } from "immer";
 import { last } from "lodash";
 import { useCallback, useMemo, useState, useEffect } from "react";
 
@@ -146,6 +147,94 @@ For ROS users, we also support package:// URLs
     },
   },
   empty: undefined,
+};
+
+const SelectValidWithUndefinedSettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      validSelectWithUndefined: {
+        label: "Valid Select w/ Undefined",
+        value: undefined,
+        input: "select",
+        options: [
+          { label: "Undefined", value: undefined },
+          { label: "Nothing", value: "" },
+          { label: "Something", value: "something" },
+        ],
+      },
+    },
+  },
+};
+const SelectValidWithEmptyStringSettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      validSelectWithEmptyString: {
+        label: 'Valid Select w/ ""',
+        value: "",
+        input: "select",
+        options: [
+          { label: "Undefined", value: undefined },
+          { label: "Nothing", value: "" },
+          { label: "Something", value: "something" },
+        ],
+      },
+    },
+  },
+};
+const SelectInvalidWithUndefinedSettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      invalidSelectWithUndefined: {
+        label: "Invalid Select w/ Undefined",
+        value: "foobar",
+        input: "select",
+        options: [
+          { label: "Undefined", value: undefined },
+          { label: "Nothing", value: "" },
+          { label: "Something", value: "something" },
+        ],
+      },
+    },
+  },
+};
+const SelectInvalidWithoutUndefinedSettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      invalidSelectWithoutUndefined: {
+        label: "Invalid Select w/o Undefined",
+        value: "foobar",
+        input: "select",
+        options: [
+          { label: "Nothing", value: "" },
+          { label: "Something", value: "something" },
+        ],
+      },
+    },
+  },
+};
+const SelectEmptySettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      emptySelect: {
+        label: "Empty Select",
+        value: undefined,
+        input: "select",
+        options: [],
+      },
+    },
+  },
+};
+const SelectEmptyInvalidSettings: SettingsTreeNodes = {
+  general: {
+    fields: {
+      invalidEmptySelect: {
+        label: "Invalid Empty Select",
+        value: "foobar",
+        input: "select",
+        options: [],
+      },
+    },
+  },
 };
 
 const DisabledSettings: SettingsTreeNodes = {
@@ -731,7 +820,7 @@ function Wrapper({ nodes }: { nodes: SettingsTreeNodes }): JSX.Element {
           const nodeCount = Object.keys(dynamicNodes).length;
           setDynamicNodes((oldNodes) => ({
             ...oldNodes,
-            [`background{nodeCount + 1}`]: makeBackgroundNode(nodeCount + 1),
+            [`background${nodeCount + 1}`]: makeBackgroundNode(nodeCount + 1),
           }));
         }
         if (action.payload.id === "remove-grid" || action.payload.id === "remove-background") {
@@ -785,137 +874,220 @@ function Wrapper({ nodes }: { nodes: SettingsTreeNodes }): JSX.Element {
   );
 }
 
-export function Basics(): JSX.Element {
-  return <Wrapper nodes={BasicSettings} />;
-}
+export const Basics: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={BasicSettings} />;
+  },
 
-Basics.play = () => {
-  Array.from(document.querySelectorAll("[data-testid=node-actions-menu-button]"))
-    .slice(0, 1)
-    .forEach((node) => fireEvent.click(node));
+  play: () => {
+    Array.from(document.querySelectorAll("[data-testid=node-actions-menu-button]"))
+      .slice(0, 1)
+      .forEach((node) => fireEvent.click(node));
+  },
 };
 
-export function DisabledFields(): JSX.Element {
-  return <Wrapper nodes={DisabledSettings} />;
-}
+export const BasicsChinese: StoryObj = {
+  ...Basics,
+  play: Basics.play,
+  parameters: { forceLanguage: "zh" },
+};
 
-export function ReadonlyFields(): JSX.Element {
-  return <Wrapper nodes={ReadonlySettings} />;
-}
+export const DisabledFields: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={DisabledSettings} />;
+  },
+};
 
-export function PanelExamples(): JSX.Element {
-  return <Wrapper nodes={PanelExamplesSettings} />;
-}
+export const ReadonlyFields: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={ReadonlySettings} />;
+  },
+};
 
-PanelExamples.play = () => {
-  Array.from(document.querySelectorAll("[data-node-function=edit-label]"))
-    .slice(0, 1)
-    .forEach((node) => {
+export const PanelExamples: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={PanelExamplesSettings} />;
+  },
+
+  play: () => {
+    Array.from(document.querySelectorAll("[data-node-function=edit-label]"))
+      .slice(0, 1)
+      .forEach((node) => {
+        fireEvent.click(node);
+        fireEvent.change(document.activeElement!, { target: { value: "Renamed Node" } });
+        fireEvent.keyDown(document.activeElement!, { key: "Enter" });
+      });
+  },
+};
+
+export const IconExamples: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={IconExamplesSettings} />;
+  },
+};
+
+export const Topics: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={TopicSettings} />;
+  },
+};
+
+export const Filter: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={FilterSettings} />;
+  },
+
+  play: () => {
+    const node = document.querySelector("[data-testid=settings-filter-field] input");
+    if (node) {
       fireEvent.click(node);
-      fireEvent.change(document.activeElement!, { target: { value: "Renamed Node" } });
-      fireEvent.keyDown(document.activeElement!, { key: "Enter" });
-    });
+      fireEvent.change(node, { target: { value: "matcha" } });
+    }
+  },
 };
 
-export function IconExamples(): JSX.Element {
-  return <Wrapper nodes={IconExamplesSettings} />;
-}
-
-export function Topics(): JSX.Element {
-  return <Wrapper nodes={TopicSettings} />;
-}
-
-export function Filter(): JSX.Element {
-  return <Wrapper nodes={FilterSettings} />;
-}
-Filter.play = () => {
-  const node = document.querySelector("[data-testid=settings-filter-field] input");
-  if (node) {
-    fireEvent.click(node);
-    fireEvent.change(node, { target: { value: "matcha" } });
-  }
+export const Colors: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={ColorSettings} />;
+  },
 };
 
-export function Colors(): JSX.Element {
-  return <Wrapper nodes={ColorSettings} />;
-}
+export const EmptyValue: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={ColorSettings} />;
+  },
+};
 
-export function EmptyValue(): JSX.Element {
-  return <Wrapper nodes={ColorSettings} />;
-}
+export const SetHiddenValueToTrue: StoryObj = {
+  render: () => {
+    return <Wrapper nodes={ColorSettings} />;
+  },
+};
 
-export function SetHiddenValueToTrue(): JSX.Element {
-  return <Wrapper nodes={ColorSettings} />;
-}
-
-export function Vec2(): JSX.Element {
-  const settings: SettingsTreeNodes = {
-    fields: {
+export const Vec2: StoryObj = {
+  render: () => {
+    const settings: SettingsTreeNodes = {
       fields: {
-        basic: {
-          label: "Basic",
-          input: "vec2",
-        },
-        labels: {
-          label: "Custom Labels",
-          input: "vec2",
-          labels: ["A", "B"],
-        },
-        values: {
-          label: "Values",
-          input: "vec2",
-          value: [1.1111, 2.2222],
-        },
-        someValues: {
-          label: "Some values",
-          input: "vec2",
-          value: [1.1111, undefined],
-        },
-        placeholder: {
-          label: "Placeholder",
-          input: "vec2",
-          placeholder: ["foo", "bar"],
-          value: [1.1111, undefined],
+        fields: {
+          basic: {
+            label: "Basic",
+            input: "vec2",
+          },
+          labels: {
+            label: "Custom Labels",
+            input: "vec2",
+            labels: ["A", "B"],
+          },
+          values: {
+            label: "Values",
+            input: "vec2",
+            value: [1.1111, 2.2222],
+          },
+          someValues: {
+            label: "Some values",
+            input: "vec2",
+            value: [1.1111, undefined],
+          },
+          placeholder: {
+            label: "Placeholder",
+            input: "vec2",
+            placeholder: ["foo", "bar"],
+            value: [1.1111, undefined],
+          },
         },
       },
-    },
-  };
+    };
 
-  return <Wrapper nodes={settings} />;
-}
+    return <Wrapper nodes={settings} />;
+  },
+};
 
-export function Vec3(): JSX.Element {
-  const settings: SettingsTreeNodes = {
-    fields: {
+export const Vec3: StoryObj = {
+  render: () => {
+    const settings: SettingsTreeNodes = {
       fields: {
-        basic: {
-          label: "Basic",
-          input: "vec3",
-        },
-        labels: {
-          label: "Custom Labels",
-          input: "vec3",
-          labels: ["A", "B", "C"],
-        },
-        values: {
-          label: "Values",
-          input: "vec3",
-          value: [1.1111, 2.2222, 3.333],
-        },
-        someValues: {
-          label: "Some values",
-          input: "vec3",
-          value: [1.1111, undefined, 2.222],
-        },
-        placeholder: {
-          label: "Placeholder",
-          input: "vec3",
-          placeholder: ["foo", "bar", "baz"],
-          value: [1.1111, undefined, undefined],
+        fields: {
+          basic: {
+            label: "Basic",
+            input: "vec3",
+          },
+          labels: {
+            label: "Custom Labels",
+            input: "vec3",
+            labels: ["A", "B", "C"],
+          },
+          values: {
+            label: "Values",
+            input: "vec3",
+            value: [1.1111, 2.2222, 3.333],
+          },
+          someValues: {
+            label: "Some values",
+            input: "vec3",
+            value: [1.1111, undefined, 2.222],
+          },
+          placeholder: {
+            label: "Placeholder",
+            input: "vec3",
+            placeholder: ["foo", "bar", "baz"],
+            value: [1.1111, undefined, undefined],
+          },
         },
       },
-    },
-  };
+    };
 
-  return <Wrapper nodes={settings} />;
+    return <Wrapper nodes={settings} />;
+  },
+};
+
+async function clickSelect(): Promise<void> {
+  userEvent.click(document.querySelector(".MuiSelect-select")!);
 }
+
+export const SelectInvalidWithUndefined: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectInvalidWithUndefinedSettings} />;
+  },
+
+  play: clickSelect,
+};
+
+export const SelectInvalidWithoutUndefined: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectInvalidWithoutUndefinedSettings} />;
+  },
+
+  play: clickSelect,
+};
+
+export const SelectValidWithUndefined: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectValidWithUndefinedSettings} />;
+  },
+
+  play: clickSelect,
+};
+
+export const SelectValidWithEmptyString: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectValidWithEmptyStringSettings} />;
+  },
+
+  play: clickSelect,
+};
+
+export const SelectEmpty: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectEmptySettings} />;
+  },
+
+  play: clickSelect,
+};
+
+export const SelectEmptyInvalid: StoryObj = {
+  render: function Story() {
+    return <Wrapper nodes={SelectEmptyInvalidSettings} />;
+  },
+
+  play: clickSelect,
+};

@@ -8,11 +8,12 @@ import { DeepPartial } from "ts-essentials";
 
 import { MessageEvent, SettingsTreeAction } from "@foxglove/studio";
 
+import type { IRenderer } from "./IRenderer";
 import { Path } from "./LayerErrors";
 import { BaseUserData, Renderable } from "./Renderable";
-import type { Renderer } from "./Renderer";
 import type { SettingsTreeEntry } from "./SettingsManager";
 import { missingTransformMessage, MISSING_TRANSFORM } from "./renderables/transforms";
+import { AnyFrameId } from "./transforms";
 import { updatePose } from "./updatePose";
 
 export type PartialMessage<T> = DeepPartial<T>;
@@ -45,7 +46,7 @@ export class SceneExtension<
   /** A unique identifier for this SceneExtension, such as `foxglove.Markers`. */
   public readonly extensionId: string;
   /** A reference to the parent `Renderer` instance. */
-  protected readonly renderer: Renderer;
+  protected readonly renderer: IRenderer;
   /**
    * A map of string identifiers to Renderable instances. SceneExtensions are free to use any IDs
    * they choose, although topic names are a common choice for extensions display up to one
@@ -57,7 +58,7 @@ export class SceneExtension<
    * @param extensionId A unique identifier for this SceneExtension, such as `foxglove.Markers`.
    * @param renderer A reference to the parent `Renderer` instance.
    */
-  public constructor(extensionId: string, renderer: Renderer) {
+  public constructor(extensionId: string, renderer: IRenderer) {
     super();
     this.extensionId = this.name = extensionId;
     this.renderer = renderer;
@@ -158,7 +159,11 @@ export class SceneExtension<
    *   does not move relative to any parent frame. The fixed frame is the root frame of the render
    *   frame.
    */
-  public startFrame(currentTime: bigint, renderFrameId: string, fixedFrameId: string): void {
+  public startFrame(
+    currentTime: bigint,
+    renderFrameId: AnyFrameId,
+    fixedFrameId: AnyFrameId,
+  ): void {
     for (const renderable of this.renderables.values()) {
       const path = renderable.userData.settingsPath;
 

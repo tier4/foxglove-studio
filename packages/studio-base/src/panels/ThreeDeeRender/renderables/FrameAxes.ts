@@ -2,6 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import { t } from "i18next";
 import { Immutable } from "immer";
 import * as THREE from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
@@ -13,16 +14,10 @@ import type { RosValue } from "@foxglove/studio-base/players/types";
 import { Label } from "@foxglove/three-text";
 
 import { Axis, AXIS_LENGTH } from "./Axis";
-import {
-  DEFAULT_AXIS_SCALE,
-  DEFAULT_LABEL_SCALE_FACTOR,
-  DEFAULT_LINE_COLOR_STR,
-  DEFAULT_LINE_WIDTH_PX,
-  DEFAULT_TF_LABEL_SIZE,
-} from "./CoreSettings";
+import { DEFAULT_LABEL_SCALE_FACTOR } from "./SceneSettings";
 import { makeLinePickingMaterial } from "./markers/materials";
+import type { IRenderer, RendererConfig } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { Renderer, RendererConfig } from "../Renderer";
 import { SceneExtension } from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import { getLuminance, stringToRgb } from "../color";
@@ -38,6 +33,11 @@ const PICKING_LINE_SIZE = 6;
 const PI_2 = Math.PI / 2;
 
 const DEFAULT_EDITABLE = false;
+
+const DEFAULT_AXIS_SCALE = 1;
+const DEFAULT_LINE_WIDTH_PX = 2;
+const DEFAULT_LINE_COLOR_STR = "#ffff00";
+const DEFAULT_TF_LABEL_SIZE = 0.2;
 
 const DEFAULT_SETTINGS: LayerSettingsTransform = {
   visible: true,
@@ -86,8 +86,12 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
   private labelForegroundColor = 1;
   private labelBackgroundColor = new THREE.Color();
   private lineGeometry: LineGeometry;
+  private defaultRenderableSettings: LayerSettingsTransform;
 
-  public constructor(renderer: Renderer) {
+  public constructor(
+    renderer: IRenderer,
+    defaultRenderableSettings: Partial<LayerSettingsTransform>,
+  ) {
     super("foxglove.FrameAxes", renderer);
 
     const linewidth = this.renderer.config.scene.transforms?.lineWidth ?? DEFAULT_LINE_WIDTH_PX;
@@ -108,6 +112,8 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     this.linePickingMaterial = makeLinePickingMaterial(PICKING_LINE_SIZE, options);
 
     renderer.on("transformTreeUpdated", this.handleTransformTreeUpdated);
+
+    this.defaultRenderableSettings = { ...DEFAULT_SETTINGS, ...defaultRenderableSettings };
   }
 
   public override dispose(): void {
@@ -129,23 +135,23 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     const frameCount = this.renderer.coordinateFrameList.length;
     const children: SettingsTreeChildren = {
       settings: {
-        label: "Settings",
+        label: t("threeDee:settings"),
         defaultExpansionState: "collapsed",
         order: 0,
         fields: {
           editable: {
-            label: "Editable",
+            label: t("threeDee:editable"),
             input: "boolean",
             value: config.scene.transforms?.editable ?? DEFAULT_EDITABLE,
           },
           showLabel: {
-            label: "Labels",
+            label: t("threeDee:labels"),
             input: "boolean",
             value: config.scene.transforms?.showLabel ?? true,
           },
           ...((config.scene.transforms?.showLabel ?? true) && {
             labelSize: {
-              label: "Label size",
+              label: t("threeDee:labelSize"),
               input: "number",
               min: 0,
               step: 0.01,
@@ -155,12 +161,12 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
             },
           }),
           axisScale: fieldSize(
-            "Axis scale",
+            t("threeDee:axisScale"),
             config.scene.transforms?.axisScale,
             DEFAULT_AXIS_SCALE,
           ),
           lineWidth: {
-            label: "Line width",
+            label: t("threeDee:lineWidth"),
             input: "number",
             min: 0,
             step: 0.5,
@@ -169,12 +175,12 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
             placeholder: String(DEFAULT_LINE_WIDTH_PX),
           },
           lineColor: {
-            label: "Line color",
+            label: t("threeDee:lineColor"),
             input: "rgb",
             value: config.scene.transforms?.lineColor ?? DEFAULT_LINE_COLOR_STR,
           },
           enablePreloading: {
-            label: "Enable preloading",
+            label: t("threeDee:enablePreloading"),
             input: "boolean",
             value: config.scene.transforms?.enablePreloading ?? true,
           },
@@ -185,14 +191,14 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     let order = 1;
     for (const { label, value: frameId } of this.renderer.coordinateFrameList) {
       const frameKey = `frame:${frameId}`;
-      const tfConfig = (configTransforms[frameKey] ?? {}) as Partial<LayerSettingsTransform>;
+      const tfConfig = this.getRenderableSettingsWithDefaults(configTransforms[frameKey] ?? {});
       const frame = this.renderer.transformTree.frame(frameId);
       const fields = buildSettingsFields(frame, this.renderer.currentTime, config);
       tempTfPath[1] = frameKey;
       children[frameKey] = {
         label,
         fields,
-        visible: tfConfig.visible ?? true,
+        visible: tfConfig.visible,
         order: order++,
         defaultExpansionState: "collapsed",
         error: this.renderer.settings.errors.errors.errorAtPath(tempTfPath),
@@ -203,10 +209,10 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
       {
         path: ["transforms"],
         node: {
-          label: `Transforms${frameCount > 0 ? ` (${frameCount})` : ""}`,
+          label: `${t("threeDee:transforms")}${frameCount > 0 ? ` (${frameCount})` : ""}`,
           actions: [
-            { id: "show-all", type: "action", label: "Show All" },
-            { id: "hide-all", type: "action", label: "Hide All" },
+            { id: "show-all", type: "action", label: t("threeDee:showAll") },
+            { id: "hide-all", type: "action", label: t("threeDee:hideAll") },
           ],
           handler,
           children,
@@ -239,7 +245,11 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
 
     // Update the lines and labels between coordinate frames
     for (const renderable of this.renderables.values()) {
-      const label = renderable.userData.label;
+      // lines and labels are children of the renderable and won't render if the renderer isn't visible
+      // so we can skip these updates
+      if (!renderable.visible) {
+        continue;
+      }
       const line = renderable.userData.parentLine;
       const childFrame = this.renderer.transformTree.frame(renderable.userData.frameId);
       const parentFrame = childFrame?.parent();
@@ -262,6 +272,8 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
         }
       }
 
+      const label = renderable.userData.label;
+      label.visible = this.renderer.config.scene.transforms?.showLabel ?? true;
       // Add the label offset in "world" coordinates (in the render frame)
       worldPosition.z += labelOffsetZ;
       // Transform worldPosition back to the local coordinate frame of the
@@ -295,13 +307,6 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
         this.labelBackgroundColor.g,
         this.labelBackgroundColor.b,
       );
-    }
-  }
-
-  // eslint-disable-next-line @foxglove/no-boolean-parameters
-  private setLabelVisible(visible: boolean): void {
-    for (const renderable of this.renderables.values()) {
-      renderable.userData.label.visible = visible;
     }
   }
 
@@ -368,9 +373,6 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
 
       if (setting === "editable") {
         this._updateFrameAxes();
-      } else if (setting === "showLabel") {
-        const showLabel = value as boolean | undefined;
-        this.setLabelVisible(showLabel ?? true);
       } else if (setting === "labelSize") {
         const labelSize = value as number | undefined;
         this.setLabelSize(labelSize ?? DEFAULT_TF_LABEL_SIZE);
@@ -395,12 +397,18 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
         const settings = this.renderer.config.transforms[frameKey] as
           | Partial<LayerSettingsTransform>
           | undefined;
-        renderable.userData.settings = { ...DEFAULT_SETTINGS, ...settings };
+        renderable.userData.settings = this.getRenderableSettingsWithDefaults(settings ?? {});
 
         this._updateFrameAxis(renderable);
       }
     }
   };
+
+  private getRenderableSettingsWithDefaults(
+    partialDefinedSettings: Partial<LayerSettingsTransform>,
+  ): LayerSettingsTransform {
+    return { ...this.defaultRenderableSettings, ...partialDefinedSettings };
+  }
 
   private handleTransformTreeUpdated = (): void => {
     for (const frameId of this.renderer.transformTree.frames().keys()) {
@@ -426,7 +434,6 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     label.setBillboard(true);
     label.setText(text);
     label.setLineHeight(config.scene.transforms?.labelSize ?? DEFAULT_TF_LABEL_SIZE);
-    label.visible = config.scene.transforms?.showLabel ?? true;
     label.setColor(this.labelForegroundColor, this.labelForegroundColor, this.labelForegroundColor);
     label.setBackgroundColor(
       this.labelBackgroundColor.r,
@@ -437,14 +444,13 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     // Set the initial settings from default values merged with any user settings
     const frameKey = `frame:${frameId}`;
     const userSettings = config.transforms[frameKey] as Partial<LayerSettingsTransform> | undefined;
-    const settings = { ...DEFAULT_SETTINGS, ...userSettings };
+    const settings = this.getRenderableSettingsWithDefaults(userSettings ?? {});
 
     // Parent line
     const parentLine = new Line2(this.lineGeometry, this.lineMaterial);
     parentLine.castShadow = true;
     parentLine.receiveShadow = false;
     parentLine.userData.pickingMaterial = this.linePickingMaterial;
-    parentLine.visible = false;
 
     // Three arrow axis
     const axis = new Axis(frameId, this.renderer);

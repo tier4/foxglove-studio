@@ -20,6 +20,7 @@ extends:
   - plugin:@foxglove/base
   - plugin:@foxglove/react
   - plugin:@foxglove/jest
+  - plugin:storybook/recommended
 
 settings:
   import/internal-regex: "^@foxglove"
@@ -67,14 +68,6 @@ rules:
   no-restricted-imports:
     - error
     - paths:
-        - name: "@mui/material"
-          importNames: [styled]
-          message: "@mui/styled has performance implications. Use tss-react/mui instead."
-        - name: "@mui/material/styles/styled"
-          message: "@mui/styled has performance implications. Use tss-react/mui instead."
-        - name: "@emotion/styled"
-          message: "@emotion/styled has performance implications. Use tss-react/mui instead."
-
         - name: "lodash"
           importNames: [get]
           message: "Use optional chaining instead of lodash.get."
@@ -98,6 +91,11 @@ rules:
         the `ReactNull` alias. Otherwise, if strictly necessary, disable this error with
         `// eslint-disable-next-line no-restricted-syntax`. For rationale, see:
         https://github.com/sindresorhus/meta/discussions/7"
+
+    - selector: "CallExpression[callee.name='setTimeout'][arguments.length<2]"
+      message: "`setTimeout()` must be invoked with at least two arguments."
+    - selector: "CallExpression[callee.name='setInterval'][arguments.length<2]"
+      message: "`setInterval()` must be invoked with at least two arguments."
 
   jest/expect-expect:
     [error, { assertFunctionNames: [expect*, sendNotification.expectCalledDuringTest] }]
@@ -148,7 +146,7 @@ overrides:
       - "**/*.stories.tsx"
 
   - rules:
-      no-restricted-imports: off
+      "@foxglove/no-restricted-imports": off
     files:
       # Ignore existing implementations of @mui/styled
       - "packages/studio-base/src/components/DataSourceSidebar/DataSourceSidebar.tsx"
@@ -170,7 +168,6 @@ overrides:
       - "packages/studio-base/src/components/TextHighlight.tsx"
       - "packages/studio-base/src/panels/Image/components/Toolbar.tsx"
       - "packages/studio-base/src/panels/Image/components/ZoomMenu.tsx"
-      - "packages/studio-base/src/panels/NodePlayground/BottomBar/DiagnosticsSection.tsx"
       - "packages/studio-base/src/panels/NodePlayground/BottomBar/index.tsx"
       - "packages/studio-base/src/panels/NodePlayground/Sidebar.tsx"
       - "packages/studio-base/src/panels/NodePlayground/index.tsx"
