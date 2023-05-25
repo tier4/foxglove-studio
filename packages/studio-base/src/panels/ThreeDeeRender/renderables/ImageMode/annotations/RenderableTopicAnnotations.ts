@@ -6,16 +6,21 @@ import * as THREE from "three";
 
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { Annotation as NormalizedAnnotation } from "@foxglove/studio-base/panels/Image/types";
+import { RosObject } from "@foxglove/studio-base/players/types";
+import { LabelPool } from "@foxglove/three-text";
 
 import { RenderableLineAnnotation } from "./RenderableLineAnnotation";
 import { RenderablePointsAnnotation } from "./RenderablePointsAnnotation";
+import { RenderableTextAnnotation } from "./RenderableTextAnnotation";
 
 /**
  * Holds renderables for all the 2D image annotations on a single topic.
  */
 export class RenderableTopicAnnotations extends THREE.Object3D {
+  #labelPool: LabelPool;
   #points: RenderablePointsAnnotation[] = [];
   #lines: RenderableLineAnnotation[] = [];
+  #texts: RenderableTextAnnotation[] = [];
 
   #scale = 0;
   #canvasWidth = 0;
@@ -28,6 +33,15 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
 
   #cameraModel?: PinholeCameraModel;
   #cameraModelNeedsUpdate = false;
+
+  #originalMessage?: RosObject;
+  #topicName: string;
+
+  public constructor(topicName: string, labelPool: LabelPool) {
+    super();
+    this.#labelPool = labelPool;
+    this.#topicName = topicName;
+  }
 
   public dispose(): void {
     for (const points of this.#points) {
@@ -51,6 +65,10 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
     this.#pixelRatio = pixelRatio;
   }
 
+  public setOriginalMessage(originalMessage: RosObject | undefined): void {
+    this.#originalMessage = originalMessage;
+  }
+
   public setCameraModel(cameraModel: PinholeCameraModel | undefined): void {
     this.#cameraModelNeedsUpdate ||= this.#cameraModel !== cameraModel;
     this.#cameraModel = cameraModel;
@@ -70,6 +88,9 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
       for (const lineList of this.#lines) {
         lineList.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
       }
+      for (const text of this.#texts) {
+        text.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
+      }
     }
 
     if (this.#cameraModelNeedsUpdate) {
@@ -80,6 +101,9 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
       for (const lineList of this.#lines) {
         lineList.setCameraModel(this.#cameraModel);
       }
+      for (const text of this.#texts) {
+        text.setCameraModel(this.#cameraModel);
+      }
     }
 
     const updateRenderables = () => {
@@ -88,6 +112,9 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
       }
       for (const lineList of this.#lines) {
         lineList.update();
+      }
+      for (const text of this.#texts) {
+        text.update();
       }
     };
 
@@ -102,19 +129,30 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
     this.#points = [];
     const unusedLines = this.#lines;
     this.#lines = [];
+    const unusedTexts = this.#texts;
+    this.#texts = [];
 
     for (const annotation of this.#annotations) {
       switch (annotation.type) {
-        case "circle":
-          // not yet implemented
+        case "circle": {
+          let line = unusedLines.pop();
+          if (!line) {
+            line = new RenderableLineAnnotation(this.#topicName);
+            line.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
+            line.setCameraModel(this.#cameraModel);
+            this.add(line);
+          }
+          this.#lines.push(line);
+          line.setAnnotationFromCircle(annotation, this.#originalMessage);
           break;
+        }
 
         case "points":
           switch (annotation.style) {
             case "points": {
               let points = unusedPoints.pop();
               if (!points) {
-                points = new RenderablePointsAnnotation();
+                points = new RenderablePointsAnnotation(this.#topicName);
                 points.setScale(
                   this.#scale,
                   this.#canvasWidth,
@@ -127,6 +165,7 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
               this.#points.push(points);
               points.setAnnotation(
                 annotation as typeof annotation & { style: typeof annotation.style },
+                this.#originalMessage,
               );
               break;
             }
@@ -136,7 +175,7 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
             case "line_list": {
               let line = unusedLines.pop();
               if (!line) {
-                line = new RenderableLineAnnotation();
+                line = new RenderableLineAnnotation(this.#topicName);
                 line.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
                 line.setCameraModel(this.#cameraModel);
                 this.add(line);
@@ -144,15 +183,25 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
               this.#lines.push(line);
               line.setAnnotation(
                 annotation as typeof annotation & { style: typeof annotation.style },
+                this.#originalMessage,
               );
               break;
             }
           }
           break;
 
-        case "text":
-          // not yet implemented
+        case "text": {
+          let text = unusedTexts.pop();
+          if (!text) {
+            text = new RenderableTextAnnotation(this.#topicName, this.#labelPool);
+            text.setScale(this.#scale, this.#canvasWidth, this.#canvasHeight, this.#pixelRatio);
+            text.setCameraModel(this.#cameraModel);
+            this.add(text);
+          }
+          this.#texts.push(text);
+          text.setAnnotation(annotation, this.#originalMessage);
           break;
+        }
       }
     }
 
@@ -165,6 +214,10 @@ export class RenderableTopicAnnotations extends THREE.Object3D {
     for (const lineList of unusedLines) {
       lineList.removeFromParent();
       lineList.dispose();
+    }
+    for (const text of unusedTexts) {
+      text.removeFromParent();
+      text.dispose();
     }
   }
 }

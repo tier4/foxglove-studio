@@ -14,7 +14,7 @@
 import { Edit16Filled } from "@fluentui/react-icons";
 import { Button, Typography } from "@mui/material";
 import { ChartOptions, ScaleOptions } from "chart.js";
-import { uniq } from "lodash";
+import { isEmpty, pickBy, uniq } from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useResizeDetector } from "react-resize-detector";
 import tinycolor from "tinycolor2";
@@ -25,7 +25,10 @@ import { add as addTimes, fromSec, subtract as subtractTimes, toSec } from "@fox
 import * as PanelAPI from "@foxglove/studio-base/PanelAPI";
 import { useBlocksByTopic } from "@foxglove/studio-base/PanelAPI";
 import { getTopicsFromPaths } from "@foxglove/studio-base/components/MessagePathSyntax/parseRosPath";
-import { useDecodeMessagePathsForMessagesByTopic } from "@foxglove/studio-base/components/MessagePathSyntax/useCachedGetMessagePathDataItems";
+import {
+  MessageDataItemsByPath,
+  useDecodeMessagePathsForMessagesByTopic,
+} from "@foxglove/studio-base/components/MessagePathSyntax/useCachedGetMessagePathDataItems";
 import useMessagesByPath from "@foxglove/studio-base/components/MessagePathSyntax/useMessagesByPath";
 import {
   MessagePipelineContext,
@@ -39,7 +42,7 @@ import Stack from "@foxglove/studio-base/components/Stack";
 import TimeBasedChart from "@foxglove/studio-base/components/TimeBasedChart";
 import { ChartData, ChartDatasets } from "@foxglove/studio-base/components/TimeBasedChart/types";
 import { useSelectedPanels } from "@foxglove/studio-base/context/CurrentLayoutContext";
-import { useWorkspaceActions } from "@foxglove/studio-base/context/WorkspaceContext";
+import { useWorkspaceActions } from "@foxglove/studio-base/context/Workspace/useWorkspaceActions";
 import { OnClickArg as OnChartClickArgs } from "@foxglove/studio-base/src/components/Chart";
 import { OpenSiblingPanel, PanelConfig, SaveConfig } from "@foxglove/studio-base/types/panels";
 import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
@@ -66,8 +69,9 @@ export const transitionableRosTypes = [
 const fontFamily = fonts.MONOSPACE;
 const fontSize = 10;
 const fontWeight = "bold";
+const EMPTY_ITEMS_BY_PATH: MessageDataItemsByPath = {};
 
-const useStyles = makeStyles<void, "button">()((theme) => ({
+const useStyles = makeStyles()((theme) => ({
   chartWrapper: {
     position: "relative",
     marginTop: theme.spacing(0.5),
@@ -207,6 +211,17 @@ const StateTransitions = React.memo(function StateTransitions(props: Props) {
     };
   }, [paths.length]);
 
+  // If our blocks data covers all paths in the chart then ignore the data in itemsByPath
+  // since it's not needed to render the chart and would just cause unnecessary re-renders
+  // if included in the dataset.
+  const newItemsByPath = useMemo(() => {
+    const newItemsNotInBlocks = pickBy(
+      itemsByPath,
+      (_items, path) => !decodedBlocks.some((block) => block[path]),
+    );
+    return isEmpty(newItemsNotInBlocks) ? EMPTY_ITEMS_BY_PATH : newItemsNotInBlocks;
+  }, [decodedBlocks, itemsByPath]);
+
   const { datasets, minY } = useMemo(() => {
     // ignore all data when we don't have a start time
     if (!startTime) {
@@ -227,35 +242,28 @@ const StateTransitions = React.memo(function StateTransitions(props: Props) {
 
       const blocksForPath = decodedBlocks.map((decodedBlock) => decodedBlock[path.value]);
 
-      {
-        const newDataSets = messagesToDatasets({
-          path,
-          startTime,
-          y,
-          pathIndex,
-          blocks: blocksForPath,
-        });
+      const newBlockDataSets = messagesToDatasets({
+        path,
+        startTime,
+        y,
+        pathIndex,
+        blocks: blocksForPath,
+      });
 
-        outDatasets = outDatasets.concat(newDataSets);
-      }
+      outDatasets = outDatasets.concat(newBlockDataSets);
 
-      // If we have have messages in blocks for this path, we ignore streamed messages and only
-      // display the messages from blocks.
-      const haveBlocksForPath = blocksForPath.some((item) => item != undefined);
-      if (haveBlocksForPath) {
-        return;
-      }
-
-      const items = itemsByPath[path.value];
+      // We have already filtered out paths we can find in blocks so anything left here
+      // should be included in the dataset.
+      const items = newItemsByPath[path.value];
       if (items) {
-        const newDataSets = messagesToDatasets({
+        const newPathDataSets = messagesToDatasets({
           path,
           startTime,
           y,
           pathIndex,
           blocks: [items],
         });
-        outDatasets = outDatasets.concat(newDataSets);
+        outDatasets = outDatasets.concat(newPathDataSets);
       }
     });
 
@@ -263,7 +271,7 @@ const StateTransitions = React.memo(function StateTransitions(props: Props) {
       datasets: outDatasets,
       minY: outMinY,
     };
-  }, [itemsByPath, decodedBlocks, paths, startTime]);
+  }, [startTime, paths, decodedBlocks, newItemsByPath]);
 
   const yScale = useMemo<ScaleOptions<"linear">>(() => {
     return {
@@ -366,6 +374,7 @@ const StateTransitions = React.memo(function StateTransitions(props: Props) {
                 <Button
                   size="small"
                   color="inherit"
+                  data-testid="edit-topic-button"
                   className={classes.button}
                   endIcon={<Edit16Filled />}
                   onClick={() => {

@@ -14,6 +14,7 @@
 import { memoize } from "lodash";
 import memoizeWeak from "memoize-weak";
 
+import { Immutable } from "@foxglove/studio";
 import { MessagePathFilter } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
 import { isTypicalFilterName } from "@foxglove/studio-base/components/MessagePathSyntax/isTypicalFilterName";
 import { quoteFieldNameIfNeeded } from "@foxglove/studio-base/components/MessagePathSyntax/parseRosPath";
@@ -72,10 +73,10 @@ function structureItemIsIntegerPrimitive(item: MessagePathStructureItem) {
 //     }
 //   }
 // }
-let lastDatatypes: RosDatatypes | undefined;
+let lastDatatypes: Immutable<RosDatatypes> | undefined;
 let lastStructures: Record<string, MessagePathStructureItemMessage> | undefined;
 export function messagePathStructures(
-  datatypes: RosDatatypes,
+  datatypes: Immutable<RosDatatypes>,
 ): Record<string, MessagePathStructureItemMessage> {
   if (lastDatatypes === datatypes && lastStructures) {
     return lastStructures;
@@ -163,7 +164,7 @@ export function validTerminatingStructureItem(
 // list out all valid strings for the `messagePath` part of the path (sorted).
 export function messagePathsForDatatype(
   datatype: string,
-  datatypes: RosDatatypes,
+  datatypes: Immutable<RosDatatypes>,
   {
     validTypes,
     noMultiSlices,
@@ -266,25 +267,13 @@ export const traverseStructure = memoizeWeak(
       if (!structureItem) {
         return { valid: false, msgPathPart, structureItem };
       }
-      if ("primitiveType" in structureItem && structureItem.primitiveType === "json") {
-        // No need to continue validating if we're dealing with JSON. We
-        // essentially treat all nested values as valid.
-        continue;
-      } else if (msgPathPart.type === "name") {
+      if (msgPathPart.type === "name") {
         if (structureItem.structureType !== "message") {
           return { valid: false, msgPathPart, structureItem };
         }
         const next: MessagePathStructureItem | undefined =
           structureItem.nextByName[msgPathPart.name];
-        const nextStructureIsJson: boolean =
-          next != undefined && next.structureType === "primitive" && next.primitiveType === "json";
-        structureItem = !nextStructureIsJson
-          ? next
-          : {
-              structureType: "primitive",
-              primitiveType: "json",
-              datatype: next ? next.datatype : "",
-            };
+        structureItem = next;
       } else if (msgPathPart.type === "slice") {
         if (structureItem.structureType !== "array") {
           return { valid: false, msgPathPart, structureItem };

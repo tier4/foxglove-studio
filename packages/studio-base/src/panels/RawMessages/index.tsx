@@ -30,9 +30,9 @@ import { first, isEqual, get, last, padStart } from "lodash";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import ReactHoverObserver from "react-hover-observer";
 import Tree from "react-json-tree";
-import { DeepReadonly } from "ts-essentials";
 import { makeStyles } from "tss-react/mui";
 
+import { Immutable } from "@foxglove/studio";
 import { useDataSourceInfo } from "@foxglove/studio-base/PanelAPI";
 import EmptyState from "@foxglove/studio-base/components/EmptyState";
 import useGetItemStringWithTimezone from "@foxglove/studio-base/components/JsonTree/useGetItemStringWithTimezone";
@@ -63,7 +63,7 @@ import { useJsonTreeTheme } from "@foxglove/studio-base/util/globalConstants";
 import { enumValuesByDatatypeAndField } from "@foxglove/studio-base/util/selectors";
 import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
-import DiffSpan from "./DiffSpan";
+import { DiffSpan } from "./DiffSpan";
 import DiffStats from "./DiffStats";
 import MaybeCollapsedValue from "./MaybeCollapsedValue";
 import Metadata from "./Metadata";
@@ -80,7 +80,7 @@ export const CUSTOM_METHOD = "custom";
 export const PREV_MSG_METHOD = "previous message";
 
 type Props = {
-  config: DeepReadonly<RawMessagesPanelConfig>;
+  config: Immutable<RawMessagesPanelConfig>;
   saveConfig: SaveConfig<RawMessagesPanelConfig>;
 };
 
@@ -433,7 +433,13 @@ function RawMessages(props: Props) {
       : {};
 
     return (
-      <Stack className={classes.topic} flex="auto" overflowX="hidden" paddingLeft={0.75}>
+      <Stack
+        className={classes.topic}
+        flex="auto"
+        overflowX="hidden"
+        paddingLeft={0.75}
+        data-testid="panel-scroll-container"
+      >
         <Metadata
           data={data}
           diffData={diffData}

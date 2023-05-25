@@ -14,28 +14,31 @@
 import { useTheme } from "@mui/material";
 import { TFunction } from "i18next";
 import { flatten } from "lodash";
-import { ComponentProps, ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ComponentProps, ReactNode, useLayoutEffect, useMemo, useState } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useTranslation } from "react-i18next";
 import { Mosaic, MosaicNode, MosaicWindow } from "react-mosaic-component";
 
 import { useShallowMemo } from "@foxglove/hooks";
-import { MessageEvent, SettingsTree } from "@foxglove/studio";
+import {
+  MessageEvent,
+  ParameterValue,
+  RegisterMessageConverterArgs,
+  SettingsTree,
+} from "@foxglove/studio";
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
 import SettingsTreeEditor from "@foxglove/studio-base/components/SettingsTreeEditor";
 import AppConfigurationContext from "@foxglove/studio-base/context/AppConfigurationContext";
-import {
-  CurrentLayoutActions,
-  SelectedPanelActions,
-  useCurrentLayoutActions,
-  useSelectedPanels,
-} from "@foxglove/studio-base/context/CurrentLayoutContext";
+import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import { PanelsActions } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
 import PanelCatalogContext, {
   PanelCatalog,
 } from "@foxglove/studio-base/context/PanelCatalogContext";
-import { usePanelStateStore } from "@foxglove/studio-base/context/PanelStateContext";
+import {
+  PanelStateStore,
+  usePanelStateStore,
+} from "@foxglove/studio-base/context/PanelStateContext";
 import {
   UserNodeStateProvider,
   useUserNodeState,
@@ -64,7 +67,7 @@ import "react-mosaic-component/react-mosaic-component.css";
 function noop() {}
 
 type Frame = {
-  [topic: string]: MessageEvent<unknown>[];
+  [topic: string]: MessageEvent[];
 };
 
 export type Fixture = {
@@ -86,21 +89,19 @@ export type Fixture = {
   publish?: (request: PublishPayload) => void;
   setPublishers?: (publisherId: string, advertisements: AdvertiseOptions[]) => void;
   setSubscriptions?: ComponentProps<typeof MockMessagePipelineProvider>["setSubscriptions"];
+  setParameter?: (key: string, value: ParameterValue) => void;
+  messageConverters?: readonly RegisterMessageConverterArgs<unknown>[];
+  panelState?: Partial<PanelStateStore>;
 };
 
 type UnconnectedProps = {
   children: React.ReactNode;
   fixture?: Fixture;
   includeSettings?: boolean;
+  settingsWidth?: number;
   panelCatalog?: PanelCatalog;
   omitDragAndDrop?: boolean;
   pauseFrame?: ComponentProps<typeof MockMessagePipelineProvider>["pauseFrame"];
-  onMount?: (
-    arg0: HTMLDivElement,
-    actions: CurrentLayoutActions,
-    selectedPanelActions: SelectedPanelActions,
-  ) => void;
-  onFirstMount?: (arg0: HTMLDivElement) => void;
   style?: React.CSSProperties;
   // Needed for functionality not in React.CSSProperties, like child selectors: "& > *"
   className?: string;
@@ -181,16 +182,22 @@ const EmptyTree: SettingsTree = {
 function PanelWrapper({
   children,
   includeSettings = false,
+  settingsWidth,
 }: {
   children?: ReactNode;
   includeSettings?: boolean;
+  settingsWidth?: number;
 }): JSX.Element {
   const settings =
     usePanelStateStore((store) => Object.values(store.settingsTrees)[0]) ?? EmptyTree;
 
   return (
     <>
-      {includeSettings && <SettingsTreeEditor settings={settings} />}
+      {includeSettings && (
+        <div style={{ overflow: "auto", width: settingsWidth }}>
+          <SettingsTreeEditor settings={settings} />
+        </div>
+      )}
       {children}
     </>
   );
@@ -211,10 +218,7 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
     removeChangeListener() {},
   }));
 
-  const hasMounted = useRef(false);
-
   const actions = useCurrentLayoutActions();
-  const selectedPanels = useSelectedPanels();
   const { setUserNodeDiagnostics, addUserNodeLogs, setUserNodeRosLib } = useUserNodeState();
   const userNodeActions = useShallowMemo({
     setUserNodeDiagnostics,
@@ -277,6 +281,7 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
     publish,
     setPublishers,
     setSubscriptions,
+    setParameter,
   } = props.fixture ?? {};
   let dTypes = datatypes;
   if (!dTypes) {
@@ -294,16 +299,6 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
     <div
       style={{ width: "100%", height: "100%", display: "flex", ...props.style }}
       className={props.className}
-      ref={(el) => {
-        const { onFirstMount, onMount } = props;
-        if (el && onFirstMount && !hasMounted.current) {
-          hasMounted.current = true;
-          onFirstMount(el);
-        }
-        if (el && onMount) {
-          onMount(el, actions, selectedPanels);
-        }
-      }}
     >
       <MockMessagePipelineProvider
         capabilities={capabilities}
@@ -320,10 +315,16 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
         seekPlayback={noop}
         setPublishers={setPublishers}
         setSubscriptions={setSubscriptions}
+        setParameter={setParameter}
       >
         <PanelCatalogContext.Provider value={mockPanelCatalog}>
           <AppConfigurationContext.Provider value={mockAppConfiguration}>
-            <PanelWrapper includeSettings={props.includeSettings}>{props.children}</PanelWrapper>
+            <PanelWrapper
+              includeSettings={props.includeSettings}
+              settingsWidth={props.settingsWidth}
+            >
+              {props.children}
+            </PanelWrapper>
           </AppConfigurationContext.Provider>
         </PanelCatalogContext.Provider>
       </MockMessagePipelineProvider>
@@ -341,6 +342,7 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
 
 type Props = UnconnectedProps & {
   includeSettings?: boolean;
+  settingsWidth?: number;
   onLayoutAction?: (action: PanelsActions) => void;
 };
 
@@ -351,8 +353,11 @@ export default function PanelSetup(props: Props): JSX.Element {
       <UserNodeStateProvider>
         <TimelineInteractionStateProvider>
           <MockCurrentLayoutProvider onAction={props.onLayoutAction}>
-            <PanelStateContextProvider>
-              <ExtensionCatalogProvider loaders={[]}>
+            <PanelStateContextProvider initialState={props.fixture?.panelState}>
+              <ExtensionCatalogProvider
+                loaders={[]}
+                mockMessageConverters={props.fixture?.messageConverters}
+              >
                 <ThemeProvider isDark={theme.palette.mode === "dark"}>
                   <UnconnectedPanelSetup {...props} />
                 </ThemeProvider>

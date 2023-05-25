@@ -16,6 +16,7 @@ import {
 import { useMemo } from "react";
 import { makeStyles } from "tss-react/mui";
 
+import EmptyState from "@foxglove/studio-base/components/EmptyState";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -28,10 +29,8 @@ const useStyles = makeStyles()((theme) => ({
   acccordion: {
     background: "none",
     boxShadow: "none",
+    borderBottom: `1px solid ${theme.palette.divider}`,
 
-    "&:not(:last-child)": {
-      borderBottom: 0,
-    },
     "&:before": {
       display: "none",
     },
@@ -139,39 +138,30 @@ export function ProblemsList(): JSX.Element {
   const playerProblems = useMessagePipeline(selectPlayerProblems) ?? [];
 
   if (playerProblems.length === 0) {
-    return (
-      <Stack flex="auto" padding={2} fullHeight alignItems="center" justifyContent="center">
-        <Typography align="center" color="text.secondary">
-          No problems found
-        </Typography>
-      </Stack>
-    );
+    return <EmptyState>No problems found</EmptyState>;
   }
 
   return (
     <Stack fullHeight flex="auto" overflow="auto">
-      {playerProblems.map((problem) => (
-        <>
-          <Accordion
-            className={classes.acccordion}
-            key={problem.message}
-            TransitionProps={{ unmountOnExit: true }}
-            defaultExpanded
+      {playerProblems.map((problem, idx) => (
+        <Accordion
+          className={classes.acccordion}
+          key={`${idx}.${problem.severity}.${problem.message}`}
+          TransitionProps={{ unmountOnExit: true }}
+          defaultExpanded
+        >
+          <AccordionSummary
+            className={classes.acccordionSummary}
+            expandIcon={<ArrowDropDownIcon />}
           >
-            <AccordionSummary
-              className={classes.acccordionSummary}
-              expandIcon={<ArrowDropDownIcon />}
-            >
-              <ProblemIcon severity={problem.severity} />
-              <Typography variant="inherit" noWrap>
-                {problem.message}
-              </Typography>
-            </AccordionSummary>
-            <Divider />
-            <ProblemDetails details={problem.error} tip={problem.tip} />
-          </Accordion>
+            <ProblemIcon severity={problem.severity} />
+            <Typography variant="inherit" noWrap>
+              {problem.message}
+            </Typography>
+          </AccordionSummary>
           <Divider />
-        </>
+          <ProblemDetails details={problem.error} tip={problem.tip} />
+        </Accordion>
       ))}
     </Stack>
   );

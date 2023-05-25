@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 import { useShallowMemo } from "@foxglove/hooks";
+import { Immutable } from "@foxglove/studio";
 import {
   useMessagePipeline,
   MessagePipelineContext,
@@ -26,22 +27,22 @@ import {
   MessageBlock as PlayerMessageBlock,
 } from "@foxglove/studio-base/players/types";
 
-export type MessageBlock = {
-  readonly [topicName: string]: readonly MessageEvent<unknown>[];
-};
+export type MessageBlock = Immutable<{
+  [topicName: string]: MessageEvent[];
+}>;
 
 // Memoization probably won't speed up the filtering appreciably, but preserves return identity.
 // That said, MessageBlock identity will change when the set of topics changes, so consumers should
 // prefer to use the identity of topic-block message arrays where possible.
 const filterBlockByTopics = memoizeWeak(
-  (block: PlayerMessageBlock | undefined, topics: readonly string[]): MessageBlock => {
+  (block: Immutable<PlayerMessageBlock> | undefined, topics: readonly string[]): MessageBlock => {
     if (!block) {
       // For our purposes, a missing MemoryCacheBlock just means "no topics have been cached for
       // this block". This is semantically different to an empty array per topic, but not different
       // to a MemoryCacheBlock with no per-topic arrays.
       return {};
     }
-    const ret: Record<string, readonly MessageEvent<unknown>[]> = {};
+    const ret: Record<string, readonly MessageEvent[]> = {};
     for (const topic of topics) {
       // Don't include an empty array when the data has not been cached for this topic for this
       // block. The missing entry means "we don't know the message for this topic in this block", as
@@ -93,7 +94,7 @@ export function useBlocksByTopic(topics: readonly string[]): readonly MessageBlo
 
   useSubscribeToTopicsForBlocks(requestedTopics);
 
-  const allBlocks = useMessagePipeline<readonly (PlayerMessageBlock | undefined)[] | undefined>(
+  const allBlocks = useMessagePipeline<Immutable<(PlayerMessageBlock | undefined)[] | undefined>>(
     useCallback((ctx) => ctx.playerState.progress.messageCache?.blocks, []),
   );
 

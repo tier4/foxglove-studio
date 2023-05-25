@@ -15,7 +15,7 @@ import { createTssReactNameTransformer } from "@foxglove/typescript-transformers
 
 import { WebpackArgv } from "./WebpackArgv";
 
-if (monacoPkg.version !== "0.30.1") {
+if (monacoPkg.version !== "0.38.0") {
   throw new Error(`
     It looks like you are trying to change the version of Monaco.
 
@@ -84,6 +84,10 @@ export function makeConfig(
         // punycode is a dependency for some older webpack v4 browser libs
         // It adds unecessary bloat to the build so we make sure it isn't included
         punycode: false,
+
+        // Workaround for https://github.com/react-dnd/react-dnd/issues/3423
+        "react/jsx-runtime": "react/jsx-runtime.js",
+        "react/jsx-dev-runtime": "react/jsx-dev-runtime.js",
       },
     },
     module: {

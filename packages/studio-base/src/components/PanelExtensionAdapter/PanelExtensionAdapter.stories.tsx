@@ -7,12 +7,18 @@ import { ReactElement, useLayoutEffect, useState } from "react";
 import ReactDOM from "react-dom";
 
 import { toSec } from "@foxglove/rostime";
-import { PanelExtensionContext, ParameterValue, RenderState, Time } from "@foxglove/studio";
+import {
+  Immutable,
+  PanelExtensionContext,
+  ParameterValue,
+  RenderState,
+  Time,
+} from "@foxglove/studio";
 import ErrorBoundary from "@foxglove/studio-base/components/ErrorBoundary";
 import MockPanelContextProvider from "@foxglove/studio-base/components/MockPanelContextProvider";
 import PanelSetup from "@foxglove/studio-base/stories/PanelSetup";
 
-import PanelExtensionAdapter from "./PanelExtensionAdapter";
+import PanelExtensionAdapter, { VERSION_CONFIG_KEY } from "./PanelExtensionAdapter";
 
 export default {
   title: "PanelExtensionAdapter",
@@ -60,12 +66,12 @@ export const CatchRenderError: StoryObj = {
 
 function SimplePanel({ context }: { context: PanelExtensionContext }) {
   const [currentTime, setCurrentTime] = useState<Time | undefined>(undefined);
-  const [parameters, setParameters] = useState<ReadonlyMap<string, ParameterValue>>(new Map());
+  const [parameters, setParameters] = useState<Immutable<Map<string, ParameterValue>>>(new Map());
 
   useLayoutEffect(() => {
     context.watch("currentTime");
     context.watch("parameters");
-    context.onRender = (renderState: RenderState, done) => {
+    context.onRender = (renderState: Immutable<RenderState>, done) => {
       setCurrentTime(renderState.currentTime);
       if (renderState.parameters != undefined) {
         setParameters(renderState.parameters);
@@ -108,6 +114,27 @@ export const SimplePanelRender: StoryObj = {
       >
         <MockPanelContextProvider>
           <PanelExtensionAdapter config={{}} saveConfig={() => {}} initPanel={initPanel} />
+        </MockPanelContextProvider>
+      </PanelSetup>
+    );
+  },
+};
+
+export const ConfigTooNew: StoryObj = {
+  render: (): ReactElement => {
+    function initPanel() {
+      throw new Error("Should not be called");
+    }
+
+    return (
+      <PanelSetup>
+        <MockPanelContextProvider>
+          <PanelExtensionAdapter
+            highestSupportedConfigVersion={1}
+            config={{ [VERSION_CONFIG_KEY]: 2 }}
+            saveConfig={() => {}}
+            initPanel={initPanel}
+          />
         </MockPanelContextProvider>
       </PanelSetup>
     );

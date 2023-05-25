@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Time } from "@foxglove/rostime";
-import { MessageEvent, ParameterValue } from "@foxglove/studio";
+import { Immutable, MessageEvent, ParameterValue } from "@foxglove/studio";
 import {
   AdvertiseOptions,
   PlayerState,
@@ -14,12 +14,12 @@ import {
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
 
 type ResumeFrame = () => void;
-export type MessagePipelineContext = {
+export type MessagePipelineContext = Immutable<{
   playerState: PlayerState;
   sortedTopics: Topic[];
   datatypes: RosDatatypes;
   subscriptions: SubscribePayload[];
-  messageEventsBySubscriberId: Map<string, MessageEvent<unknown>[]>;
+  messageEventsBySubscriberId: Map<string, MessageEvent[]>;
   setSubscriptions: (id: string, subscriptionsForId: SubscribePayload[]) => void;
   setPublishers: (id: string, publishersForId: AdvertiseOptions[]) => void;
   setParameter: (key: string, value: ParameterValue) => void;
@@ -32,4 +32,4 @@ export type MessagePipelineContext = {
   seekPlayback?: (time: Time) => void;
   // Don't render the next frame until the returned function has been called.
   pauseFrame: (name: string) => ResumeFrame;
-};
+}>;
