@@ -7,6 +7,7 @@ import { renderHook, act } from "@testing-library/react-hooks";
 import { useSnackbar } from "notistack";
 import { PropsWithChildren } from "react";
 
+import { useSessionStorageValue } from "@foxglove/hooks";
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
 import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import CurrentUserContext, { User } from "@foxglove/studio-base/context/CurrentUserContext";
@@ -18,7 +19,6 @@ import {
   useInitialDeepLinkState,
   formatLayoutUrl,
 } from "@foxglove/studio-base/hooks/useInitialDeepLinkState";
-import { useSessionStorageValue } from "@foxglove/studio-base/hooks/useSessionStorageValue";
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
 import { LaunchPreferenceValue } from "@foxglove/studio-base/types/LaunchPreferenceValue";
 
