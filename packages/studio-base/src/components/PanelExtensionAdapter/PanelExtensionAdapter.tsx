@@ -7,7 +7,7 @@ import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } 
 import { useLatest } from "react-use";
 import { v4 as uuid } from "uuid";
 
-import { useValueChangedDebugLog } from "@foxglove/hooks";
+import { useValueChangedDebugLog, useSynchronousMountedState } from "@foxglove/hooks";
 import Logger from "@foxglove/log";
 import { fromSec, toSec } from "@foxglove/rostime";
 import {
@@ -18,6 +18,7 @@ import {
   RenderState,
   SettingsTree,
   Subscription,
+  Time,
   VariableValue,
 } from "@foxglove/studio";
 import {
@@ -38,7 +39,6 @@ import {
   useSetHoverValue,
 } from "@foxglove/studio-base/context/TimelineInteractionStateContext";
 import useGlobalVariables from "@foxglove/studio-base/hooks/useGlobalVariables";
-import { useSynchronousMountedState } from "@foxglove/studio-base/hooks/useSynchronousMountedState";
 import {
   AdvertiseOptions,
   PlayerCapabilities,
@@ -98,7 +98,9 @@ type RenderFn = NonNullable<PanelExtensionContext["onRender"]>;
  *
  * The adapter creates a PanelExtensionContext and invokes initPanel using the context.
  */
-function PanelExtensionAdapter(props: PanelExtensionAdapterProps): JSX.Element {
+function PanelExtensionAdapter(
+  props: React.PropsWithChildren<PanelExtensionAdapterProps>,
+): JSX.Element {
   const { initPanel, config, saveConfig, highestSupportedConfigVersion } = props;
 
   // Unlike the react data flow, the config is only provided to the panel once on setup.
@@ -317,11 +319,12 @@ function PanelExtensionAdapter(props: PanelExtensionAdapterProps): JSX.Element {
       layout,
 
       seekPlayback: seekPlayback
-        ? (stamp: number) => {
+        ? (stamp: number | Time) => {
             if (!isMounted()) {
               return;
             }
-            seekPlayback(fromSec(stamp));
+            const seekTarget = typeof stamp === "object" ? stamp : fromSec(stamp);
+            seekPlayback(seekTarget);
           }
         : undefined,
 
@@ -607,6 +610,7 @@ function PanelExtensionAdapter(props: PanelExtensionAdapterProps): JSX.Element {
     >
       <PanelToolbar />
       {configTooNew && <PanelConfigVersionError />}
+      {props.children}
       <div style={{ flex: 1, overflow: "hidden" }} ref={panelContainerRef} />
     </div>
   );

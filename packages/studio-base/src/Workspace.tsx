@@ -32,15 +32,14 @@ import { TopicList } from "@foxglove/studio-base/components/DataSourceSidebar/To
 import DocumentDropListener from "@foxglove/studio-base/components/DocumentDropListener";
 import ExtensionsSettings from "@foxglove/studio-base/components/ExtensionsSettings";
 import KeyListener from "@foxglove/studio-base/components/KeyListener";
-import LayoutBrowser from "@foxglove/studio-base/components/LayoutBrowser";
 import {
   MessagePipelineContext,
   useMessagePipeline,
   useMessagePipelineGetter,
 } from "@foxglove/studio-base/components/MessagePipeline";
 import MultiProvider from "@foxglove/studio-base/components/MultiProvider";
+import { PanelCatalog } from "@foxglove/studio-base/components/PanelCatalog";
 import PanelLayout from "@foxglove/studio-base/components/PanelLayout";
-import PanelList from "@foxglove/studio-base/components/PanelList";
 import PanelSettings from "@foxglove/studio-base/components/PanelSettings";
 import PlaybackControls from "@foxglove/studio-base/components/PlaybackControls";
 import { ProblemsList } from "@foxglove/studio-base/components/ProblemsList";
@@ -151,7 +150,7 @@ function AddPanel() {
           />
         </Typography>
       ) : (
-        <PanelList onPanelSelect={addPanel} />
+        <PanelCatalog mode="list" onPanelSelect={addPanel} />
       )}
     </SidebarContent>
   );
@@ -240,7 +239,7 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
   );
   // Since we can't toggle the title bar on an electron window, keep the setting at its initial
   // value until the app is reloaded/relaunched.
-  const [currentEnableNewTopNav = false] = useAppConfigurationValue<boolean>(
+  const [currentEnableNewTopNav = true] = useAppConfigurationValue<boolean>(
     AppSetting.ENABLE_NEW_TOPNAV,
   );
 
@@ -267,67 +266,39 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
   }, []);
 
   useNativeAppMenuEvent(
-    "open-layouts",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("layouts");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-add-panel",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("add-panel");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-panel-settings",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("panel-settings");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-variables",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("variables");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-extensions",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("extensions");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-account",
-    useCallback(() => {
-      sidebarActions.legacy.selectItem("account");
-    }, [sidebarActions.legacy]),
-  );
-
-  useNativeAppMenuEvent(
-    "open-app-settings",
-    useCallback(() => {
-      dialogActions.preferences.open();
-    }, [dialogActions.preferences]),
+    "open",
+    useCallback(async () => dialogActions.dataSource.open("start"), [dialogActions.dataSource]),
   );
 
   useNativeAppMenuEvent(
     "open-file",
-    useCallback(() => dialogActions.dataSource.open("file"), [dialogActions.dataSource]),
+    useCallback(async () => await dialogActions.openFile.open(), [dialogActions.openFile]),
   );
 
   useNativeAppMenuEvent(
-    "open-remote-file",
-    useCallback(() => dialogActions.dataSource.open("remote"), [dialogActions.dataSource]),
+    "open-connection",
+    useCallback(() => dialogActions.dataSource.open("connection"), [dialogActions.dataSource]),
   );
 
   useNativeAppMenuEvent(
-    "open-sample-data",
+    "open-demo",
     useCallback(() => dialogActions.dataSource.open("demo"), [dialogActions.dataSource]),
+  );
+
+  useNativeAppMenuEvent(
+    "open-help-about",
+    useCallback(() => dialogActions.preferences.open("about"), [dialogActions.preferences]),
+  );
+
+  useNativeAppMenuEvent(
+    "open-help-general",
+    useCallback(() => dialogActions.preferences.open("general"), [dialogActions.preferences]),
+  );
+
+  useNativeAppMenuEvent("open-help-docs", () => window.open("https://foxglove.dev/docs", "_blank"));
+
+  useNativeAppMenuEvent("open-help-slack", () =>
+    window.open("https://foxglove.dev/slack", "_blank"),
   );
 
   const nativeAppMenu = useNativeAppMenu();
@@ -492,11 +463,13 @@ function WorkspaceContent(props: WorkspaceContentProps): JSX.Element {
     ]);
 
     if (!enableNewTopNav) {
-      topItems.set("layouts", {
-        iconName: "FiveTileGrid",
-        title: "Layouts",
-        component: AppContextLayoutBrowser ?? LayoutBrowser,
-      });
+      if (AppContextLayoutBrowser) {
+        topItems.set("layouts", {
+          iconName: "FiveTileGrid",
+          title: "Layouts",
+          component: AppContextLayoutBrowser,
+        });
+      }
       topItems.set("add-panel", {
         iconName: "RectangularClipping",
         title: "Add panel",

@@ -25,6 +25,8 @@ import {
   PanelContextMenuItem,
 } from "@foxglove/studio-base/components/PanelContextMenu";
 import Stack from "@foxglove/studio-base/components/Stack";
+import { useAnalytics } from "@foxglove/studio-base/context/AnalyticsContext";
+import { AppEvent } from "@foxglove/studio-base/services/IAnalytics";
 import inScreenshotTests from "@foxglove/studio-base/stories/inScreenshotTests";
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 import { CameraInfo } from "@foxglove/studio-base/types/Messages";
@@ -97,6 +99,7 @@ const useStyles = makeStyles<void, "timestamp">()((theme, _params, classes) => (
 }));
 
 export function ImageView({ context }: Props): JSX.Element {
+  const analytics = useAnalytics();
   const { classes, cx } = useStyles();
   const [renderDone, setRenderDone] = useState(() => () => {});
   const [topics, setTopics] = useState<readonly Topic[]>([]);
@@ -326,11 +329,12 @@ export function ImageView({ context }: Props): JSX.Element {
       return;
     }
 
+    void analytics.logEvent(AppEvent.IMAGE_DOWNLOAD, { legacy: true });
     await downloadImage(lastImageMessageRef.current, topic, config);
-  }, [imageTopics, cameraTopic, config]);
+  }, [imageTopics, analytics, config, cameraTopic]);
 
-  const contextMenuItemsForClickPosition = useCallback<() => PanelContextMenuItem[]>(
-    () => [
+  const getContextMenuItems = useCallback(
+    (): PanelContextMenuItem[] => [
       { type: "item", label: "Download image", onclick: doDownloadImage },
       { type: "divider" },
       {
@@ -401,7 +405,7 @@ export function ImageView({ context }: Props): JSX.Element {
           [classes.screenshotTest]: inScreenshotTests(),
         })}
       >
-        <PanelContextMenu itemsForClickPosition={contextMenuItemsForClickPosition} />
+        <PanelContextMenu getItems={getContextMenuItems} />
         <Stack fullWidth fullHeight>
           {/* Always render the ImageCanvas because it's expensive to unmount and start up. */}
           <ImageCanvas

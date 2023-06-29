@@ -22,7 +22,10 @@ import { useSessionStorageValue } from "@foxglove/studio-base/hooks/useSessionSt
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
 import { LaunchPreferenceValue } from "@foxglove/studio-base/types/LaunchPreferenceValue";
 
-jest.mock("@foxglove/studio-base/hooks/useSessionStorageValue");
+jest.mock("@foxglove/hooks", () => ({
+  ...jest.requireActual("@foxglove/hooks"),
+  useSessionStorageValue: jest.fn(),
+}));
 jest.mock("@foxglove/studio-base/context/CurrentLayoutContext");
 jest.mock("@foxglove/studio-base/context/LayoutManagerContext");
 jest.mock("notistack");
