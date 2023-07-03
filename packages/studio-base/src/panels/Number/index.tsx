@@ -11,14 +11,14 @@ import { PanelExtensionAdapter } from "@foxglove/studio-base/components/PanelExt
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
-import { Text } from "./Text";
+import { Number } from "./Number";
 import { Config } from "./types";
 
 function initPanel(context: PanelExtensionContext) {
   ReactDOM.render(
     <StrictMode>
       <ThemeProvider isDark>
-        <Text context={context} />
+        <Number context={context} />
       </ThemeProvider>
     </StrictMode>,
     context.panelElement,
@@ -33,7 +33,7 @@ type Props = {
   saveConfig: SaveConfig<Config>;
 };
 
-function TextPanelAdapter(props: Props) {
+function NumberPanelAdapter(props: Props) {
   return (
     <PanelExtensionAdapter
       config={props.config}
@@ -43,7 +43,7 @@ function TextPanelAdapter(props: Props) {
   );
 }
 
-TextPanelAdapter.panelType = "TextPanel";
-TextPanelAdapter.defaultConfig = {};
+NumberPanelAdapter.panelType = "NumberPanel";
+NumberPanelAdapter.defaultConfig = {};
 
 export default Panel(TextPanelAdapter);

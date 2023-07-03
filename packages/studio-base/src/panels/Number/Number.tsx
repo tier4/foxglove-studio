@@ -116,7 +116,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function Text({ context }: Props): JSX.Element {
+export function Number({ context }: Props): JSX.Element {
   // panel extensions must notify when they've completed rendering
   // onRender will setRenderDone to a done callback which we can invoke after we've rendered
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});

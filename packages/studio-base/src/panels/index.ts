@@ -22,7 +22,7 @@ import stateTransitionsThumbnail from "./StateTransitions/thumbnail.png";
 import tabThumbnail from "./Tab/thumbnail.png";
 import tableThumbnail from "./Table/thumbnail.png";
 import teleopThumbnail from "./Teleop/thumbnail.png";
-import textThumbnail from "./Text/thumbnail.png";
+import numberThumbnail from "./Text/thumbnail.png";
 import threeDeeRenderThumbnail from "./ThreeDeeRender/thumbnail.png";
 import topicGraphThumbnail from "./TopicGraph/thumbnail.png";
 import TrafficLightHelp from "./TrafficLight/index.help.md";
@@ -178,11 +178,11 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     module: async () => await import("./NodePlayground"),
   },
   {
-    title: "Text",
-    type: "TextPanel",
-    description: "Display text",
-    thumbnail: textThumbnail,
-    module: async () => await import("./Text"),
+    title: "Number",
+    type: "NumberPanel",
+    description: "Display number",
+    thumbnail: numberThumbnail,
+    module: async () => await import("./Number"),
   },
   {
     title: "Traffic Light",
