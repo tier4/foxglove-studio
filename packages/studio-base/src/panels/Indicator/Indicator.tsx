@@ -2,6 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import ForwardIcon from "@mui/icons-material/Forward";
 import { Typography, useTheme } from "@mui/material";
 import { last } from "lodash";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react";
@@ -29,6 +30,19 @@ const defaultConfig: Config = {
   fallbackLabel: "False",
   rules: [{ operator: "=", rawValue: "true", color: "#68e24a", label: "True" }],
 };
+
+export const IndicatorLeftArrow = withStyles(ForwardIcon, {
+  root: {
+    transform: "scaleX(-1)",
+    fontSize: 60,
+  },
+});
+
+export const IndicatorRightArrow = withStyles(ForwardIcon, {
+  root: {
+    fontSize: 60,
+  },
+});
 
 const IndicatorBulb = withStyles("div", {
   root: {
@@ -240,6 +254,12 @@ export function Indicator({ context }: Props): JSX.Element {
         }}
       >
         <Stack direction="row" alignItems="center" gap={2}>
+          {style === "rightArrow" && (
+            <IndicatorRightArrow style={{ color: matchingRule?.color ?? fallbackColor }} />
+          )}
+          {style === "leftArrow" && (
+            <IndicatorLeftArrow style={{ color: matchingRule?.color ?? fallbackColor }} />
+          )}
           {style === "bulb" && (
             <IndicatorBulb style={{ backgroundColor: matchingRule?.color ?? fallbackColor }} />
           )}

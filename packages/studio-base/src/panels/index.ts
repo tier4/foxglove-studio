@@ -6,7 +6,6 @@ import { TFunction } from "i18next";
 import { PanelInfo } from "@foxglove/studio-base/context/PanelCatalogContext";
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 
-import blinkerThumbnail from "./Blinker/thumbnail.png";
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
 import errorLogListThumbnail from "./ErrorLogList/thumbnail.png";
 import gaugeThumbnail from "./Gauge/thumbnail.png";
@@ -184,13 +183,6 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: "Display speed meter",
     thumbnail: speedMeterThumbnail,
     module: async () => await import("./SpeedMeter"),
-  },
-  {
-    title: "Blinker",
-    type: "BlinkerPanel",
-    description: "Display blinker status",
-    thumbnail: blinkerThumbnail,
-    module: async () => await import("./Blinker"),
   },
   {
     title: "Traffic Light",
