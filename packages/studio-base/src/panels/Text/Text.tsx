@@ -116,7 +116,7 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function SpeedMeter({ context }: Props): JSX.Element {
+export function Text({ context }: Props): JSX.Element {
   // panel extensions must notify when they've completed rendering
   // onRender will setRenderDone to a done callback which we can invoke after we've rendered
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
@@ -193,9 +193,7 @@ export function SpeedMeter({ context }: Props): JSX.Element {
   }, [renderDone]);
 
   const rawValue =
-    typeof state.latestMatchingQueriedData === "number"
-      ? state.latestMatchingQueriedData
-      : 0;
+    typeof state.latestMatchingQueriedData === "number" ? state.latestMatchingQueriedData : 0;
 
   const { unit } = config;
 
@@ -209,18 +207,10 @@ export function SpeedMeter({ context }: Props): JSX.Element {
         padding={1}
       >
         <Stack direction="column" alignItems="center" gap={2}>
-          <Typography
-            fontFamily={fonts.MONOSPACE}
-            variant="h1"
-            whiteSpace="pre"
-          >
+          <Typography fontFamily={fonts.MONOSPACE} variant="h1" whiteSpace="pre">
             {Math.ceil(rawValue)}
           </Typography>
-          <Typography
-            fontFamily={fonts.MONOSPACE}
-            variant="h4"
-            whiteSpace="pre"
-          >
+          <Typography fontFamily={fonts.MONOSPACE} variant="h4" whiteSpace="pre">
             {unit}
           </Typography>
         </Stack>

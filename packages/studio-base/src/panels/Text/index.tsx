@@ -11,14 +11,14 @@ import { PanelExtensionAdapter } from "@foxglove/studio-base/components/PanelExt
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
-import { SpeedMeter } from "./SpeedMeter";
+import { Text } from "./Text";
 import { Config } from "./types";
 
 function initPanel(context: PanelExtensionContext) {
   ReactDOM.render(
     <StrictMode>
       <ThemeProvider isDark>
-        <SpeedMeter context={context} />
+        <Text context={context} />
       </ThemeProvider>
     </StrictMode>,
     context.panelElement,
@@ -33,7 +33,7 @@ type Props = {
   saveConfig: SaveConfig<Config>;
 };
 
-function SpeedMeterPanelAdapter(props: Props) {
+function TextPanelAdapter(props: Props) {
   return (
     <PanelExtensionAdapter
       config={props.config}
@@ -43,7 +43,7 @@ function SpeedMeterPanelAdapter(props: Props) {
   );
 }
 
-SpeedMeterPanelAdapter.panelType = "SpeedMeterPanel";
-SpeedMeterPanelAdapter.defaultConfig = {};
+TextPanelAdapter.panelType = "TextPanel";
+TextPanelAdapter.defaultConfig = {};
 
-export default Panel(SpeedMeterPanelAdapter);
+export default Panel(TextPanelAdapter);
