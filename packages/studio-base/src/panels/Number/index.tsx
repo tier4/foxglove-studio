@@ -46,4 +46,4 @@ function NumberPanelAdapter(props: Props) {
 NumberPanelAdapter.panelType = "NumberPanel";
 NumberPanelAdapter.defaultConfig = {};
 
-export default Panel(TextPanelAdapter);
+export default Panel(NumberPanelAdapter);
