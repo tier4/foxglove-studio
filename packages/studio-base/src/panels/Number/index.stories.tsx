@@ -6,11 +6,11 @@ import { Story, StoryContext } from "@storybook/react";
 
 import PanelSetup from "@foxglove/studio-base/stories/PanelSetup";
 
-import SpeedMeter from "./index";
+import Number from "./index";
 
 export default {
-  title: "panels/SpeedMeter",
-  component: SpeedMeter,
+  title: "panels/Number",
+  component: Number,
   decorators: [
     (StoryComponent: Story, { parameters }: StoryContext): JSX.Element => {
       return (
@@ -38,12 +38,12 @@ function makeFixture(value: number) {
 }
 
 export const EmptyState = (): JSX.Element => {
-  return <SpeedMeter />;
+  return <Number />;
 };
 
 const NumberStory = (): JSX.Element => {
   return (
-    <SpeedMeter
+    <Number
       overrideConfig={{
         path: "/data.value",
       }}
@@ -59,7 +59,7 @@ NumberPositive.parameters = { panelSetup: { fixture: makeFixture(1) } };
 
 export const MessagePathWithFilter = (): JSX.Element => {
   return (
-    <SpeedMeter
+    <Number
       overrideConfig={{
         path: `/data{id=="b"}.value`,
       }}
