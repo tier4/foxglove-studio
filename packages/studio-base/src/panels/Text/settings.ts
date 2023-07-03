@@ -40,16 +40,15 @@ export function useSettingsTree(
       error,
       fields: {
         path: {
-          label: "Data",
+          label: "Message path",
           input: "messagepath",
           value: path,
           error: pathParseError,
         },
         style: {
-          label: "Style",
-          input: "select",
+          label: "Unit",
+          input: "string",
           value: unit,
-          options: [{ label: "km/h", value: "km/h" }],
         },
       },
     }),

@@ -210,7 +210,7 @@ export function Text({ context }: Props): JSX.Element {
           <Typography fontFamily={fonts.MONOSPACE} variant="h1" whiteSpace="pre">
             {Math.ceil(rawValue)}
           </Typography>
-          <Typography fontFamily={fonts.MONOSPACE} variant="h4" whiteSpace="pre">
+          <Typography fontFamily={fonts.MONOSPACE} variant="h5" whiteSpace="pre">
             {unit}
           </Typography>
         </Stack>
