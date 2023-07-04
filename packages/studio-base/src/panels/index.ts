@@ -7,12 +7,13 @@ import { PanelInfo } from "@foxglove/studio-base/context/PanelCatalogContext";
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
+import errorLogListThumbnail from "./ErrorLogList/thumbnail.png";
 import gaugeThumbnail from "./Gauge/thumbnail.png";
-import imageViewThumbnail from "./Image/thumbnail.png";
 import indicatorThumbnail from "./Indicator/thumbnail.png";
 import logThumbnail from "./Log/thumbnail.png";
 import mapThumbnail from "./Map/thumbnail.png";
 import nodePlaygroundThumbnail from "./NodePlayground/thumbnail.png";
+import numberThumbnail from "./Number/thumbnail.png";
 import parametersThumbnail from "./Parameters/thumbnail.png";
 import plotThumbnail from "./Plot/thumbnail.png";
 import publishThumbnail from "./Publish/thumbnail.png";
@@ -21,8 +22,11 @@ import stateTransitionsThumbnail from "./StateTransitions/thumbnail.png";
 import tabThumbnail from "./Tab/thumbnail.png";
 import tableThumbnail from "./Table/thumbnail.png";
 import teleopThumbnail from "./Teleop/thumbnail.png";
+import imageViewThumbnail from "./ThreeDeeRender/imageThumbnail.png";
 import threeDeeRenderThumbnail from "./ThreeDeeRender/thumbnail.png";
 import topicGraphThumbnail from "./TopicGraph/thumbnail.png";
+import TrafficLightHelp from "./TrafficLight/index.help.md";
+import trafficLightThumbnail from "./TrafficLight/thumbnail.png";
 import variableSliderThumbnail from "./VariableSlider/thumbnail.png";
 import diagnosticStatusThumbnail from "./diagnostics/thumbnails/diagnostic-status.png";
 import diagnosticSummaryThumbnail from "./diagnostics/thumbnails/diagnostic-summary.png";
@@ -57,13 +61,6 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: t("imageDescription"),
     thumbnail: imageViewThumbnail,
     module: async () => ({ default: (await import("./ThreeDeeRender")).ImagePanel }),
-  },
-  {
-    title: t("imageLegacy"),
-    type: "ImageViewPanel",
-    description: t("imageDescription"),
-    thumbnail: imageViewThumbnail,
-    module: async () => await import("./Image"),
   },
   {
     title: t("indicator"),
@@ -172,6 +169,42 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: t("userScriptsDescription"),
     thumbnail: nodePlaygroundThumbnail,
     module: async () => await import("./NodePlayground"),
+  },
+  {
+    title: "Number",
+    type: "NumberPanel",
+    description: "Display number",
+    thumbnail: numberThumbnail,
+    module: async () => await import("./Number"),
+  },
+  {
+    title: "Traffic Light",
+    type: "TrafficLightPanel",
+    description: "Display traffic light status",
+    help: TrafficLightHelp,
+    thumbnail: trafficLightThumbnail,
+    module: async () => await import("./TrafficLight"),
+  },
+  {
+    title: "Error Log List",
+    type: "ErrorLogListPanel",
+    description: "Display error log list",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./ErrorLogList"),
+  },
+  {
+    title: "Error Log List For Rosbag Player",
+    type: "ErrorLogListPanelForRosbagPlayer",
+    description: "Display error log list",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./ErrorLogListForRosbagPlayer"),
+  },
+  {
+    title: "Rosbag Player Controller",
+    type: "RosbagPlayerController",
+    description: "Controller for rosbag player",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./RosbagPlayerController"),
   },
   {
     title: t("tab"),
