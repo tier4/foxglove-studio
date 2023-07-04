@@ -2,11 +2,9 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import ForwardIcon from "@mui/icons-material/Forward";
-import { Typography, useTheme } from "@mui/material";
+import { Typography } from "@mui/material";
 import { last } from "lodash";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useState } from "react";
-import { withStyles } from "tss-react/mui";
+import { useCallback, useEffect, useLayoutEffect, useReducer, useState } from "react";
 
 import { MessageEvent, PanelExtensionContext, SettingsTreeAction } from "@foxglove/studio";
 import { RosPath } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
@@ -15,7 +13,6 @@ import { simpleGetMessagePathDataItems } from "@foxglove/studio-base/components/
 import Stack from "@foxglove/studio-base/components/Stack";
 import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
-import { getMatchingRule } from "./getMatchingRule";
 import { settingsActionReducer, useSettingsTree } from "./settings";
 import { Config } from "./types";
 
@@ -25,50 +22,20 @@ type Props = {
 
 const defaultConfig: Config = {
   path: "",
-  style: "bulb",
-  fallbackColor: "#a0a0a0",
-  fallbackLabel: "False",
-  rules: [{ operator: "=", rawValue: "true", color: "#68e24a", label: "True" }],
+  unit: "km/h",
 };
-
-export const IndicatorLeftArrow = withStyles(ForwardIcon, {
-  root: {
-    transform: "scaleX(-1)",
-    fontSize: 60,
-  },
-});
-
-export const IndicatorRightArrow = withStyles(ForwardIcon, {
-  root: {
-    fontSize: 60,
-  },
-});
-
-const IndicatorBulb = withStyles("div", {
-  root: {
-    width: 40,
-    height: 40,
-    borderRadius: "50%",
-    position: "relative",
-    backgroundImage: [
-      `radial-gradient(transparent, transparent 55%, rgba(255,255,255,0.4) 80%, rgba(255,255,255,0.4))`,
-      `radial-gradient(circle at 38% 35%, rgba(255,255,255,0.8), transparent 30%, transparent)`,
-      `radial-gradient(circle at 46% 44%, transparent, transparent 61%, rgba(0,0,0,0.7) 74%, rgba(0,0,0,0.7))`,
-    ].join(","),
-  },
-});
 
 type State = {
   path: string;
   parsedPath: RosPath | undefined;
-  latestMessage: MessageEvent | undefined;
+  latestMessage: MessageEvent<unknown> | undefined;
   latestMatchingQueriedData: unknown | undefined;
   error: Error | undefined;
   pathParseError: string | undefined;
 };
 
 type Action =
-  | { type: "frame"; messages: readonly MessageEvent[] }
+  | { type: "frame"; messages: readonly MessageEvent<unknown>[] }
   | { type: "path"; path: string }
   | { type: "seek" };
 
@@ -149,14 +116,10 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function Indicator({ context }: Props): JSX.Element {
+export function Number({ context }: Props): JSX.Element {
   // panel extensions must notify when they've completed rendering
   // onRender will setRenderDone to a done callback which we can invoke after we've rendered
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
-  const {
-    palette: { augmentColor },
-  } = useTheme();
-
   const [config, setConfig] = useState(() => ({
     ...defaultConfig,
     ...(context.initialState as Partial<Config>),
@@ -181,7 +144,6 @@ export function Indicator({ context }: Props): JSX.Element {
 
   useEffect(() => {
     context.saveState(config);
-    context.setDefaultPanelTitle(config.path === "" ? undefined : config.path);
   }, [config, context]);
 
   useEffect(() => {
@@ -231,15 +193,10 @@ export function Indicator({ context }: Props): JSX.Element {
   }, [renderDone]);
 
   const rawValue =
-    typeof state.latestMatchingQueriedData === "boolean" ||
-    typeof state.latestMatchingQueriedData === "bigint" ||
-    typeof state.latestMatchingQueriedData === "string" ||
-    typeof state.latestMatchingQueriedData === "number"
-      ? state.latestMatchingQueriedData
-      : undefined;
+    typeof state.latestMatchingQueriedData === "number" ? state.latestMatchingQueriedData : 0;
 
-  const { style, rules, fallbackColor, fallbackLabel } = config;
-  const matchingRule = useMemo(() => getMatchingRule(rawValue, rules), [rawValue, rules]);
+  const { unit } = config;
+
   return (
     <Stack fullHeight>
       <Stack
@@ -248,34 +205,13 @@ export function Indicator({ context }: Props): JSX.Element {
         alignItems="center"
         overflow="hidden"
         padding={1}
-        style={{
-          backgroundColor:
-            style === "background" ? matchingRule?.color ?? fallbackColor : undefined,
-        }}
       >
-        <Stack direction="row" alignItems="center" gap={2}>
-          {style === "rightArrow" && (
-            <IndicatorRightArrow style={{ color: matchingRule?.color ?? fallbackColor }} />
-          )}
-          {style === "leftArrow" && (
-            <IndicatorLeftArrow style={{ color: matchingRule?.color ?? fallbackColor }} />
-          )}
-          {style === "bulb" && (
-            <IndicatorBulb style={{ backgroundColor: matchingRule?.color ?? fallbackColor }} />
-          )}
-          <Typography
-            color={
-              style === "background"
-                ? augmentColor({
-                    color: { main: matchingRule?.color ?? fallbackColor },
-                  }).contrastText
-                : matchingRule?.color ?? fallbackColor
-            }
-            fontFamily={fonts.MONOSPACE}
-            variant="h1"
-            whiteSpace="pre"
-          >
-            {matchingRule?.label ?? fallbackLabel}
+        <Stack direction="column" alignItems="center" gap={2}>
+          <Typography fontFamily={fonts.MONOSPACE} variant="h1" whiteSpace="pre">
+            {Math.ceil(rawValue)}
+          </Typography>
+          <Typography fontFamily={fonts.MONOSPACE} variant="h5" whiteSpace="pre">
+            {unit}
           </Typography>
         </Stack>
       </Stack>

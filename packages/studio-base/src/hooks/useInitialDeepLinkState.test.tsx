@@ -3,19 +3,22 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook, act } from "@testing-library/react-hooks";
+import { useSnackbar } from "notistack";
 import { PropsWithChildren } from "react";
 
 import { useSessionStorageValue } from "@foxglove/hooks";
 import MockMessagePipelineProvider from "@foxglove/studio-base/components/MessagePipeline/MockMessagePipelineProvider";
 import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import CurrentUserContext, { User } from "@foxglove/studio-base/context/CurrentUserContext";
+import { useLayoutManager } from "@foxglove/studio-base/context/LayoutManagerContext";
 import PlayerSelectionContext, {
-  IDataSourceFactory,
   PlayerSelection,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
-import { useInitialDeepLinkState } from "@foxglove/studio-base/hooks/useInitialDeepLinkState";
-import { Player } from "@foxglove/studio-base/players/types";
+import {
+  useInitialDeepLinkState,
+  formatLayoutUrl,
+} from "@foxglove/studio-base/hooks/useInitialDeepLinkState";
 import EventsProvider from "@foxglove/studio-base/providers/EventsProvider";
 import { LaunchPreferenceValue } from "@foxglove/studio-base/types/LaunchPreferenceValue";
 
@@ -24,6 +27,16 @@ jest.mock("@foxglove/hooks", () => ({
   useSessionStorageValue: jest.fn(),
 }));
 jest.mock("@foxglove/studio-base/context/CurrentLayoutContext");
+jest.mock("@foxglove/studio-base/context/LayoutManagerContext");
+jest.mock("notistack");
+
+global.fetch = jest.fn(
+  async () =>
+    await Promise.resolve({
+      json: async () => await Promise.resolve({ test: 100 }),
+      ok: true,
+    }),
+) as jest.Mock;
 
 type WrapperProps = {
   currentUser?: User;
@@ -66,6 +79,8 @@ function makeWrapper(initialProps: WrapperProps) {
 describe("Initial deep link state", () => {
   const selectSource = jest.fn();
   const setSelectedLayoutId = jest.fn();
+  const saveNewLayout = jest.fn();
+  const getLayouts = jest.fn();
   const emptyPlayerSelection = {
     selectSource,
     selectRecent: () => {},
@@ -77,8 +92,12 @@ describe("Initial deep link state", () => {
   beforeEach(() => {
     (useSessionStorageValue as jest.Mock).mockReturnValue([LaunchPreferenceValue.WEB, jest.fn()]);
     (useCurrentLayoutActions as jest.Mock).mockReturnValue({ setSelectedLayoutId });
+    (useLayoutManager as jest.Mock).mockReturnValue({ saveNewLayout, getLayouts });
+    (useSnackbar as jest.Mock).mockReturnValue({ enqueueSnackbar: jest.fn() });
     selectSource.mockClear();
     setSelectedLayoutId.mockClear();
+    saveNewLayout.mockReturnValue(Promise.resolve({ id: 1234 }));
+    getLayouts.mockReturnValue(Promise.resolve([]));
   });
 
   it("doesn't select a source without ds params", () => {
@@ -120,27 +139,15 @@ describe("Initial deep link state", () => {
     expect(setSelectedLayoutId).toHaveBeenCalledWith("a288e116-d177-4b57-8f30-6ada61919638");
   });
 
-  it("waits for a current user to select a source with currentUserRequired=true", () => {
-    class FooFactory implements IDataSourceFactory {
-      public id = "foo-with-user";
-      public type = "connection" as const;
-      public displayName = "Foo";
-      public currentUserRequired = true;
-      public initialize(): Player | undefined {
-        throw new Error("not implemented");
-      }
-    }
+  it("waits for a current user to select a data platform source", () => {
     const { wrapper, setWrapperProps } = makeWrapper({
       currentUser: undefined,
-      playerSelection: {
-        ...emptyPlayerSelection,
-        availableSources: [new FooFactory()],
-      },
+      playerSelection: emptyPlayerSelection,
     });
     const { result, rerender } = renderHook(
       () =>
         useInitialDeepLinkState([
-          "https://studio.foxglove.dev/?ds=foo-with-user&ds.bar=baz&layoutId=12345",
+          "https://studio.foxglove.dev/?ds=foxglove-data-platform&ds.deviceId=dev&layoutId=12345",
         ]),
       { wrapper },
     );
@@ -172,11 +179,52 @@ describe("Initial deep link state", () => {
     });
     rerender();
 
-    expect(selectSource).toHaveBeenCalledWith("foo-with-user", {
-      params: { bar: "baz" },
+    expect(selectSource).toHaveBeenCalledWith("foxglove-data-platform", {
+      params: { deviceId: "dev" },
       type: "connection",
     });
 
     expect(setSelectedLayoutId).toHaveBeenCalledWith("12345");
+  });
+
+  it("opens and saves a layout from url and opens it", async () => {
+    const { wrapper } = makeWrapper({ playerSelection: emptyPlayerSelection });
+    renderHook(
+      () =>
+        useInitialDeepLinkState([
+          "https://studio.foxglove.dev/?layoutUrl=http%3A%2F%2Flocalhost%2flayout.json",
+        ]),
+      {
+        wrapper,
+      },
+    );
+
+    // Required to wait for the async callback to have completed
+    await act(async () => {
+      await new Promise((resolve) => process.nextTick(resolve));
+    });
+
+    expect(fetch).toHaveBeenCalled();
+    expect(saveNewLayout).toHaveBeenCalledWith({
+      name: "layout",
+      data: { test: 100 },
+      permission: "CREATOR_WRITE",
+    });
+    expect(setSelectedLayoutId).toHaveBeenCalledWith(1234);
+
+    return;
+  });
+
+  it("formats layoutUrls into the correct style when naming layouts", () => {
+    const simpleUrl = new URL("http://localhost/layout.json");
+    expect(formatLayoutUrl(simpleUrl)).toBe("layout");
+
+    const urlWithFolder = new URL("http://localhost/layout/demo.json");
+    expect(formatLayoutUrl(urlWithFolder)).toBe("demo");
+
+    const s3PreSignedUrl = new URL(
+      "https://im-a-bucket.s3.amazonaws.com/folder/debug.json?AWSAccessKeyId=xxxxxx&Signature=xxxxxx&x-amz-security-token=xxxx&Expires=0",
+    );
+    expect(formatLayoutUrl(s3PreSignedUrl)).toBe("debug");
   });
 });
