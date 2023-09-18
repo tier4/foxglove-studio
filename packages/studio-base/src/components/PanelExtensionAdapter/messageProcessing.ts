@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { difference } from "lodash";
+import * as _ from "lodash-es";
 
 import {
   Immutable,
@@ -33,9 +33,9 @@ function converterKey(topic: string, schema: string): ConverterKey {
  * convertedMessages in place for efficiency.
  */
 export function convertMessage(
-  messageEvent: Immutable<MessageEvent<unknown>>,
+  messageEvent: Immutable<MessageEvent>,
   converters: Immutable<TopicSchemaConverterMap>,
-  convertedMessages: MessageEvent<unknown>[],
+  convertedMessages: MessageEvent[],
 ): void {
   const key = converterKey(messageEvent.topic, messageEvent.schemaName);
   const matchedConverters = converters.get(key);
@@ -58,7 +58,7 @@ export function convertMessage(
 export function mapDifference<K, V>(a: Map<K, V[]>, b: undefined | Map<K, V[]>): Map<K, V[]> {
   const result = new Map<K, V[]>();
   for (const [key, value] of a.entries()) {
-    const newValues = difference(value, b?.get(key) ?? []);
+    const newValues = _.difference(value, b?.get(key) ?? []);
     if (newValues.length > 0) {
       result.set(key, newValues);
     }
@@ -94,7 +94,7 @@ export function collateTopicSchemaConversions(
   messageConverters: undefined | readonly MessageConverter[],
 ): TopicSchemaConversions {
   const topicSchemaConverters: TopicSchemaConverterMap = new Map();
-  const unconvertedSubscriptionTopics: Set<string> = new Set();
+  const unconvertedSubscriptionTopics = new Set<string>();
 
   // Bin the subscriptions into two sets: those which want a conversion and those that do not.
   //

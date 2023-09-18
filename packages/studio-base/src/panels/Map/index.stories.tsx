@@ -4,7 +4,7 @@
 
 import { StoryFn, StoryContext, StoryObj } from "@storybook/react";
 import { userEvent } from "@storybook/testing-library";
-import { cloneDeep, tap } from "lodash";
+import * as _ from "lodash-es";
 import { useState } from "react";
 import { useTimeoutFn } from "react-use";
 
@@ -27,7 +27,7 @@ const EMPTY_MESSAGE: NavSatFixMsg = {
   position_covariance: [1, 0, 0, 0, 1, 0, 0, 0, 1],
   position_covariance_type: NavSatFixPositionCovarianceType.COVARIANCE_TYPE_UNKNOWN,
 };
-const OFFSET_MESSAGE = tap(cloneDeep(EMPTY_MESSAGE), (message) => {
+const OFFSET_MESSAGE = _.tap(_.cloneDeep(EMPTY_MESSAGE), (message) => {
   message.latitude += 0.1;
   message.longitude += 0.1;
 });
@@ -187,6 +187,44 @@ export const SinglePointWithMissingValues: StoryObj = {
   },
 };
 
+export const SinglePointWithInvalidData: StoryObj = {
+  render: function Story() {
+    return <MapPanel />;
+  },
+
+  decorators: [Wrapper],
+
+  parameters: {
+    chromatic: {
+      delay: 1000,
+    },
+    panelSetup: {
+      fixture: {
+        topics: [{ name: "/gps", schemaName: "sensor_msgs/NavSatFix" }],
+        frame: {
+          "/gps": [
+            {
+              topic: "/gps",
+              schemaName: "sensor_msgs/NavSatFix",
+              sizeInBytes: 0,
+              receiveTime: { sec: 123, nsec: 456 },
+              message: {
+                latitude: NaN,
+                longitude: NaN,
+                altitude: 0,
+                status: {
+                  status: NavSatFixStatus.STATUS_NO_FIX,
+                  service: NavSatFixService.SERVICE_GPS,
+                },
+              },
+            },
+          ],
+        },
+      } as Fixture,
+    },
+  },
+};
+
 export const SinglePointWithNoFix: StoryObj = {
   render: function Story() {
     return <MapPanel />;
@@ -284,47 +322,6 @@ export const MultipleTopics: StoryObj = {
               sizeInBytes: 0,
               receiveTime: { sec: 123, nsec: 456 },
               message: OFFSET_MESSAGE,
-            },
-          ],
-        },
-      } as Fixture,
-    },
-  },
-};
-
-export const SinglePointNoFix: StoryObj = {
-  render: function Story() {
-    return <MapPanel />;
-  },
-
-  decorators: [Wrapper],
-
-  parameters: {
-    chromatic: {
-      delay: 1000,
-    },
-    decorators: [Wrapper],
-    panelSetup: {
-      fixture: {
-        topics: [{ name: "/gps", schemaName: "sensor_msgs/NavSatFix" }],
-        frame: {
-          "/gps": [
-            {
-              topic: "/gps",
-              schemaName: "sensor_msgs/NavSatFix",
-              sizeInBytes: 0,
-              receiveTime: { sec: 123, nsec: 456 },
-              message: {
-                latitude: 0,
-                longitude: 0,
-                altitude: 0,
-                status: {
-                  status: NavSatFixStatus.STATUS_NO_FIX,
-                  service: NavSatFixService.SERVICE_GPS,
-                },
-                position_covariance: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                position_covariance_type: NavSatFixPositionCovarianceType.COVARIANCE_TYPE_UNKNOWN,
-              },
             },
           ],
         },
@@ -539,7 +536,7 @@ export const GeoJSON: StoryObj = {
   play: async () => {
     const followSelect = document.querySelectorAll("div[role=button][aria-haspopup=listbox]")[1];
     if (followSelect) {
-      userEvent.click(followSelect);
+      await userEvent.click(followSelect);
     }
   },
 };

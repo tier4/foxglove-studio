@@ -246,7 +246,9 @@ export function RendererOverlay(props: {
         anchorOrigin={{ vertical: "top", horizontal: "left" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
         open={publishMenuExpanded}
-        onClose={() => setPublishMenuExpanded(false)}
+        onClose={() => {
+          setPublishMenuExpanded(false);
+        }}
         MenuListProps={{ dense: true }}
       >
         <MenuItem
@@ -302,8 +304,7 @@ export function RendererOverlay(props: {
       return;
     }
 
-    const { topic, image, rotation, flipHorizontal, flipVertical, minValue, maxValue } =
-      currentImage;
+    const { topic, image, rotation, flipHorizontal, flipVertical } = currentImage;
     const stamp = "header" in image ? image.header.stamp : image.timestamp;
     let bitmap: ImageBitmap;
     try {
@@ -311,7 +312,8 @@ export function RendererOverlay(props: {
         bitmap = await decodeCompressedImageToBitmap(image);
       } else {
         const imageData = new ImageData(image.width, image.height);
-        decodeRawImage(image, { minValue, maxValue }, imageData.data);
+        // currentImage passed for color settings access
+        decodeRawImage(image, currentImage, imageData.data);
         bitmap = await createImageBitmap(imageData);
       }
 
@@ -430,7 +432,9 @@ export function RendererOverlay(props: {
       </div>
       {clickedObjects.length > 1 && !selectedObject && (
         <InteractionContextMenu
-          onClose={() => setSelectedRenderables([])}
+          onClose={() => {
+            setSelectedRenderables([]);
+          }}
           clickedPosition={clickedPosition}
           clickedObjects={clickedObjects}
           selectObject={(selection) => {

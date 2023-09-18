@@ -3,16 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { produce } from "immer";
-import { isEqual, set } from "lodash";
+import * as _ from "lodash-es";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { Immutable, SettingsTreeAction, SettingsTreeNodes } from "@foxglove/studio";
 import buildSampleMessage from "@foxglove/studio-base/panels/Publish/buildSampleMessage";
 import { Topic } from "@foxglove/studio-base/players/types";
-import {
-  useDefaultPanelTitle,
-  usePanelSettingsTreeUpdate,
-} from "@foxglove/studio-base/providers/PanelStateContextProvider";
+import { usePanelSettingsTreeUpdate } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
@@ -42,7 +39,7 @@ function topicError(topicName?: string) {
   return undefined;
 }
 
-export const buildSettingsTree = (
+const buildSettingsTree = (
   config: PublishConfig,
   schemaNames: string[],
   topics: readonly Topic[],
@@ -98,7 +95,6 @@ export function usePublishPanelSettings(
   datatypes: Immutable<RosDatatypes>,
 ): void {
   const updatePanelSettingsTree = usePanelSettingsTreeUpdate();
-  const [, setDefaultPanelTitle] = useDefaultPanelTitle();
   const schemaNames = useMemo(() => Array.from(datatypes.keys()).sort(), [datatypes]);
 
   const actionHandler = useCallback(
@@ -111,10 +107,9 @@ export function usePublishPanelSettings(
       saveConfig(
         produce<PublishConfig>((draft) => {
           if (input === "autocomplete") {
-            if (isEqual(path, ["general", "topicName"])) {
+            if (_.isEqual(path, ["general", "topicName"])) {
               const topicSchemaName = topics.find((t) => t.name === value)?.schemaName;
               const sampleMessage = getSampleMessage(datatypes, topicSchemaName);
-              setDefaultPanelTitle(value ? `Publish ${value}` : "Publish");
 
               draft.topicName = value;
 
@@ -124,7 +119,7 @@ export function usePublishPanelSettings(
               if (sampleMessage) {
                 draft.value = sampleMessage;
               }
-            } else if (isEqual(path, ["general", "datatype"])) {
+            } else if (_.isEqual(path, ["general", "datatype"])) {
               const sampleMessage = getSampleMessage(datatypes, value);
 
               draft.datatype = value;
@@ -134,12 +129,12 @@ export function usePublishPanelSettings(
               }
             }
           } else {
-            set(draft, path.slice(1), value);
+            _.set(draft, path.slice(1), value);
           }
         }),
       );
     },
-    [datatypes, saveConfig, setDefaultPanelTitle, topics],
+    [datatypes, saveConfig, topics],
   );
 
   useEffect(() => {

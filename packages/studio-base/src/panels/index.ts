@@ -9,6 +9,7 @@ import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 import dataSourceInfoThumbnail from "./DataSourceInfo/thumbnail.png";
 import errorLogListThumbnail from "./ErrorLogList/thumbnail.png";
 import gaugeThumbnail from "./Gauge/thumbnail.png";
+import imageThumbnail from "./Image/thumbnail.png";
 import indicatorThumbnail from "./Indicator/thumbnail.png";
 import logThumbnail from "./Log/thumbnail.png";
 import mapThumbnail from "./Map/thumbnail.png";
@@ -22,7 +23,6 @@ import stateTransitionsThumbnail from "./StateTransitions/thumbnail.png";
 import tabThumbnail from "./Tab/thumbnail.png";
 import tableThumbnail from "./Table/thumbnail.png";
 import teleopThumbnail from "./Teleop/thumbnail.png";
-import imageViewThumbnail from "./ThreeDeeRender/imageThumbnail.png";
 import threeDeeRenderThumbnail from "./ThreeDeeRender/thumbnail.png";
 import topicGraphThumbnail from "./TopicGraph/thumbnail.png";
 import TrafficLightHelp from "./TrafficLight/index.help.md";
@@ -37,7 +37,7 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     type: "3D",
     description: t("3DPanelDescription"),
     thumbnail: threeDeeRenderThumbnail,
-    module: async () => ({ default: (await import("./ThreeDeeRender")).ThreeDeePanel }),
+    module: async () => await import("./ThreeDeeRender"),
   },
   {
     title: t("ROSDiagnosticsDetail"),
@@ -59,8 +59,8 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     title: t("image"),
     type: "Image",
     description: t("imageDescription"),
-    thumbnail: imageViewThumbnail,
-    module: async () => ({ default: (await import("./ThreeDeeRender")).ImagePanel }),
+    thumbnail: imageThumbnail,
+    module: async () => await import("./Image"),
   },
   {
     title: t("indicator"),
@@ -112,6 +112,13 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     module: async () => await import("./Publish"),
   },
   {
+    title: t("callService"),
+    type: "CallService",
+    description: t("callServiceDescription"),
+    thumbnail: publishThumbnail,
+    module: async () => await import("./CallService"),
+  },
+  {
     title: t("rawMessages"),
     type: "RawMessages",
     description: t("rawMessagesDescription"),
@@ -125,7 +132,6 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: t("logDescription"),
     thumbnail: logThumbnail,
     module: async () => await import("./Log"),
-    hasCustomToolbar: true,
   },
   {
     title: t("stateTransitions"),

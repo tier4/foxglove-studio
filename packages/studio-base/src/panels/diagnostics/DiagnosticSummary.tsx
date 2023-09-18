@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@mui/material";
 import { produce } from "immer";
-import { compact, set, uniq } from "lodash";
+import * as _ from "lodash-es";
 import { CSSProperties, useCallback, useEffect, useMemo } from "react";
 import { AutoSizer } from "react-virtualized";
 import { FixedSizeList as List } from "react-window";
@@ -179,7 +179,7 @@ function DiagnosticSummary(props: Props): JSX.Element {
             selectedName: info.status.name,
             topicToRender,
             collapsedSections: [],
-          } as DiagnosticStatusConfig),
+          }) as DiagnosticStatusConfig,
         updateIfExists: true,
       });
     },
@@ -213,7 +213,7 @@ function DiagnosticSummary(props: Props): JSX.Element {
       .map((topic) => topic.name);
 
     // Keeps only the first occurrence of each topic.
-    return uniq([...filtered]);
+    return _.uniq([...filtered]);
   }, [topics]);
 
   // If the topicToRender is not in the availableTopics, then we should not try to use it
@@ -232,7 +232,7 @@ function DiagnosticSummary(props: Props): JSX.Element {
       );
     }
     const pinnedNodes = filterMap(pinnedIds, (id) => {
-      const [_, trimmedHardwareId, name] = id.split("|");
+      const [, trimmedHardwareId, name] = id.split("|");
       if (name == undefined || trimmedHardwareId == undefined) {
         return;
       }
@@ -254,7 +254,7 @@ function DiagnosticSummary(props: Props): JSX.Element {
           pinnedIds,
         );
 
-    const nodes: DiagnosticInfo[] = [...compact(pinnedNodes), ...sortedNodes].filter(
+    const nodes: DiagnosticInfo[] = [..._.compact(pinnedNodes), ...sortedNodes].filter(
       ({ status }) => status.level >= minLevel,
     );
     if (nodes.length === 0) {
@@ -286,7 +286,7 @@ function DiagnosticSummary(props: Props): JSX.Element {
       }
 
       const { path, value } = action.payload;
-      saveConfig(produce<DiagnosticSummaryConfig>((draft) => set(draft, path.slice(1), value)));
+      saveConfig(produce<DiagnosticSummaryConfig>((draft) => _.set(draft, path.slice(1), value)));
     },
     [saveConfig],
   );
@@ -308,7 +308,9 @@ function DiagnosticSummary(props: Props): JSX.Element {
             id="status-filter-menu"
             color="secondary"
             size="small"
-            onChange={(event) => saveConfig({ minLevel: event.target.value as number })}
+            onChange={(event) => {
+              saveConfig({ minLevel: event.target.value as number });
+            }}
             MenuProps={{ MenuListProps: { dense: true } }}
           >
             {KNOWN_LEVELS.map((level) => (
@@ -322,7 +324,9 @@ function DiagnosticSummary(props: Props): JSX.Element {
           <InputBase
             value={hardwareIdFilter}
             placeholder="Filter"
-            onChange={(e) => saveConfig({ hardwareIdFilter: e.target.value })}
+            onChange={(e) => {
+              saveConfig({ hardwareIdFilter: e.target.value });
+            }}
             style={{ flex: "auto", font: "inherit" }}
           />
         </Stack>

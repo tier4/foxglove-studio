@@ -12,7 +12,7 @@
 //   You may not use this file except in compliance with the License.
 
 import { Button, inputBaseClasses, TextField, Tooltip, Typography } from "@mui/material";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { makeStyles } from "tss-react/mui";
 import { useDebounce } from "use-debounce";
 
@@ -23,6 +23,7 @@ import Stack from "@foxglove/studio-base/components/Stack";
 import useCallbackWithToast from "@foxglove/studio-base/hooks/useCallbackWithToast";
 import usePublisher from "@foxglove/studio-base/hooks/usePublisher";
 import { PlayerCapabilities } from "@foxglove/studio-base/players/types";
+import { useDefaultPanelTitle } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
@@ -118,6 +119,16 @@ function Publish(props: Props) {
     }
   }, [config.topicName, parsedObject, publish]);
 
+  const [, setDefaultPanelTitle] = useDefaultPanelTitle();
+
+  useEffect(() => {
+    if (config.topicName != undefined && config.topicName.length > 0) {
+      setDefaultPanelTitle(`Publish ${config.topicName}`);
+    } else {
+      setDefaultPanelTitle("Publish");
+    }
+  }, [config.topicName, setDefaultPanelTitle]);
+
   const canPublish = Boolean(
     capabilities.includes(PlayerCapabilities.advertise) &&
       config.value &&
@@ -149,7 +160,9 @@ function Publish(props: Props) {
               size="small"
               placeholder="Enter message content as JSON"
               value={config.value}
-              onChange={(event) => saveConfig({ value: event.target.value })}
+              onChange={(event) => {
+                saveConfig({ value: event.target.value });
+              }}
               error={error != undefined}
             />
           </Stack>
@@ -162,7 +175,7 @@ function Publish(props: Props) {
           flexGrow={0}
           gap={1.5}
         >
-          {(error || statusMessage) && (
+          {(error != undefined || statusMessage != undefined) && (
             <Typography variant="caption" noWrap color={error ? "error" : undefined}>
               {error ?? statusMessage}
             </Typography>

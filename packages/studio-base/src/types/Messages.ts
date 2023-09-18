@@ -213,12 +213,10 @@ export type Marker =
   | CylinderMarker
   | LineStripMarker
   | LineListMarker
-  | CubeListMarker
   | PointsMarker
   | TextMarker
   | MeshMarker
   | TriangleListMarker
-  | MeshMarker
   | InstancedLineListMarker
   | ColorMarker;
 
@@ -233,7 +231,6 @@ export type PointField = Readonly<{
   count: number;
 }>;
 
-// ts-prune-ignore-next
 export type PointCloud2 = StampedMessage & {
   fields: readonly PointField[];
   height: number;

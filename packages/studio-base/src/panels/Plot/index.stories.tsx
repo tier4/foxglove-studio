@@ -12,9 +12,10 @@
 //   You may not use this file except in compliance with the License.
 
 import { StoryObj } from "@storybook/react";
-import { screen, userEvent } from "@storybook/testing-library";
-import { shuffle } from "lodash";
-import { useCallback, useRef } from "react";
+import { screen, userEvent, waitFor } from "@storybook/testing-library";
+import { produce } from "immer";
+import * as _ from "lodash-es";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { makeStyles } from "tss-react/mui";
 
 import { fromSec } from "@foxglove/rostime";
@@ -151,7 +152,7 @@ const otherStateMessages = [
       { id: 42, speed: 0.06 },
     ],
   },
-];
+] as const;
 
 const withEndTime = (testFixture: Fixture, endTime: any) => ({
   ...testFixture,
@@ -222,6 +223,7 @@ const getPreloadedMessage = (seconds: number) => ({
 const emptyBlock = {
   messagesByTopic: {},
   sizeInBytes: 0,
+  needTopics: new Map(),
 };
 
 const messageCache: BlockCache = {
@@ -229,6 +231,7 @@ const messageCache: BlockCache = {
     ...[0.6, 0.7, 0.8, 0.9, 1.0].map((seconds) => ({
       sizeInBytes: 0,
       messagesByTopic: { "/preloaded_topic": [getPreloadedMessage(seconds)] },
+      needTopics: new Map(),
     })),
     emptyBlock, // 1.1
     emptyBlock, // 1.2
@@ -237,6 +240,7 @@ const messageCache: BlockCache = {
     ...[1.5, 1.6, 1.7, 1.8, 1.9].map((seconds) => ({
       sizeInBytes: 0,
       messagesByTopic: { "/preloaded_topic": [getPreloadedMessage(seconds)] },
+      needTopics: new Map(),
     })),
   ],
   startTime: fromSec(0.6),
@@ -301,7 +305,7 @@ export const fixture: Fixture = {
     // Shuffle the location messages so that they are out of stamp order
     // This is used in the headerStamp series test to check that the dataset is sorted
     // prior to rendering. If the dataset is not sorted properly, the plot is jumbled.
-    "/some_topic/location_shuffled": shuffle(
+    "/some_topic/location_shuffled": _.shuffle(
       locationMessages.map(
         (message): MessageEvent => ({
           topic: "/some_topic/location_shuffled",
@@ -391,6 +395,30 @@ export const LineGraph: StoryObj = {
   },
 };
 
+export const LineGraphWithValuesAndDisabledSeries: StoryObj = {
+  render: function Story() {
+    const readySignal = useReadySignal({ count: 3 });
+    const pauseFrame = useCallback(() => readySignal, [readySignal]);
+
+    const config = produce(exampleConfig, (draft) => {
+      draft.paths[1]!.enabled = false;
+      draft.showPlotValuesInLegend = true;
+    });
+
+    return <PlotWrapper pauseFrame={pauseFrame} config={config} />;
+  },
+
+  play: async (ctx) => {
+    await ctx.parameters.storyReady;
+  },
+
+  name: "line graph with values and disabled series",
+
+  parameters: {
+    useReadySignal: true,
+  },
+};
+
 export const LineGraphWithXMinMax: StoryObj = {
   render: function Story() {
     const readySignal = useReadySignal({ count: 3 });
@@ -465,7 +493,13 @@ export const LineGraphWithSettings: StoryObj = {
     return (
       <PlotWrapper
         pauseFrame={pauseFrame}
-        config={{ ...exampleConfig, minYValue: -1, maxYValue: 1, minXValue: 0, maxXValue: 3 }}
+        config={{
+          ...exampleConfig,
+          minYValue: -3.1415,
+          maxYValue: 0.00001,
+          minXValue: 0.001234,
+          maxXValue: 30,
+        }}
         includeSettings
       />
     );
@@ -479,8 +513,12 @@ export const LineGraphWithSettings: StoryObj = {
   name: "line graph with settings",
 
   play: async (ctx) => {
-    const label = await screen.findByTestId("settings__nodeHeaderToggle__yAxis");
-    userEvent.click(label);
+    const yLabel = await screen.findByTestId("settings__nodeHeaderToggle__yAxis");
+    await userEvent.click(yLabel);
+
+    const xLabel = await screen.findByTestId("settings__nodeHeaderToggle__xAxis");
+    await userEvent.click(xLabel);
+
     await ctx.parameters.storyReady;
   },
 };
@@ -830,18 +868,16 @@ export const WithMinAndMaxYValues: StoryObj = {
   },
 
   parameters: {
-    chromatic: {
-      delay: 500,
-    },
     colorScheme: "light",
     useReadySignal: true,
   },
 
   name: "with min and max Y values",
 
-  play: async () => {
+  play: async (ctx) => {
+    await ctx.parameters.storyReady;
     const label = await screen.findByText("Y Axis");
-    userEvent.click(label);
+    await userEvent.click(label);
   },
 };
 
@@ -1123,6 +1159,69 @@ export const IndexBasedXAxisForArray: StoryObj = {
   },
 };
 
+export const IndexBasedXAxisForArrayWithUpdate: StoryObj = {
+  render: function Story() {
+    const readySignal = useReadySignal({ count: 1 });
+
+    const [ourFixture, setOurFixture] = useState(structuredClone(fixture));
+
+    const pauseFrame = useCallback(() => readySignal, [readySignal]);
+
+    useEffect(() => {
+      setOurFixture((oldValue) => {
+        return {
+          ...oldValue,
+          frame: {
+            "/some_topic/state": [
+              {
+                topic: "/some_topic/state",
+                receiveTime: { sec: 3, nsec: 0 },
+                message: {
+                  header: { stamp: { sec: 3, nsec: 0 } },
+                  items: [
+                    { id: 10, speed: 1 },
+                    { id: 42, speed: 10 },
+                  ],
+                },
+                schemaName: "msgs/State",
+                sizeInBytes: 0,
+              },
+            ],
+          },
+        };
+      });
+    }, []);
+
+    return (
+      <PlotWrapper
+        pauseFrame={pauseFrame}
+        fixture={ourFixture}
+        config={{
+          ...exampleConfig,
+          xAxisVal: "index",
+          paths: [
+            {
+              value: "/some_topic/state.items[:].speed",
+              enabled: true,
+              timestampMethod: "receiveTime",
+            },
+          ],
+        }}
+      />
+    );
+  },
+
+  name: "index-based x-axis for array with update",
+
+  parameters: {
+    useReadySignal: true,
+  },
+
+  play: async (ctx) => {
+    await waitFor(() => ctx.parameters.storyReady);
+  },
+};
+
 export const CustomXAxisTopic: StoryObj = {
   render: function Story() {
     const readySignal = useReadySignal({ count: 3 });
@@ -1280,7 +1379,7 @@ export const CustomXAxisTopicWithMismatchedDataLengths: StoryObj = {
 
 export const SuperCloseValues: StoryObj = {
   render: function Story() {
-    const readySignal = useReadySignal({ count: 3 });
+    const readySignal = useReadySignal({ count: 1 });
     const pauseFrame = useCallback(() => readySignal, [readySignal]);
 
     return (

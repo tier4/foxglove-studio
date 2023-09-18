@@ -12,13 +12,7 @@
 //   You may not use this file except in compliance with the License.
 
 import CancelIcon from "@mui/icons-material/Cancel";
-import {
-  MenuItem,
-  Autocomplete as MuiAutocomplete,
-  TextField,
-  alpha,
-  useTheme,
-} from "@mui/material";
+import { MenuItem, Autocomplete as MuiAutocomplete, TextField, alpha } from "@mui/material";
 import { Fzf, FzfResultItem } from "fzf";
 import * as React from "react";
 import {
@@ -33,9 +27,13 @@ import {
 import { useResizeDetector } from "react-resize-detector";
 import { makeStyles } from "tss-react/mui";
 
+import { HighlightChars } from "@foxglove/studio-base/components/HighlightChars";
 import { ReactWindowListboxAdapter } from "@foxglove/studio-base/components/ReactWindowListboxAdapter";
 
 const MAX_FZF_MATCHES = 200;
+
+// Above this number of items we fall back to the faster fuzzy find algorithm.
+const FAST_FIND_ITEM_CUTOFF = 1_000;
 
 type AutocompleteProps<T> = {
   autoSize?: boolean;
@@ -50,7 +48,7 @@ type AutocompleteProps<T> = {
   menuStyle?: CSSProperties;
   minWidth?: number;
   onBlur?: () => void;
-  onChange?: (event: React.SyntheticEvent<Element>, text: string) => void;
+  onChange?: (event: React.SyntheticEvent, text: string) => void;
   onSelect: (value: string | T, autocomplete: IAutocomplete) => void;
   placeholder?: string;
   readOnly?: boolean;
@@ -107,7 +105,13 @@ const useStyles = makeStyles()((theme) => {
       lineHeight: "calc(100% - 10px)",
       overflowWrap: "break-word",
       color: theme.palette.text.primary,
-      whiteSpace: "pre",
+
+      // re-establish the <mark /> styles because the autocomplete is in a Portal
+      mark: {
+        backgroundColor: "transparent",
+        color: theme.palette.info.main,
+        fontWeight: 700,
+      },
     },
     itemSelected: {
       backgroundColor: alpha(
@@ -147,29 +151,6 @@ function itemToFzfResult<T>(item: T): FzfResultItem<T> {
     end: 0,
   };
 }
-
-const HighlightChars = (props: { str: string; indices: Set<number> }) => {
-  const theme = useTheme();
-  const chars = props.str.split("");
-
-  const nodes = chars.map((char, i) => {
-    if (props.indices.has(i)) {
-      return (
-        <b key={i} style={{ color: theme.palette.info.main }}>
-          {char}
-        </b>
-      );
-    } else {
-      return (
-        <span key={i} style={{ whiteSpace: "pre" }}>
-          {char}
-        </span>
-      );
-    }
-  });
-
-  return <>{nodes}</>;
-};
 
 /**
  * <Autocomplete> is a Studio-specific wrapper of MUI autocomplete with support
@@ -220,7 +201,8 @@ export default React.forwardRef(function Autocomplete<T = unknown>(
   const fzf = useMemo(() => {
     // @ts-expect-error Fzf selector TS type seems to be wrong?
     return new Fzf(items, {
-      fuzzy: "v2",
+      // v1 algorithm is significantly faster on long lists of items.
+      fuzzy: items.length > FAST_FIND_ITEM_CUTOFF ? "v1" : "v2",
       sort: sortWhenFiltering,
       limit: MAX_FZF_MATCHES,
       selector: getItemText,
@@ -256,7 +238,7 @@ export default React.forwardRef(function Autocomplete<T = unknown>(
   ]);
 
   const onChange = useCallback(
-    (_event: ReactNull | React.SyntheticEvent<Element>, newValue: string): void => {
+    (_event: ReactNull | React.SyntheticEvent, newValue: string): void => {
       if (onChangeCallback) {
         if (_event) {
           onChangeCallback(_event, newValue);
@@ -271,10 +253,7 @@ export default React.forwardRef(function Autocomplete<T = unknown>(
   // To allow multiple completions in sequence, it's up to the parent component
   // to manually blur the input to finish a completion.
   const onSelect = useCallback(
-    (
-      _event: SyntheticEvent<Element>,
-      selectedValue: ReactNull | string | FzfResultItem<T>,
-    ): void => {
+    (_event: SyntheticEvent, selectedValue: ReactNull | string | FzfResultItem<T>): void => {
       if (selectedValue != undefined && typeof selectedValue !== "string") {
         setValue(undefined);
         onSelectCallback(selectedValue.item, { setSelectionRange, focus, blur });
