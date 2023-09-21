@@ -5,6 +5,7 @@
 import ReactRefreshPlugin from "@pmmmwh/react-refresh-webpack-plugin";
 import { CleanWebpackPlugin } from "clean-webpack-plugin";
 import CopyPlugin from "copy-webpack-plugin";
+import Dotenv from "dotenv-webpack";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import path from "path";
 import { Configuration, WebpackPluginInstance } from "webpack";
@@ -63,6 +64,8 @@ export const mainConfig =
 
     const allowUnusedVariables = isDev;
 
+    const dotenvPath = path.resolve(params.contextPath, "..", `.env.${argv.mode}`);
+
     const plugins: WebpackPluginInstance[] = [];
 
     if (isServe) {
@@ -96,6 +99,9 @@ export const mainConfig =
       plugins: [
         ...plugins,
         ...(appWebpackConfig.plugins ?? []),
+        new Dotenv({
+          path: dotenvPath,
+        }),
         new CopyPlugin({
           patterns: [{ from: path.resolve(__dirname, "..", "public") }],
         }),
