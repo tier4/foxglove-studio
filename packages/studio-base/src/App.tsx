@@ -42,6 +42,7 @@ type AppProps = CustomWindowControlsProps & {
   nativeWindow?: INativeWindow;
   enableLaunchPreferenceScreen?: boolean;
   enableGlobalCss?: boolean;
+  appBarHidden?: boolean;
   appBarLeftInset?: number;
   extraProviders?: JSX.Element[];
   onAppBarDoubleClick?: () => void;
@@ -121,6 +122,7 @@ export function App(props: AppProps): JSX.Element {
                   <Suspense fallback={<></>}>
                     <PanelCatalogProvider>
                       <Workspace
+                        appBarHidden={props.appBarHidden}
                         deepLinks={deepLinks}
                         appBarLeftInset={props.appBarLeftInset}
                         onAppBarDoubleClick={props.onAppBarDoubleClick}

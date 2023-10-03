@@ -59,6 +59,7 @@ export function Root(props: {
   return (
     <>
       <App
+        appBarHidden={true}
         enableLaunchPreferenceScreen
         deepLinks={[window.location.href]}
         dataSources={dataSources}
