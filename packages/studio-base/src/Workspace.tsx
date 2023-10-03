@@ -83,6 +83,7 @@ const useStyles = makeStyles()({
 
 type WorkspaceProps = CustomWindowControlsProps & {
   deepLinks?: string[];
+  appBarHidden?: boolean;
   appBarLeftInset?: number;
   onAppBarDoubleClick?: () => void;
   // eslint-disable-next-line react/no-unused-prop-types
@@ -439,16 +440,18 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
       <SyncAdapters />
       <KeyListener global keyDownHandlers={keyDownHandlers} />
       <div className={classes.container} ref={containerRef} tabIndex={0}>
-        <AppBar
-          leftInset={props.appBarLeftInset}
-          onDoubleClick={props.onAppBarDoubleClick}
-          showCustomWindowControls={props.showCustomWindowControls}
-          isMaximized={props.isMaximized}
-          onMinimizeWindow={props.onMinimizeWindow}
-          onMaximizeWindow={props.onMaximizeWindow}
-          onUnmaximizeWindow={props.onUnmaximizeWindow}
-          onCloseWindow={props.onCloseWindow}
-        />
+        {props.appBarHidden !== true && (
+          <AppBar
+            leftInset={props.appBarLeftInset}
+            onDoubleClick={props.onAppBarDoubleClick}
+            showCustomWindowControls={props.showCustomWindowControls}
+            isMaximized={props.isMaximized}
+            onMinimizeWindow={props.onMinimizeWindow}
+            onMaximizeWindow={props.onMaximizeWindow}
+            onUnmaximizeWindow={props.onUnmaximizeWindow}
+            onCloseWindow={props.onCloseWindow}
+          />
+        )}
         <Sidebars
           leftItems={leftSidebarItems}
           selectedLeftKey={leftSidebarOpen ? leftSidebarItem : undefined}
@@ -488,7 +491,7 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
 }
 
 export default function Workspace(props: WorkspaceProps): JSX.Element {
-  const [showOpenDialogOnStartup = true] = useAppConfigurationValue<boolean>(
+  const [showOpenDialogOnStartup = false] = useAppConfigurationValue<boolean>(
     AppSetting.SHOW_OPEN_DIALOG_ON_STARTUP,
   );
 
