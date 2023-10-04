@@ -26,6 +26,7 @@ const isDevelopment = process.env.NODE_ENV === "development";
 export function Root(props: {
   extraProviders: JSX.Element[] | undefined;
   dataSources: IDataSourceFactory[] | undefined;
+  deepLinks?: string[] | undefined;
 }): JSX.Element {
   const appConfiguration = useMemo(
     () =>
@@ -61,7 +62,7 @@ export function Root(props: {
       <App
         appBarHidden={true}
         enableLaunchPreferenceScreen
-        deepLinks={[window.location.href]}
+        deepLinks={props.deepLinks ?? [window.location.href]}
         dataSources={dataSources}
         appConfiguration={appConfiguration}
         extensionLoaders={extensionLoaders}
