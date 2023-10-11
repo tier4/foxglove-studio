@@ -21,8 +21,6 @@ import {
 
 import LocalStorageAppConfiguration from "./services/LocalStorageAppConfiguration";
 
-const isDevelopment = process.env.NODE_ENV === "development";
-
 export function Root(props: {
   extraProviders: JSX.Element[] | undefined;
   dataSources: IDataSourceFactory[] | undefined;
@@ -32,7 +30,12 @@ export function Root(props: {
     () =>
       new LocalStorageAppConfiguration({
         defaults: {
-          [AppSetting.SHOW_DEBUG_PANELS]: isDevelopment,
+          [AppSetting.SHOW_DEBUG_PANELS]: false,
+          [AppSetting.COLOR_SCHEME]: "dark",
+          [AppSetting.TELEMETRY_ENABLED]: false,
+          [AppSetting.CRASH_REPORTING_ENABLED]: false,
+          [AppSetting.HIDE_SIGN_IN_PROMPT]: true,
+          [AppSetting.MESSAGE_RATE]: 30,
         },
       }),
     [],
@@ -60,7 +63,7 @@ export function Root(props: {
   return (
     <>
       <App
-        appBarHidden={true}
+        appBarHidden={false}
         enableLaunchPreferenceScreen
         deepLinks={props.deepLinks ?? [window.location.href]}
         dataSources={dataSources}
