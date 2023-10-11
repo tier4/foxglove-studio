@@ -5,7 +5,7 @@
 import Typography from "@mui/material/Typography";
 import { useEffect, useState, useCallback, memo } from "react";
 
-import { Time, fromNanoSec } from "@foxglove/rostime";
+import { fromString } from "@foxglove/rostime";
 import ErrorLogList from "@foxglove/studio-base/components/ErrorLogList/ErrorLogList";
 import { ErrorLog } from "@foxglove/studio-base/components/ErrorLogList/ErrorLogListItem";
 import {
@@ -49,7 +49,9 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
       const modifiedData = data.map((item, index) => ({ ...item, index, kind: "error" }));
       setErrorLogs(modifiedData);
     };
-    getErrorLog(errorLogUrl).catch(() => setErrorMessage("データの取得に失敗しました"));
+    getErrorLog(errorLogUrl).catch(() => {
+      setErrorMessage("データの取得に失敗しました");
+    });
   }, [errorLogUrl]);
 
   useEffect(() => {
@@ -59,13 +61,17 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
       const contentIds = data.map((d) => d.name.replace(".png", ""));
       setFeedbackContentIds(contentIds);
     };
-    getFeedbackContentIds(feedbackContentsUrl).catch(() => setFeedbackContentIds([]));
+    getFeedbackContentIds(feedbackContentsUrl).catch(() => {
+      setFeedbackContentIds([]);
+    });
   }, [feedbackContentsUrl]);
 
   const handleClickItem = useCallback(
     (item: ErrorLog) => {
-      const timestamp = BigInt(item.timestamp);
-      const playbackTime: Time = fromNanoSec(timestamp);
+      const playbackTime = fromString(item.timestamp);
+      if (playbackTime == undefined) {
+        return;
+      }
       playbackTime.sec -= offsetSec;
       seek?.(playbackTime);
       play?.();
