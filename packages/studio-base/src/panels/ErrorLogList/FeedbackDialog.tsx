@@ -20,7 +20,7 @@ function FeedbackDialog({ open, contentUrl, handleClose }: FeedbackDialogProps) 
   }
 
   return (
-    <Dialog fullWidth={true} maxWidth="lg" open={open} onClose={handleClose}>
+    <Dialog fullWidth={true} maxWidth="md" open={open} onClose={handleClose}>
       <DialogContent sx={{ textAlign: "center" }}>
         {open && (
           <img alt="feedback" src={contentUrl} style={{ objectFit: "contain", width: "100%" }} />
