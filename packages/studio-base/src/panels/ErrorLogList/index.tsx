@@ -21,6 +21,7 @@ import { Config, FileType } from "./types";
 
 const selectSeek = (ctx: MessagePipelineContext) => ctx.seekPlayback;
 const selectPlay = (ctx: MessagePipelineContext) => ctx.startPlayback;
+const selectStartTime = (ctx: MessagePipelineContext) => ctx.playerState.activeData?.startTime;
 
 type Props = {
   config: Config;
@@ -32,6 +33,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
   const play = useMessagePipeline(selectPlay);
   const seek = useMessagePipeline(selectSeek);
+  const startTime = useMessagePipeline(selectStartTime);
 
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [feedbackContentIds, setFeedbackContentIds] = useState<string[]>([]);
@@ -39,8 +41,17 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const params = new URLSearchParams(window.location.search);
+  const bagUrl = params.get("ds.url") ?? "";
+  const durationSec = Number(params.get("duration-sec") ?? 0);
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
+
+  const bagFilename = bagUrl.split("/").pop() ?? "";
+  const bagIndex = Number(bagFilename.replace(".mcap", "").split("_")[1] ?? 0);
+
+  useEffect(() => {
+    play?.();
+  }, [play]);
 
   useEffect(() => {
     const getErrorLog = async (url: string) => {
@@ -69,14 +80,23 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const handleClickItem = useCallback(
     (item: ErrorLog) => {
       const playbackTime = fromString(item.timestamp);
-      if (playbackTime == undefined) {
+      if (playbackTime == undefined || startTime == undefined) {
         return;
       }
-      playbackTime.sec -= offsetSec;
-      seek?.(playbackTime);
-      play?.();
+      const x = (playbackTime.sec - startTime.sec) / durationSec;
+      const newBagIndex = bagIndex + (x < 0 ? Math.ceil(x) + 1 : Math.floor(x));
+      if (newBagIndex !== bagIndex) {
+        const newBagUrl = bagUrl.replace(`_${bagIndex}.mcap`, `_${newBagIndex}.mcap`);
+        params.set("ds.url", newBagUrl);
+        params.set("time", new Date(playbackTime.sec * 1000).toISOString());
+        window.location.search = params.toString();
+      } else {
+        playbackTime.sec -= offsetSec;
+        seek?.(playbackTime);
+        play?.();
+      }
     },
-    [offsetSec, play, seek],
+    [params, bagUrl, startTime, bagIndex, durationSec, offsetSec, play, seek],
   );
 
   const handleCloseFeedbackDialog = useCallback(
