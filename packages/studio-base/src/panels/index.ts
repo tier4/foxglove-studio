@@ -199,6 +199,20 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     module: async () => await import("./ErrorLogList"),
   },
   {
+    title: "Error Log List For Rosbag Player",
+    type: "ErrorLogListPanelForRosbagPlayer",
+    description: "Display error log list",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./ErrorLogListForRosbagPlayer"),
+  },
+  {
+    title: "Rosbag Player Controller",
+    type: "RosbagPlayerController",
+    description: "Controller for rosbag player",
+    thumbnail: errorLogListThumbnail,
+    module: async () => await import("./RosbagPlayerController"),
+  },
+  {
     title: t("tab"),
     type: TAB_PANEL_TYPE,
     description: t("tabDescription"),
