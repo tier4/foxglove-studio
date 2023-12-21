@@ -52,12 +52,12 @@ const ErrorLogListItem = ({
   handleClickFeedback,
   hiddenScore = false,
 }: ErrorLogListItemProps) => {
-  const { onClick: onClickItem, onTouchEnd: onTouchEndItem } = clickOrTap(() =>
-    handleClickItem(item, index),
-  );
-  const { onClick: onClickFeedback, onTouchEnd: onTouchEndFeedback } = clickOrTap(() =>
-    handleClickFeedback(item.error_contents),
-  );
+  const { onClick: onClickItem, onTouchEnd: onTouchEndItem } = clickOrTap(() => {
+    handleClickItem(item, index);
+  });
+  const { onClick: onClickFeedback, onTouchEnd: onTouchEndFeedback } = clickOrTap(() => {
+    handleClickFeedback(item.error_contents);
+  });
   const style = isSelected ? { fontWeight: 900, color: red[500] } : {};
 
   return (

@@ -4,18 +4,20 @@
 
 import { Story } from "@storybook/react";
 
-import FeedbackDialog, { FeedbackDialogProps } from "./FeedbackDialog";
+import FeedbackDialog, { FeedbackDialogProps } from ".";
 
 export default {
   component: FeedbackDialog,
-  title: 'components/FeedbackDialog',
+  title: "components/FeedbackDialog",
 };
 
-const Template: Story<FeedbackDialogProps> = (args: FeedbackDialogProps) => <FeedbackDialog {...args} />;
+const Template: Story<FeedbackDialogProps> = (args: FeedbackDialogProps) => (
+  <FeedbackDialog {...args} />
+);
 
 export const Default = Template.bind({});
 Default.args = {
   open: true,
   contentUrl: "",
-  handleClose: console.log
+  handleClose: console.log,
 };

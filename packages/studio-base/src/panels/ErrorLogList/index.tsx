@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback, memo } from "react";
 import { fromString } from "@foxglove/rostime";
 import ErrorLogList from "@foxglove/studio-base/components/ErrorLogList/ErrorLogList";
 import { ErrorLog } from "@foxglove/studio-base/components/ErrorLogList/ErrorLogListItem";
+import FeedbackDialog from "@foxglove/studio-base/components/FeedbackDialog";
 import {
   MessagePipelineContext,
   useMessagePipeline,
@@ -17,7 +18,6 @@ import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
 import { PlayerPresence } from "@foxglove/studio-base/players/types";
 
-import FeedbackDialog from "./FeedbackDialog";
 import { Config, FileType } from "./types";
 
 const selectPlayerPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence;
