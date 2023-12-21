@@ -15,13 +15,16 @@ import {
 import Panel from "@foxglove/studio-base/components/Panel";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
+import { PlayerPresence } from "@foxglove/studio-base/players/types";
 
 import FeedbackDialog from "./FeedbackDialog";
 import { Config, FileType } from "./types";
 
+const selectPlayerPresence = (ctx: MessagePipelineContext) => ctx.playerState.presence;
 const selectSeek = (ctx: MessagePipelineContext) => ctx.seekPlayback;
 const selectPlay = (ctx: MessagePipelineContext) => ctx.startPlayback;
 const selectStartTime = (ctx: MessagePipelineContext) => ctx.playerState.activeData?.startTime;
+const selectEndTime = (ctx: MessagePipelineContext) => ctx.playerState.activeData?.endTime;
 
 type Props = {
   config: Config;
@@ -31,9 +34,11 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const offsetSec = config.offsetSec ?? 0;
   const hiddenScore = config.hiddenScore ?? false;
 
+  const playerPresence = useMessagePipeline(selectPlayerPresence);
   const play = useMessagePipeline(selectPlay);
   const seek = useMessagePipeline(selectSeek);
   const startTime = useMessagePipeline(selectStartTime);
+  const endTime = useMessagePipeline(selectEndTime);
 
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [feedbackContentIds, setFeedbackContentIds] = useState<string[]>([]);
@@ -42,7 +47,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
 
   const params = new URLSearchParams(window.location.search);
   const bagUrl = params.get("ds.url") ?? "";
-  const durationSec = Number(params.get("duration-sec") ?? 0);
+  // const durationSec = Number(params.get("duration-sec") ?? 0);
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
 
@@ -50,8 +55,11 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const bagIndex = Number(bagFilename.replace(".mcap", "").split("_")[1] ?? 0);
 
   useEffect(() => {
-    play?.();
-  }, [play]);
+    console.log("playerPresence", playerPresence);
+    if (playerPresence === PlayerPresence.PRESENT) {
+      play?.();
+    }
+  }, [play, playerPresence]);
 
   useEffect(() => {
     const getErrorLog = async (url: string) => {
@@ -80,9 +88,10 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const handleClickItem = useCallback(
     (item: ErrorLog) => {
       const playbackTime = fromString(item.timestamp);
-      if (playbackTime == undefined || startTime == undefined) {
+      if (playbackTime == undefined || startTime == undefined || endTime == undefined) {
         return;
       }
+      const durationSec = endTime.sec - startTime.sec;
       const x = (playbackTime.sec - startTime.sec) / durationSec;
       const newBagIndex = bagIndex + (x < 0 ? Math.ceil(x) + 1 : Math.floor(x));
       if (newBagIndex !== bagIndex) {
@@ -96,7 +105,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
         play?.();
       }
     },
-    [params, bagUrl, startTime, bagIndex, durationSec, offsetSec, play, seek],
+    [params, bagUrl, startTime, endTime, bagIndex, offsetSec, play, seek],
   );
 
   const handleCloseFeedbackDialog = useCallback(

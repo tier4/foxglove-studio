@@ -3,12 +3,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 export type Config = {
-  offsetSec?: number;
-  hiddenScore?: boolean;
-};
-
-export type FileType = {
-  name: string;
-  type: string;
-  mtime: string;
+  serviceName?: string;
+  requestPayload?: string;
+  layout?: "vertical" | "horizontal";
+  buttonText?: string;
+  buttonTooltip?: string;
+  buttonColor?: string;
 };

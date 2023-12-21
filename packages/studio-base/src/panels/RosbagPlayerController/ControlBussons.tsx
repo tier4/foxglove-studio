@@ -15,6 +15,7 @@ import React from "react";
 
 export type ControlButtonsProps = {
   isPlaying: boolean;
+  disabled: boolean;
   onClickPlayButton: () => void;
   onClickPauseButton: () => void;
   onClickSeekButton: (offset: number) => void;
@@ -23,34 +24,47 @@ export type ControlButtonsProps = {
 
 function ControlButtons({
   isPlaying,
+  disabled,
   onClickPlayButton,
   onClickPauseButton,
   onClickSeekButton,
   fontSize = 40,
 }: ControlButtonsProps) {
-  const seekBack10 = React.useCallback(() => onClickSeekButton(-10), [onClickSeekButton]);
-  const seekBack30 = React.useCallback(() => onClickSeekButton(-30), [onClickSeekButton]);
-  const seekForward10 = React.useCallback(() => onClickSeekButton(10), [onClickSeekButton]);
-  const seekForward30 = React.useCallback(() => onClickSeekButton(30), [onClickSeekButton]);
-
   return (
-    <Stack direction="row" spacing={2}>
-      <IconButton onClick={seekBack30}>
+    <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
+      <IconButton
+        disabled={disabled}
+        onClick={() => {
+          onClickSeekButton(-30);
+        }}
+      >
         <Replay30Icon style={{ fontSize }} />
       </IconButton>
-      <IconButton onClick={seekBack10}>
+      <IconButton
+        disabled={disabled}
+        onClick={() => {
+          onClickSeekButton(-10);
+        }}
+      >
         <Replay10Icon style={{ fontSize }} />
       </IconButton>
-      <IconButton
-        onClick={isPlaying ? onClickPauseButton : onClickPlayButton}
-        color={isPlaying ? "default" : "secondary"}
-      >
+      <IconButton disabled={disabled} onClick={isPlaying ? onClickPauseButton : onClickPlayButton}>
         {isPlaying ? <PauseIcon style={{ fontSize }} /> : <PlayArrowIcon style={{ fontSize }} />}
       </IconButton>
-      <IconButton onClick={seekForward10}>
+      <IconButton
+        disabled={disabled}
+        onClick={() => {
+          onClickSeekButton(10);
+        }}
+      >
         <Forward10Icon style={{ fontSize }} />
       </IconButton>
-      <IconButton size="large" onClick={seekForward30}>
+      <IconButton
+        disabled={disabled}
+        onClick={() => {
+          onClickSeekButton(30);
+        }}
+      >
         <Forward30Icon style={{ fontSize }} />
       </IconButton>
     </Stack>
