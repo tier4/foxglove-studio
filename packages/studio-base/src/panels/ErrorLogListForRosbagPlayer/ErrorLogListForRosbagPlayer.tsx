@@ -24,8 +24,6 @@ type ClockMsg = {
 };
 
 export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
-  // panel extensions must notify when they've completed rendering
-  // onRender will setRenderDone to a done callback which we can invoke after we've rendered
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
   const [message, setMessage] = useState<MessageEvent | undefined>();
@@ -69,7 +67,6 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     void getFeedbackContentIds(feedbackContentsUrl);
   }, [feedbackContentsUrl]);
 
-  // Every time we get a new image message draw it to the canvas.
   useEffect(() => {
     if (message) {
       clockRef.current = (message.message as ClockMsg).clock;
@@ -81,7 +78,6 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     context.onRender = (renderState, done) => {
       setRenderDone(() => done);
       setColorScheme(renderState.colorScheme);
-      // Save the most recent message on our image topic.
       if (renderState.currentFrame && renderState.currentFrame.length > 0) {
         setMessage(renderState.currentFrame[renderState.currentFrame.length - 1]);
       }
@@ -111,7 +107,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   const handleClickItem = useCallback(
     async (item: ErrorLog) => {
       const playbackTime = fromString(item.timestamp);
-      if (playbackTime == undefined) {
+      if (playbackTime == undefined || clockRef.current == undefined) {
         return;
       }
       const seekMessage = {
@@ -121,7 +117,14 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
         },
       };
       await callService("/rosbag2_player/seek", JSON.stringify(seekMessage));
-      await callService("/rosbag2_player/resume", JSON.stringify({}));
+      // backword した場合は再読込が必要
+      // https://foxglove.slack.com/archives/C028UEY858S/p1703206852151619
+      if (clockRef.current.sec > playbackTime.sec + offsetSec) {
+        await callService("/rosbag2_player/pause", JSON.stringify({}));
+        window.location.reload();
+      } else {
+        await callService("/rosbag2_player/resume", JSON.stringify({}));
+      }
     },
     [offsetSec, callService],
   );
@@ -137,6 +140,10 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   const handleClickFeedback = useCallback((error_content: string) => {
     setSelectedErrorContent(error_content);
   }, []);
+
+  useEffect(() => {
+    void callService("/rosbag2_player/resume", JSON.stringify({}));
+  }, [callService]);
 
   useEffect(() => {
     renderDone();

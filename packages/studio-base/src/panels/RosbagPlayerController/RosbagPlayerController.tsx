@@ -9,10 +9,7 @@ import { Time } from "@foxglove/rostime";
 import { PanelExtensionContext, MessageEvent } from "@foxglove/studio";
 import Stack from "@foxglove/studio-base/components/Stack";
 import ControlBussons from "@foxglove/studio-base/panels/RosbagPlayerController/ControlBussons";
-import { Config } from "@foxglove/studio-base/panels/RosbagPlayerController/types";
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
-
-import { defaultConfig } from "./settings";
 
 const log = Log.getLogger(__dirname);
 
@@ -30,39 +27,24 @@ type ClockMsg = {
 };
 
 export function RosbagPlayerController({ context }: Props): JSX.Element {
-  // panel extensions must notify when they've completed rendering
-  // onRender will setRenderDone to a done callback which we can invoke after we've rendered
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
   const [message, setMessage] = useState<MessageEvent | undefined>();
   const clockRef = useRef<Time>();
   const [state, setState] = useState<State | undefined>();
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [config, setConfig] = useState<Config>(() => ({
-    ...defaultConfig,
-    ...(context.initialState as Partial<Config>),
-  }));
 
-  // Every time we get a new image message draw it to the canvas.
   useEffect(() => {
     if (message) {
       clockRef.current = (message.message as ClockMsg).clock;
     }
   }, [message]);
 
-  useEffect(() => {
-    context.saveState(config);
-    context.setDefaultPanelTitle(
-      config.serviceName ? `Call service ${config.serviceName}` : undefined,
-    );
-  }, [config, context]);
-
   useLayoutEffect(() => {
     context.watch("colorScheme");
     context.onRender = (renderState, done) => {
       setRenderDone(() => done);
       setColorScheme(renderState.colorScheme);
-      // Save the most recent message on our image topic.
       if (renderState.currentFrame && renderState.currentFrame.length > 0) {
         setMessage(renderState.currentFrame[renderState.currentFrame.length - 1]);
       }
@@ -116,9 +98,17 @@ export function RosbagPlayerController({ context }: Props): JSX.Element {
         },
       };
       await callService("/rosbag2_player/seek", JSON.stringify(seekMessage));
+      if (offsetSec < 0) {
+        void pauseButtonClicked();
+        window.location.reload();
+      }
     },
-    [callService],
+    [callService, pauseButtonClicked],
   );
+
+  useEffect(() => {
+    void resumeButtonClicked();
+  }, [resumeButtonClicked]);
 
   useEffect(() => {
     renderDone();
