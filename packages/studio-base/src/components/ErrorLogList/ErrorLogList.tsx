@@ -52,7 +52,7 @@ const ErrorLogList = ({
   }, [errorLogs, sortByTimestamp]);
 
   return (
-    <List>
+    <List dense>
       {sortedErrorLogs.map((item, index) => {
         const isSelected = selectedIndex === index;
         const hasFeedback = feedbackContentIds.includes(item.error_contents);
