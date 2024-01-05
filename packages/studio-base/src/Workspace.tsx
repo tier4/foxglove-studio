@@ -45,6 +45,10 @@ import { TopicList } from "@foxglove/studio-base/components/TopicList";
 import VariablesList from "@foxglove/studio-base/components/VariablesList";
 import { WorkspaceDialogs } from "@foxglove/studio-base/components/WorkspaceDialogs";
 import { useAppContext } from "@foxglove/studio-base/context/AppContext";
+import {
+  LayoutData,
+  useCurrentLayoutActions,
+} from "@foxglove/studio-base/context/CurrentLayoutContext";
 import { useCurrentUser } from "@foxglove/studio-base/context/CurrentUserContext";
 import { EventsStore, useEvents } from "@foxglove/studio-base/context/EventsContext";
 import { useExtensionCatalog } from "@foxglove/studio-base/context/ExtensionCatalogContext";
@@ -432,6 +436,25 @@ function WorkspaceContent(props: WorkspaceProps): JSX.Element {
     seek(unappliedTime.time);
     setUnappliedTime({ time: undefined });
   }, [playerPresence, seek, unappliedTime]);
+
+  const { setCurrentLayout } = useCurrentLayoutActions();
+  useEffect(() => {
+    const fetchLayout = async (url: string): Promise<void> => {
+      const res = await fetch(url, { cache: "no-cache" });
+      const data: LayoutData = await res.json();
+      const jsonStr = JSON.stringify(data);
+      if (!jsonStr) {
+        return;
+      }
+      localStorage.setItem("studio.layout", jsonStr);
+      setCurrentLayout({ data });
+      return;
+    };
+    const layoutUrl = targetUrlState?.layoutUrl;
+    if (layoutUrl != undefined) {
+      void fetchLayout(layoutUrl);
+    }
+  }, [targetUrlState?.layoutUrl, setCurrentLayout]);
 
   return (
     <PanelStateContextProvider>
