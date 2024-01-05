@@ -21,6 +21,7 @@ const errorLogs = Array(100)
 export const Default = (): JSX.Element => (
   <ErrorLogList
     errorLogs={errorLogs}
+    defaultIndex={1}
     handleClickItem={console.log}
     handleClickFeedback={console.log}
   />

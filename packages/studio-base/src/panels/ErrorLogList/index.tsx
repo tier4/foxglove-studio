@@ -31,9 +31,6 @@ type Props = {
 };
 
 export function ErrorLogListPanel({ config }: Props): JSX.Element {
-  const offsetSec = config.offsetSec ?? 0;
-  const hiddenScore = config.hiddenScore ?? false;
-
   const playerPresence = useMessagePipeline(selectPlayerPresence);
   const play = useMessagePipeline(selectPlay);
   const seek = useMessagePipeline(selectSeek);
@@ -46,16 +43,13 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const params = new URLSearchParams(window.location.search);
-  const bagUrl = params.get("ds.url") ?? "";
-  // const durationSec = Number(params.get("duration-sec") ?? 0);
+  const offsetSec = Number(params.get("offset-sec") ?? 6);
+  const selectedIndex = Number(params.get("selected-index") ?? -1);
+  const hiddenScore = params.get("hidden-score") == undefined;
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
 
-  const bagFilename = bagUrl.split("/").pop() ?? "";
-  const bagIndex = Number(bagFilename.replace(".mcap", "").split("_")[1] ?? 0);
-
   useEffect(() => {
-    console.log("playerPresence", playerPresence);
     if (playerPresence === PlayerPresence.PRESENT) {
       play?.();
     }
@@ -91,21 +85,11 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
       if (playbackTime == undefined || startTime == undefined || endTime == undefined) {
         return;
       }
-      const durationSec = endTime.sec - startTime.sec;
-      const x = (playbackTime.sec - startTime.sec) / durationSec;
-      const newBagIndex = bagIndex + (x < 0 ? Math.ceil(x) + 1 : Math.floor(x));
-      if (newBagIndex !== bagIndex) {
-        const newBagUrl = bagUrl.replace(`_${bagIndex}.mcap`, `_${newBagIndex}.mcap`);
-        params.set("ds.url", newBagUrl);
-        params.set("time", new Date(playbackTime.sec * 1000).toISOString());
-        window.location.search = params.toString();
-      } else {
-        playbackTime.sec -= offsetSec;
-        seek?.(playbackTime);
-        play?.();
-      }
+      playbackTime.sec -= offsetSec;
+      seek?.(playbackTime);
+      play?.();
     },
-    [params, bagUrl, startTime, endTime, bagIndex, offsetSec, play, seek],
+    [startTime, endTime, offsetSec, play, seek],
   );
 
   const handleCloseFeedbackDialog = useCallback((): void => {
@@ -127,6 +111,7 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
             feedbackContentIds={feedbackContentIds}
             handleClickFeedback={handleClickFeedback}
             hiddenScore={hiddenScore}
+            defaultIndex={selectedIndex}
           />
         </Stack>
       ) : errorMessage == undefined ? (
@@ -180,9 +165,6 @@ const EmptyMessage = memo(function EmptyMessage({ message }: MessageProps) {
 });
 
 ErrorLogListPanel.panelType = "ErrorMessageList";
-ErrorLogListPanel.defaultConfig = {
-  offsetSec: 5,
-  hiddenScore: false,
-};
+ErrorLogListPanel.defaultConfig = {};
 
 export default Panel(ErrorLogListPanel);

@@ -35,6 +35,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
 
   const params = new URLSearchParams(window.location.search);
   const offsetSec = Number(params.get("offset-sec") ?? 6);
+  const selectedIndex = Number(params.get("selected-index") ?? -1);
   const hiddenScore = params.get("hidden-score") == undefined;
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
@@ -105,7 +106,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   );
 
   const handleClickItem = useCallback(
-    async (item: ErrorLog) => {
+    async (item: ErrorLog, index: number) => {
       const playbackTime = fromString(item.timestamp);
       if (playbackTime == undefined || clockRef.current == undefined) {
         return;
@@ -118,15 +119,15 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
       };
       await callService("/rosbag2_player/seek", JSON.stringify(seekMessage));
       // backword した場合は再読込が必要
-      // https://foxglove.slack.com/archives/C028UEY858S/p1703206852151619
       if (clockRef.current.sec > playbackTime.sec + offsetSec) {
         await callService("/rosbag2_player/pause", JSON.stringify({}));
-        window.location.reload();
+        params.set("selected-index", `${index}`);
+        window.location.search = params.toString();
       } else {
         await callService("/rosbag2_player/resume", JSON.stringify({}));
       }
     },
-    [offsetSec, callService],
+    [offsetSec, callService, params],
   );
 
   const handleCloseFeedbackDialog = useCallback((): void => {
@@ -156,6 +157,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
               feedbackContentIds={feedbackContentIds}
               handleClickFeedback={handleClickFeedback}
               hiddenScore={hiddenScore}
+              defaultIndex={selectedIndex}
             />
           </Stack>
         ) : errorMessage == undefined ? (

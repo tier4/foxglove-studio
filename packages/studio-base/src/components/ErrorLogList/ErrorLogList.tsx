@@ -10,8 +10,9 @@ import ErrorLogListItem, { ErrorLog } from "./ErrorLogListItem";
 export type ErrorLogListProps = {
   errorLogs?: ErrorLog[];
   feedbackContentIds?: string[];
-  handleClickItem: (item: ErrorLog) => void;
+  handleClickItem: (item: ErrorLog, index: number) => void;
   handleClickFeedback: (error_content: string) => void;
+  defaultIndex?: number;
   desc?: boolean;
   hiddenScore?: boolean;
 };
@@ -21,15 +22,16 @@ const ErrorLogList = ({
   feedbackContentIds = [],
   handleClickItem,
   handleClickFeedback,
+  defaultIndex = -1,
   desc = false,
   hiddenScore = false,
 }: ErrorLogListProps): React.ReactElement => {
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [selectedIndex, setSelectedIndex] = useState<number>(defaultIndex);
 
   const handleClickErrorLog = React.useCallback(
     (item: ErrorLog, index: number) => {
       setSelectedIndex(index);
-      handleClickItem(item);
+      handleClickItem(item, index);
     },
     [handleClickItem],
   );
