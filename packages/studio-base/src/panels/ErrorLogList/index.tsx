@@ -108,13 +108,9 @@ export function ErrorLogListPanel({ config }: Props): JSX.Element {
     [params, bagUrl, startTime, endTime, bagIndex, offsetSec, play, seek],
   );
 
-  const handleCloseFeedbackDialog = useCallback(
-    (event: React.MouseEvent<HTMLInputElement>): void => {
-      event.preventDefault();
-      setSelectedErrorContent(undefined);
-    },
-    [],
-  );
+  const handleCloseFeedbackDialog = useCallback((): void => {
+    setSelectedErrorContent(undefined);
+  }, []);
 
   const handleClickFeedback = useCallback((error_content: string) => {
     setSelectedErrorContent(error_content);

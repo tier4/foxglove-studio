@@ -129,13 +129,9 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     [offsetSec, callService],
   );
 
-  const handleCloseFeedbackDialog = useCallback(
-    (event: React.MouseEvent<HTMLInputElement>): void => {
-      event.preventDefault();
-      setSelectedErrorContent(undefined);
-    },
-    [],
-  );
+  const handleCloseFeedbackDialog = useCallback((): void => {
+    setSelectedErrorContent(undefined);
+  }, []);
 
   const handleClickFeedback = useCallback((error_content: string) => {
     setSelectedErrorContent(error_content);
