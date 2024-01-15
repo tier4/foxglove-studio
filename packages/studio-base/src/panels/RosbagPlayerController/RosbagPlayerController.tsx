@@ -98,12 +98,8 @@ export function RosbagPlayerController({ context }: Props): JSX.Element {
         },
       };
       await callService("/rosbag2_player/seek", JSON.stringify(seekMessage));
-      if (offsetSec < 0) {
-        void pauseButtonClicked();
-        window.location.reload();
-      }
     },
-    [callService, pauseButtonClicked],
+    [callService],
   );
 
   useEffect(() => {

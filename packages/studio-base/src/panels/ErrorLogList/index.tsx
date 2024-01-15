@@ -30,7 +30,7 @@ type Props = {
   config: Config;
 };
 
-export function ErrorLogListPanel({ config }: Props): JSX.Element {
+export function ErrorLogListPanel(_: Props): JSX.Element {
   const playerPresence = useMessagePipeline(selectPlayerPresence);
   const play = useMessagePipeline(selectPlay);
   const seek = useMessagePipeline(selectSeek);

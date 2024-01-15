@@ -106,7 +106,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   );
 
   const handleClickItem = useCallback(
-    async (item: ErrorLog, index: number) => {
+    async (item: ErrorLog, _: number) => {
       const playbackTime = fromString(item.timestamp);
       if (playbackTime == undefined || clockRef.current == undefined) {
         return;
@@ -118,16 +118,9 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
         },
       };
       await callService("/rosbag2_player/seek", JSON.stringify(seekMessage));
-      // backword した場合は再読込が必要
-      if (clockRef.current.sec > playbackTime.sec + offsetSec) {
-        await callService("/rosbag2_player/pause", JSON.stringify({}));
-        params.set("selected-index", `${index}`);
-        window.location.search = params.toString();
-      } else {
-        await callService("/rosbag2_player/resume", JSON.stringify({}));
-      }
+      await callService("/rosbag2_player/resume", JSON.stringify({}));
     },
-    [offsetSec, callService, params],
+    [offsetSec, callService],
   );
 
   const handleCloseFeedbackDialog = useCallback((): void => {
