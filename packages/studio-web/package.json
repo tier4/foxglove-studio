@@ -2,7 +2,7 @@
   "name": "@foxglove/studio-web",
   "license": "MPL-2.0",
   "private": true,
-  "main": "./src/Root.tsx",
+  "main": "./src/index.tsx",
   "dependencies": {
     "@foxglove/studio-base": "workspace:*"
   },
