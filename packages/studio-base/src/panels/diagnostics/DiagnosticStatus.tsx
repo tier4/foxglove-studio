@@ -31,8 +31,8 @@ import sanitizeHtml from "sanitize-html";
 import { makeStyles } from "tss-react/mui";
 
 import Stack from "@foxglove/studio-base/components/Stack";
-import { openSiblingPlotPanel } from "@foxglove/studio-base/panels/Plot";
-import { openSiblingStateTransitionsPanel } from "@foxglove/studio-base/panels/StateTransitions";
+import { openSiblingPlotPanel } from "@foxglove/studio-base/panels/Plot/openSiblingPlotPanel";
+import { openSiblingStateTransitionsPanel } from "@foxglove/studio-base/panels/StateTransitions/openSiblingStateTransitionsPanel";
 import { OpenSiblingPanel } from "@foxglove/studio-base/types/panels";
 
 import { DiagnosticInfo, KeyValue, DiagnosticStatusMessage, LEVELS } from "./util";
@@ -302,7 +302,7 @@ export default function DiagnosticStatus(props: Props): JSX.Element {
     [LEVELS.OK]: "success.main",
     [LEVELS.ERROR]: "error.main",
     [LEVELS.WARN]: "warning.main",
-    [LEVELS.STALE]: "info.main",
+    [LEVELS.STALE]: "text.secondary",
   };
 
   return (

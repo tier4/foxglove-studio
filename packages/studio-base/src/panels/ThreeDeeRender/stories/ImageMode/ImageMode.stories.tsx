@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/react";
 import { fireEvent, screen, userEvent, waitFor } from "@storybook/testing-library";
 import { useCallback, useMemo, useState } from "react";
 import { useAsync } from "react-use";
@@ -34,7 +34,7 @@ export default {
   title: "panels/ThreeDeeRender/Images",
   component: ImagePanel,
   parameters: { colorScheme: "light" },
-};
+} as Meta;
 
 const ImageModeRosImage = ({ imageType }: { imageType: "raw" | "png" }): JSX.Element => {
   const topics: Topic[] = [
@@ -178,12 +178,12 @@ const ImageModeRosImage = ({ imageType }: { imageType: "raw" | "png" }): JSX.Ele
   );
 };
 
-export const ImageModeRosRawImage: StoryObj<React.ComponentProps<typeof ImageModeRosImage>> = {
+export const ImageModeRosRawImage: StoryObj<typeof ImageModeRosImage> = {
   render: ImageModeRosImage,
   args: { imageType: "raw" },
 };
 
-export const ImageModeRosPngImage: StoryObj<React.ComponentProps<typeof ImageModeRosImage>> = {
+export const ImageModeRosPngImage: StoryObj<typeof ImageModeRosImage> = {
   render: ImageModeRosImage,
   args: { imageType: "png" },
 };
@@ -302,8 +302,8 @@ const ImageModeFoxgloveImage = ({
 
   let mono16Raw: MessageEvent<Partial<RawImage>>;
   {
-    const width = 640;
-    const height = 480;
+    const width = 160;
+    const height = 120;
     const mono16Data = new DataView(new ArrayBuffer(width * height * 2));
     for (let r = 0; r < height; r++) {
       for (let c = 0; c < width; c++) {
@@ -404,21 +404,17 @@ const ImageModeFoxgloveImage = ({
   );
 };
 
-export const ImageModeFoxgloveRawImage: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const ImageModeFoxgloveRawImage: StoryObj<typeof ImageModeFoxgloveImage> = {
   render: ImageModeFoxgloveImage,
   args: { imageType: "raw" },
 };
 
-export const ImageModeFoxglovePngImage: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const ImageModeFoxglovePngImage: StoryObj<typeof ImageModeFoxgloveImage> = {
   render: ImageModeFoxgloveImage,
   args: { imageType: "png" },
 };
 
-export const DownloadRawImage: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadRawImage: StoryObj<typeof ImageModeFoxgloveImage> = {
   render: function Story(args) {
     const [src, setSrc] = useState<string | undefined>();
     const [filename, setFilename] = useState<string | undefined>();
@@ -441,98 +437,91 @@ export const DownloadRawImage: StoryObj<React.ComponentProps<typeof ImageModeFox
   args: { imageType: "raw" },
   play: async () => {
     const { click, pointer } = userEvent.setup();
+    // need to wait until the images are done decoding
+    await delay(500);
     await pointer({ target: document.querySelector("canvas")!, keys: "[MouseRight]" });
-    await click(await screen.findByText("Download image"));
+    const downloadButton = await screen.findByText("Download image");
+    await click(downloadButton);
+    // Add an extra delay after rendering the downloaded image to avoid flaky stores
+    await delay(800);
   },
 };
 
-export const DownloadPngImage: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadPngImage: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png" },
 };
 
-export const DownloadPngImageFlipH: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> =
-  {
-    ...DownloadRawImage,
-    args: { imageType: "png", flipHorizontal: true },
-  };
+export const DownloadPngImageFlipH: StoryObj<typeof ImageModeFoxgloveImage> = {
+  ...DownloadRawImage,
+  args: { imageType: "png", flipHorizontal: true },
+};
 
-export const DownloadPngImageFlipV: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> =
-  {
-    ...DownloadRawImage,
-    args: { imageType: "png", flipVertical: true },
-  };
+export const DownloadPngImageFlipV: StoryObj<typeof ImageModeFoxgloveImage> = {
+  ...DownloadRawImage,
+  args: { imageType: "png", flipVertical: true },
+};
 
-export const DownloadPngImageFlipHV: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> =
-  {
-    ...DownloadRawImage,
-    args: { imageType: "png", flipHorizontal: true, flipVertical: true },
-  };
+export const DownloadPngImageFlipHV: StoryObj<typeof ImageModeFoxgloveImage> = {
+  ...DownloadRawImage,
+  args: { imageType: "png", flipHorizontal: true, flipVertical: true },
+};
 
-export const DownloadPngImage90: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadPngImage90: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 90 },
 };
 
-export const DownloadPngImage180: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadPngImage180: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 180 },
 };
 
-export const DownloadPngImage270: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadPngImage270: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 270 },
 };
 
-export const DownloadPngImage90FlipH: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const DownloadPngImage90FlipH: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 90, flipHorizontal: true },
 };
 
-export const DownloadPngImage90FlipV: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const DownloadPngImage90FlipV: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 90, flipVertical: true },
 };
 
-export const DownloadPngImage90FlipHV: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const DownloadPngImage90FlipHV: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "png", rotation: 90, flipHorizontal: true, flipVertical: true },
 };
 
-export const DownloadMono16Image: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const DownloadMono16Image: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "raw_mono16" },
 };
-export const DownloadMono16ImageCustomMinMax: StoryObj<
-  React.ComponentProps<typeof ImageModeFoxgloveImage>
-> = {
+export const DownloadMono16ImageCustomMinMax: StoryObj<typeof ImageModeFoxgloveImage> = {
   ...DownloadRawImage,
   args: { imageType: "raw_mono16", minValue: 10000, maxValue: 20000 },
 };
 
-export const ImageModeResizeHandled: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> =
-  {
-    render: ImageModeFoxgloveImage,
-    args: { imageType: "raw" },
+export const ImageModeResizeHandled: StoryObj<typeof ImageModeFoxgloveImage> = {
+  render: ImageModeFoxgloveImage,
+  args: { imageType: "raw" },
 
-    play: async () => {
-      const canvas = document.querySelector("canvas")!;
-      // Input attaches resize listener to parent element, so we need to resize that.
-      const parentEl = canvas.parentElement!;
-      await delay(30);
-      parentEl.style.width = "50%";
-      canvas.dispatchEvent(new Event("resize"));
-      await delay(30);
-    },
-  };
+  play: async () => {
+    const canvas = document.querySelector("canvas")!;
+    // Input attaches resize listener to parent element, so we need to resize that.
+    const parentEl = canvas.parentElement!;
+    await delay(30);
+    parentEl.style.width = "50%";
+    canvas.dispatchEvent(new Event("resize"));
+    await delay(30);
+  },
+};
 
-export const ImageModePick: StoryObj<React.ComponentProps<typeof ImageModeFoxgloveImage>> = {
+export const ImageModePick: StoryObj<typeof ImageModeFoxgloveImage> = {
   render: ImageModeFoxgloveImage,
   args: { imageType: "raw" },
 
@@ -693,8 +682,8 @@ export const UnsupportedEncodingError: StoryObj = {
   play: async () => {
     const errorIcon = await waitFor(async () => {
       const icons = await screen.findAllByTestId("ErrorIcon");
-      if (icons.length !== 2) {
-        throw new Error("Expected 2 error icons");
+      if (icons.length !== 1) {
+        throw new Error("Expected 1 error icon. (unsupported encoding)");
       }
       return icons[0];
     });
@@ -736,8 +725,8 @@ export const DecompressionError: StoryObj = {
   play: async () => {
     const errorIcon = await waitFor(async () => {
       const icons = await screen.findAllByTestId("ErrorIcon");
-      if (icons.length !== 2) {
-        throw new Error("Expected 2 error icons");
+      if (icons.length !== 1) {
+        throw new Error("Expected 1 error icon (decompression error)");
       }
       return icons[0];
     });
@@ -1095,4 +1084,95 @@ export const RationalPolynomialDistortion: StoryObj = {
       deltaY: 100,
     });
   },
+};
+
+const ImageModeEmptyLayout = ({
+  type,
+}: {
+  type: "no-topics" | "no-image-topics" | "no-messages" | "image-topic-DNE";
+}): JSX.Element => {
+  let fixture: Fixture | undefined;
+  let calibrationTopic: string | undefined = "calibration";
+  switch (type) {
+    case "no-topics":
+      fixture = {
+        topics: [],
+        frame: {},
+        capabilities: [],
+        activeData: {
+          currentTime: { sec: 0, nsec: 0 },
+        },
+      };
+      break;
+    case "no-image-topics":
+      calibrationTopic = undefined;
+      fixture = {
+        topics: [],
+        frame: {},
+        capabilities: [],
+        activeData: {
+          currentTime: { sec: 0, nsec: 0 },
+        },
+      };
+      break;
+    case "image-topic-DNE": {
+      calibrationTopic = undefined;
+      fixture = {
+        topics: [],
+        frame: {},
+        capabilities: [],
+        activeData: {
+          currentTime: { sec: 0, nsec: 0 },
+        },
+      };
+      break;
+    }
+    case "no-messages":
+      fixture = {
+        topics: [
+          { name: "calibration", schemaName: "foxglove.CameraCalibration" },
+          { name: "camera", schemaName: "foxglove.RawImage" },
+        ],
+        frame: {},
+        capabilities: [],
+        activeData: {
+          currentTime: { sec: 0, nsec: 0 },
+        },
+      };
+      break;
+  }
+  return (
+    <PanelSetup fixture={fixture} includeSettings={true}>
+      <ImagePanel
+        overrideConfig={{
+          ...ImagePanel.defaultConfig,
+          imageMode: {
+            calibrationTopic,
+            imageTopic: "camera",
+          },
+        }}
+      />
+    </PanelSetup>
+  );
+};
+
+export const ImageModeEmptyNoTopics: StoryObj<typeof ImageModeEmptyLayout> = {
+  render: ImageModeEmptyLayout,
+  args: { type: "no-topics" },
+};
+
+export const ImageModeEmptyNoImageTopics: StoryObj<typeof ImageModeEmptyLayout> = {
+  render: ImageModeEmptyLayout,
+  args: { type: "no-topics" },
+};
+
+export const ImageModeEmptyNoMessages: StoryObj<typeof ImageModeEmptyLayout> = {
+  render: ImageModeEmptyLayout,
+  args: { type: "no-messages" },
+};
+
+// when calibration == "None", then we display an empty state when only the image topic does not exist
+export const ImageModeEmptyOnlyImageTopicDNE: StoryObj<typeof ImageModeEmptyLayout> = {
+  render: ImageModeEmptyLayout,
+  args: { type: "image-topic-DNE" },
 };

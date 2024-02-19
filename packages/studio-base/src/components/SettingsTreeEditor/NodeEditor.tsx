@@ -27,6 +27,7 @@ import {
 } from "@foxglove/studio";
 import { HighlightedText } from "@foxglove/studio-base/components/HighlightedText";
 import Stack from "@foxglove/studio-base/components/Stack";
+import { useAppContext } from "@foxglove/studio-base/context/AppContext";
 
 import { FieldEditor } from "./FieldEditor";
 import { NodeActionsMenu } from "./NodeActionsMenu";
@@ -201,6 +202,7 @@ function NodeEditorComponent(props: NodeEditorProps): JSX.Element {
     open: defaultOpen,
     visibilityFilter: "all",
   });
+  const { renderSettingsStatusButton } = useAppContext();
   const { t } = useTranslation("settingsEditor");
   const { classes, cx, theme } = useStyles();
 
@@ -329,6 +331,50 @@ function NodeEditorComponent(props: NodeEditorProps): JSX.Element {
     [settings.actions],
   );
 
+  const statusButton = renderSettingsStatusButton
+    ? renderSettingsStatusButton(settings)
+    : undefined;
+
+  // Determine the item to render in the icon slot
+  // If there's an error we render the error dot, otherwise we render the provided IconComponent
+  const iconItem = useMemo(() => {
+    if (props.settings?.error) {
+      return (
+        <Tooltip
+          arrow
+          title={
+            <Typography variant="subtitle2" className={classes.errorTooltip}>
+              {props.settings.error}
+            </Typography>
+          }
+        >
+          <ErrorIcon
+            fontSize="small"
+            color="error"
+            style={{
+              marginRight: theme.spacing(0.5),
+            }}
+          />
+        </Tooltip>
+      );
+    }
+
+    if (IconComponent) {
+      return (
+        <IconComponent
+          fontSize="small"
+          color="inherit"
+          style={{
+            marginRight: theme.spacing(0.5),
+            opacity: 0.8,
+          }}
+        />
+      );
+    }
+
+    return <></>;
+  }, [IconComponent, classes.errorTooltip, props.settings?.error, theme]);
+
   return (
     <>
       <div
@@ -350,16 +396,7 @@ function NodeEditorComponent(props: NodeEditorProps): JSX.Element {
           data-testid={`settings__nodeHeaderToggle__${props.path.join("-")}`}
         >
           {hasProperties && <ExpansionArrow expanded={state.open} />}
-          {IconComponent && (
-            <IconComponent
-              fontSize="small"
-              color="inherit"
-              style={{
-                marginRight: theme.spacing(0.5),
-                opacity: 0.8,
-              }}
-            />
-          )}
+          {iconItem}
           {state.editing ? (
             <TextField
               className={classes.editNameField}
@@ -416,15 +453,17 @@ function NodeEditorComponent(props: NodeEditorProps): JSX.Element {
               <EditIcon fontSize="small" />
             </IconButton>
           )}
-          {settings.visible != undefined && (
-            <VisibilityToggle
-              size="small"
-              checked={visible}
-              onChange={toggleVisibility}
-              style={{ opacity: allowVisibilityToggle ? 1 : 0 }}
-              disabled={!allowVisibilityToggle}
-            />
-          )}
+          {statusButton
+            ? statusButton
+            : settings.visible != undefined && (
+                <VisibilityToggle
+                  size="small"
+                  checked={visible}
+                  onChange={toggleVisibility}
+                  style={{ opacity: allowVisibilityToggle ? 1 : 0 }}
+                  disabled={!allowVisibilityToggle}
+                />
+              )}
           {inlineActions.map((action) => {
             const Icon = action.icon ? icons[action.icon] : undefined;
             const handler = () => {
@@ -454,20 +493,6 @@ function NodeEditorComponent(props: NodeEditorProps): JSX.Element {
               </Button>
             );
           })}
-          {props.settings?.error && (
-            <Tooltip
-              arrow
-              title={
-                <Typography variant="subtitle2" className={classes.errorTooltip}>
-                  {props.settings.error}
-                </Typography>
-              }
-            >
-              <IconButton size="small" color="error">
-                <ErrorIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
 
           {menuActions.length > 0 && (
             <NodeActionsMenu actions={menuActions} onSelectAction={handleNodeAction} />

@@ -3,15 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import CancelIcon from "@mui/icons-material/Cancel";
-import { TextField, Popover, IconButton } from "@mui/material";
-import { useCallback, MouseEvent, useState, useMemo } from "react";
-import tinycolor from "tinycolor2";
+import { TextField, Popover, IconButton, inputBaseClasses, Tooltip } from "@mui/material";
+import { useCallback, MouseEvent, useState } from "react";
 import { makeStyles } from "tss-react/mui";
 
 import Stack from "@foxglove/studio-base/components/Stack";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
-import { ColorPickerControl } from "./ColorPickerControl";
+import { ColorPickerControl, useColorPickerControl } from "./ColorPickerControl";
 import { ColorSwatch } from "./ColorSwatch";
 
 const useStyles = makeStyles<void, "iconButton">()((theme, _params, classes) => ({
@@ -22,20 +20,20 @@ const useStyles = makeStyles<void, "iconButton">()((theme, _params, classes) => 
     pointerEvents: "none",
   },
   textField: {
-    ".MuiInputBase-formControl.MuiInputBase-root": {
+    [`.${inputBaseClasses.formControl}.${inputBaseClasses.root}`]: {
       padding: 0,
     },
-    ".MuiInputBase-root": {
-      fontFamily: `${fonts.MONOSPACE}`,
+    [`.${inputBaseClasses.root}`]: {
+      fontFamily: theme.typography.fontMonospace,
       cursor: "pointer",
 
       [`:not(:hover) .${classes.iconButton}`]: {
         visibility: "hidden",
       },
     },
-    ".MuiInputBase-input": {
+    [`.${inputBaseClasses.input}`]: {
       alignItems: "center",
-      fontFeatureSettings: `${fonts.SANS_SERIF_FEATURE_SETTINGS}, "zero"`,
+      fontFeatureSettings: `${theme.typography.fontFeatureSettings}, "zero"`,
     },
   },
   iconButton: {
@@ -64,15 +62,23 @@ type ColorPickerInputProps = {
 
 export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
   const { alphaType, disabled, onChange, readOnly, hideClearButton, value } = props;
-
   const { classes, cx } = useStyles();
 
-  const [anchorElement, setAnchorElement] = useState<undefined | HTMLDivElement>(undefined);
+  const {
+    swatchColor,
+    displayValue,
+    updatePrefixedColor,
+    editedValueIsInvalid,
+    editedValue,
+    updateEditedValue,
+    onInputBlur,
+  } = useColorPickerControl({
+    alphaType,
+    onChange,
+    value,
+  });
 
-  const parsedValue = useMemo(() => (value ? tinycolor(value) : undefined), [value]);
-  const displayValue =
-    alphaType === "alpha" ? parsedValue?.toHex8String() : parsedValue?.toHexString();
-  const swatchColor = displayValue ?? "#00000044";
+  const [anchorElement, setAnchorElement] = useState<undefined | HTMLDivElement>(undefined);
 
   const handleClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
     setAnchorElement(event.currentTarget);
@@ -101,10 +107,18 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
         disabled={disabled}
         placeholder={props.placeholder}
         size="small"
-        value={displayValue ?? ""}
         variant="filled"
+        value={editedValue ? `#${editedValue.replace("#", "")}` : editedValue}
+        onKeyDown={(event) => event.key === "Enter" && handleClose}
+        onChange={(event) => {
+          updateEditedValue(event.target.value);
+        }}
+        onBlur={onInputBlur}
         InputProps={{
-          readOnly: true,
+          onFocus: (event) => {
+            event.target.select();
+          },
+          // readOnly: true,
           startAdornment: (
             <ColorSwatch
               className={classes.colorSwatch}
@@ -114,14 +128,16 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
             />
           ),
           endAdornment: !shouldHideClearButton && (
-            <IconButton
-              size="small"
-              className={classes.iconButton}
-              onClick={clearValue}
-              disabled={disabled}
-            >
-              <CancelIcon />
-            </IconButton>
+            <Tooltip title="Reset to default">
+              <IconButton
+                size="small"
+                className={classes.iconButton}
+                onClick={clearValue}
+                disabled={disabled}
+              >
+                <CancelIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
           ),
         }}
       />
@@ -140,9 +156,14 @@ export function ColorPickerInput(props: ColorPickerInputProps): JSX.Element {
       >
         <ColorPickerControl
           alphaType={alphaType}
-          value={value}
           onChange={onChange}
           onEnterKey={handleClose}
+          swatchColor={swatchColor}
+          updatePrefixedColor={updatePrefixedColor}
+          editedValueIsInvalid={editedValueIsInvalid}
+          editedValue={editedValue}
+          updateEditedValue={updateEditedValue}
+          onInputBlur={onInputBlur}
         />
       </Popover>
     </Stack>

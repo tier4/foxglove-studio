@@ -6,15 +6,7 @@ import * as R from "ramda";
 
 import { TypedData, ObjectData } from "./types";
 
-export type Point = { index: number; x: number; y: number; label: string | undefined };
-
-// Get the length of a typed dataset.
-export function getTypedLength(data: TypedData[]): number {
-  return R.pipe(
-    R.map((v: TypedData) => v.x.length),
-    R.sum,
-  )(data);
-}
+export type Point = { index: number; x: number; y: number; label?: string | undefined };
 
 /**
  * iterateObjects iterates over ObjectData, yielding a `Point` for each entry.
@@ -85,13 +77,13 @@ export function* iterateTyped<T extends { [key: string]: Array<any> | Float32Arr
   let index = 0;
   for (const slice of dataset) {
     // Find a property for which we can check the length
-    const first = R.head(R.values(slice));
+    const first = R.head(Object.values(slice));
     if (first == undefined) {
       continue;
     }
 
     for (let j = 0; j < first.length; j++) {
-      for (const key of R.keys(slice)) {
+      for (const key of Object.keys(slice) as (keyof typeof slice)[]) {
         point[key] = slice[key]?.[j];
       }
 
@@ -102,14 +94,12 @@ export function* iterateTyped<T extends { [key: string]: Array<any> | Float32Arr
   }
 }
 
+export type Indices = [slice: number, offset: number];
 /**
  * Given a dataset and an index inside of that dataset, return the index of the
  * slice and offset inside of that slice.
  */
-export function findIndices(
-  dataset: TypedData[],
-  index: number,
-): [slice: number, offset: number] | undefined {
+export function findIndices(dataset: TypedData[], index: number): Indices | undefined {
   let offset = index;
   for (let i = 0; i < dataset.length; i++) {
     const slice = dataset[i];

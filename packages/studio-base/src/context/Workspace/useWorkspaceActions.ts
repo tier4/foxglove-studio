@@ -8,7 +8,6 @@ import { Dispatch, SetStateAction, useCallback, useMemo } from "react";
 import { useMountedState } from "react-use";
 
 import { useGuaranteedContext } from "@foxglove/hooks";
-import { Immutable } from "@foxglove/studio";
 import { AppSettingsTab } from "@foxglove/studio-base/components/AppSettingsDialog/AppSettingsDialog";
 import { DataSourceDialogItem } from "@foxglove/studio-base/components/DataSourceDialog";
 import { useAnalytics } from "@foxglove/studio-base/context/AnalyticsContext";
@@ -22,17 +21,17 @@ import {
   usePlayerSelection,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
 import useCallbackWithToast from "@foxglove/studio-base/hooks/useCallbackWithToast";
+import { PlaybackSpeed } from "@foxglove/studio-base/players/types";
 import { AppEvent } from "@foxglove/studio-base/services/IAnalytics";
 import { downloadTextFile } from "@foxglove/studio-base/util/download";
 
 import {
-  WorkspaceContext,
-  WorkspaceContextStore,
   LeftSidebarItemKey,
   LeftSidebarItemKeys,
   RightSidebarItemKey,
   RightSidebarItemKeys,
-  SessionProblem,
+  WorkspaceContext,
+  WorkspaceContextStore,
 } from "./WorkspaceContext";
 import { useOpenFile } from "./useOpenFile";
 
@@ -60,11 +59,7 @@ export type WorkspaceActions = {
 
   playbackControlActions: {
     setRepeat: Dispatch<SetStateAction<boolean>>;
-  };
-
-  sessionActions: {
-    clearProblem: (tag: string) => void;
-    setProblem: (tag: string, problem: Immutable<SessionProblem>) => void;
+    setSpeed: Dispatch<SetStateAction<PlaybackSpeed>>;
   };
 
   sidebarActions: {
@@ -257,19 +252,10 @@ export function useWorkspaceActions(): WorkspaceActions {
             draft.playbackControls.repeat = repeat;
           });
         },
-      },
-
-      sessionActions: {
-        clearProblem: (tag: string) => {
+        setSpeed: (setter: SetStateAction<PlaybackSpeed>) => {
           set((draft) => {
-            draft.session.problems = draft.session.problems.filter((prob) => prob.tag !== tag);
-          });
-        },
-
-        setProblem: (tag: string, problem: Immutable<SessionProblem>) => {
-          set((draft) => {
-            draft.session.problems = draft.session.problems.filter((prob) => prob.tag !== tag);
-            draft.session.problems.unshift(problem);
+            const speed = setterValue(setter, draft.playbackControls.speed);
+            draft.playbackControls.speed = speed;
           });
         },
       },

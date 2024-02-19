@@ -4,31 +4,37 @@
 
 import { McapIndexedReader, McapTypes } from "@mcap/core";
 
-import { pickFields } from "@foxglove/den/records";
 import Logger from "@foxglove/log";
 import { ParsedChannel, parseChannel } from "@foxglove/mcap-support";
-import { Time, fromNanoSec, toNanoSec, compare } from "@foxglove/rostime";
+import { Time, compare, fromNanoSec, toNanoSec } from "@foxglove/rostime";
 import { MessageEvent } from "@foxglove/studio";
 import {
   GetBackfillMessagesArgs,
-  IIterableSource,
-  Initalization,
   IteratorResult,
   MessageIteratorArgs,
+  ISerializedIterableSource,
+  Initalization,
+  TopicWithDecodingInfo,
 } from "@foxglove/studio-base/players/IterablePlayer/IIterableSource";
-import { PlayerProblem, Topic, TopicStats } from "@foxglove/studio-base/players/types";
+import { PlayerProblem, TopicStats } from "@foxglove/studio-base/players/types";
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
 
 const log = Logger.getLogger(__filename);
 
-export class McapIndexedIterableSource implements IIterableSource {
+export class McapIndexedIterableSource implements ISerializedIterableSource {
   #reader: McapIndexedReader;
   #channelInfoById = new Map<
     number,
-    { channel: McapTypes.Channel; parsedChannel: ParsedChannel; schemaName: string | undefined }
+    {
+      channel: McapTypes.Channel;
+      parsedChannel: ParsedChannel;
+      schemaName: string | undefined;
+    }
   >();
   #start?: Time;
   #end?: Time;
+
+  public readonly sourceType = "serialized";
 
   public constructor(reader: McapIndexedReader) {
     this.#reader = reader;
@@ -47,7 +53,7 @@ export class McapIndexedIterableSource implements IIterableSource {
     }
 
     const topicStats = new Map<string, TopicStats>();
-    const topicsByName = new Map<string, Topic>();
+    const topicsByName = new Map<string, TopicWithDecodingInfo>();
     const datatypes: RosDatatypes = new Map();
     const problems: PlayerProblem[] = [];
     const publishersByTopic = new Map<string, Set<string>>();
@@ -73,11 +79,21 @@ export class McapIndexedIterableSource implements IIterableSource {
         });
         continue;
       }
-      this.#channelInfoById.set(channel.id, { channel, parsedChannel, schemaName: schema?.name });
+      this.#channelInfoById.set(channel.id, {
+        channel,
+        parsedChannel,
+        schemaName: schema?.name,
+      });
 
       let topic = topicsByName.get(channel.topic);
       if (!topic) {
-        topic = { name: channel.topic, schemaName: schema?.name };
+        topic = {
+          name: channel.topic,
+          schemaName: schema?.name,
+          messageEncoding: channel.messageEncoding,
+          schemaData: schema?.data,
+          schemaEncoding: schema?.encoding,
+        };
         topicsByName.set(channel.topic, topic);
 
         const numMessages = this.#reader.statistics?.channelMessageCounts.get(channel.id);
@@ -120,7 +136,7 @@ export class McapIndexedIterableSource implements IIterableSource {
 
   public async *messageIterator(
     args: MessageIteratorArgs,
-  ): AsyncIterableIterator<Readonly<IteratorResult>> {
+  ): AsyncIterableIterator<Readonly<IteratorResult<Uint8Array>>> {
     const topics = args.topics;
     const start = args.start ?? this.#start;
     const end = args.end ?? this.#end;
@@ -141,6 +157,7 @@ export class McapIndexedIterableSource implements IIterableSource {
       if (!channelInfo) {
         yield {
           type: "problem",
+          connectionId: message.channelId,
           problem: {
             message: `Received message on channel ${message.channelId} without prior channel info`,
             severity: "error",
@@ -149,26 +166,21 @@ export class McapIndexedIterableSource implements IIterableSource {
         continue;
       }
       try {
-        const msg = channelInfo.parsedChannel.deserialize(message.data) as Record<string, unknown>;
-        const spec = args.topics.get(channelInfo.channel.topic);
-        const payload = spec?.fields != undefined ? pickFields(msg, spec.fields) : msg;
         yield {
           type: "message-event",
           msgEvent: {
             topic: channelInfo.channel.topic,
             receiveTime: fromNanoSec(message.logTime),
             publishTime: fromNanoSec(message.publishTime),
-            message: payload,
-            // Treat sliced messages as zero bytes. This is a rough approximation of course but the
-            // alternative is taking the performance hit of sizing the sliced fields for each
-            // message.
-            sizeInBytes: spec?.fields == undefined ? message.data.byteLength : 0,
+            message: message.data,
+            sizeInBytes: message.data.byteLength,
             schemaName: channelInfo.schemaName ?? "",
           },
         };
       } catch (error) {
         yield {
           type: "problem",
+          connectionId: message.channelId,
           problem: {
             message: `Error decoding message on ${channelInfo.channel.topic}`,
             error,
@@ -179,10 +191,12 @@ export class McapIndexedIterableSource implements IIterableSource {
     }
   }
 
-  public async getBackfillMessages(args: GetBackfillMessagesArgs): Promise<MessageEvent[]> {
+  public async getBackfillMessages(
+    args: GetBackfillMessagesArgs,
+  ): Promise<MessageEvent<Uint8Array>[]> {
     const { topics, time } = args;
 
-    const messages: MessageEvent[] = [];
+    const messages: MessageEvent<Uint8Array>[] = [];
     for (const topic of topics.keys()) {
       // NOTE: An iterator is made for each topic to get the latest message on that topic.
       // An single iterator for all the topics could result in iterating through many
@@ -199,18 +213,14 @@ export class McapIndexedIterableSource implements IIterableSource {
           continue;
         }
 
-        try {
-          messages.push({
-            topic: channelInfo.channel.topic,
-            receiveTime: fromNanoSec(message.logTime),
-            publishTime: fromNanoSec(message.publishTime),
-            message: channelInfo.parsedChannel.deserialize(message.data),
-            sizeInBytes: message.data.byteLength,
-            schemaName: channelInfo.schemaName ?? "",
-          });
-        } catch (err) {
-          log.error(err);
-        }
+        messages.push({
+          topic: channelInfo.channel.topic,
+          receiveTime: fromNanoSec(message.logTime),
+          publishTime: fromNanoSec(message.publishTime),
+          message: message.data,
+          sizeInBytes: message.data.byteLength,
+          schemaName: channelInfo.schemaName ?? "",
+        });
 
         break;
       }

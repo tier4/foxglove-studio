@@ -14,33 +14,30 @@
 import { useEffect } from "react";
 import { makeStyles } from "tss-react/mui";
 
+import { parseMessagePath, MessagePath } from "@foxglove/message-path";
 import { useMessagesByTopic } from "@foxglove/studio-base/PanelAPI";
 import EmptyState from "@foxglove/studio-base/components/EmptyState";
 import MessagePathInput from "@foxglove/studio-base/components/MessagePathSyntax/MessagePathInput";
-import { RosPath } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
-import parseRosPath from "@foxglove/studio-base/components/MessagePathSyntax/parseRosPath";
 import { useCachedGetMessagePathDataItems } from "@foxglove/studio-base/components/MessagePathSyntax/useCachedGetMessagePathDataItems";
 import Panel from "@foxglove/studio-base/components/Panel";
 import { usePanelContext } from "@foxglove/studio-base/components/PanelContext";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 import Table from "./Table";
 
 type Config = { topicPath: string };
 type Props = { config: Config; saveConfig: SaveConfig<Config> };
 
-const useStyles = makeStyles()({
-  inputWrapper: {
-    width: "100%",
-    lineHeight: "20px",
+const useStyles = makeStyles()((theme) => ({
+  toolbar: {
+    paddingBlock: 0,
   },
   monospace: {
-    fontFamily: fonts.MONOSPACE,
+    fontFamily: theme.typography.fontMonospace,
   },
-});
+}));
 
 function TablePanel({ config, saveConfig }: Props) {
   const { topicPath } = config;
@@ -52,8 +49,8 @@ function TablePanel({ config, saveConfig }: Props) {
     [saveConfig],
   );
 
-  const topicRosPath: RosPath | undefined = React.useMemo(
-    () => parseRosPath(topicPath),
+  const topicRosPath: MessagePath | undefined = React.useMemo(
+    () => parseMessagePath(topicPath),
     [topicPath],
   );
   const topicName = topicRosPath?.topicName ?? "";
@@ -84,19 +81,12 @@ function TablePanel({ config, saveConfig }: Props) {
 
   return (
     <Stack flex="auto" overflow="hidden" position="relative">
-      <PanelToolbar>
-        <div className={classes.inputWrapper}>
-          <MessagePathInput
-            index={0}
-            path={topicPath}
-            onChange={onTopicPathChange}
-            inputStyle={{ height: 20 }}
-          />
-        </div>
+      <PanelToolbar className={classes.toolbar}>
+        <MessagePathInput index={0} path={topicPath} onChange={onTopicPathChange} />
       </PanelToolbar>
       {topicPath.length === 0 && <EmptyState>No topic selected</EmptyState>}
       {topicPath.length !== 0 && cachedMessages.length === 0 && (
-        <EmptyState>Waiting for next message</EmptyState>
+        <EmptyState>Waiting for next message…</EmptyState>
       )}
       {topicPath.length !== 0 && firstCachedMessage && (
         <Stack overflow="auto" className={classes.monospace}>

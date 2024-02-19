@@ -14,21 +14,18 @@
 
 /* eslint-disable jest/no-conditional-expect */
 
-import { renderHook, act } from "@testing-library/react-hooks";
+import { renderHook, act } from "@testing-library/react";
 import { PropsWithChildren, useCallback, useState } from "react";
 import { DeepPartial } from "ts-essentials";
 
 import AppConfigurationContext from "@foxglove/studio-base/context/AppConfigurationContext";
-import {
-  EMPTY_GLOBAL_VARIABLES,
-  GlobalVariables,
-} from "@foxglove/studio-base/hooks/useGlobalVariables";
 import {
   Player,
   PlayerCapabilities,
   PlayerPresence,
   TopicStats,
 } from "@foxglove/studio-base/players/types";
+import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
 import delay from "@foxglove/studio-base/util/delay";
 import { makeMockAppConfiguration } from "@foxglove/studio-base/util/makeMockAppConfiguration";
 
@@ -38,20 +35,14 @@ import { MAX_PROMISE_TIMEOUT_TIME_MS } from "./pauseFrameForPromise";
 
 jest.setTimeout(MAX_PROMISE_TIMEOUT_TIME_MS * 3);
 
-// We require two state updates for each player emit() to take effect, because we  React 18 / @testing-library/react,
+// We require two state updates for each player emit() to take effect, for unknown reasons
 async function doubleAct(fn: () => Promise<void>) {
   let promise: Promise<void> | undefined;
   act(() => void (promise = fn()));
   await act(async () => await promise);
 }
 
-function makeTestHook({
-  player,
-  globalVariables,
-}: {
-  player?: Player;
-  globalVariables?: GlobalVariables;
-}) {
+function makeTestHook({ player }: { player?: Player }) {
   const all: MessagePipelineContext[] = [];
   function Hook() {
     const value = useMessagePipeline(useCallback((ctx) => ctx, []));
@@ -59,16 +50,13 @@ function makeTestHook({
     return value;
   }
   let currentPlayer = player;
-  function Wrapper({ children }: PropsWithChildren<unknown>) {
+  function Wrapper({ children }: PropsWithChildren) {
     const [config] = useState(() => makeMockAppConfiguration());
     return (
       <AppConfigurationContext.Provider value={config}>
-        <MessagePipelineProvider
-          player={currentPlayer}
-          globalVariables={globalVariables ?? EMPTY_GLOBAL_VARIABLES}
-        >
-          {children}
-        </MessagePipelineProvider>
+        <MockCurrentLayoutProvider>
+          <MessagePipelineProvider player={currentPlayer}>{children}</MessagePipelineProvider>
+        </MockCurrentLayoutProvider>
       </AppConfigurationContext.Provider>
     );
   }
@@ -148,7 +136,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
         playerState: {
           activeData: undefined,
           capabilities: [],
-          presence: PlayerPresence.NOT_PRESENT,
+          presence: PlayerPresence.INITIALIZING,
           playerId: "",
           progress: {},
         },
@@ -179,6 +167,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 0, nsec: 0 },
           isPlaying: false,
+          repeatEnabled: false,
           speed: 1,
           lastSeekTime: 0,
           topics: [],
@@ -196,6 +185,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 0, nsec: 0 },
           isPlaying: false,
+          repeatEnabled: false,
           speed: 1,
           lastSeekTime: 0,
           topics: [],
@@ -211,7 +201,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     expect(all[0]!.playerState).toEqual({
       activeData: undefined,
       capabilities: [],
-      presence: PlayerPresence.NOT_PRESENT,
+      presence: PlayerPresence.INITIALIZING,
       playerId: "",
       progress: {},
     });
@@ -238,6 +228,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 0, nsec: 0 },
           isPlaying: false,
+          repeatEnabled: false,
           speed: 1,
           lastSeekTime: 0,
           topics: [{ name: "foo", schemaName: "Foo" }],
@@ -255,6 +246,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 0, nsec: 0 },
           isPlaying: false,
+          repeatEnabled: false,
           speed: 1,
           lastSeekTime: 0,
           topics: [
@@ -271,7 +263,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
         playerState: {
           activeData: undefined,
           capabilities: [],
-          presence: PlayerPresence.NOT_PRESENT,
+          presence: PlayerPresence.INITIALIZING,
           playerId: "",
           progress: {},
         },
@@ -355,6 +347,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 1, nsec: 0 },
           isPlaying: true,
+          repeatEnabled: false,
           speed: 0.2,
           lastSeekTime: 1234,
           topics: [{ name: "/input/foo", schemaName: "foo" }],
@@ -370,9 +363,83 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
 
+    // should immediately emit last messages on new subscription
+    expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
+      {
+        message: {
+          foo: "bar",
+        },
+        receiveTime: {
+          nsec: 0,
+          sec: 0,
+        },
+        schemaName: "foo",
+        sizeInBytes: 0,
+        topic: "/input/foo",
+      },
+    ]);
+  });
+
+  it("does not duplicate messages if a panel subscribes to a topic twice", async () => {
+    const player = new FakePlayer();
+    const { Hook, Wrapper } = makeTestHook({ player });
+    const { result } = renderHook(Hook, {
+      wrapper: Wrapper,
+    });
+
+    await doubleAct(async () => {
+      await player.emit({
+        activeData: {
+          messages: [],
+          currentTime: { sec: 0, nsec: 0 },
+          startTime: { sec: 0, nsec: 0 },
+          endTime: { sec: 1, nsec: 0 },
+          isPlaying: true,
+          repeatEnabled: false,
+          speed: 0.2,
+          lastSeekTime: 1234,
+          topics: [{ name: "/input/foo", schemaName: "foo" }],
+          topicStats: new Map<string, TopicStats>([["/input/foo", { numMessages: 1 }]]),
+          datatypes: new Map(Object.entries({ foo: { definitions: [] } })),
+          totalBytesReceived: 1234,
+        },
+      });
+    });
+
+    act(() => {
+      result.current.setSubscriptions("custom-id", [
+        { topic: "/input/foo" },
+        { topic: "/input/foo" },
+      ]);
+    });
+    expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
+
     // Emit empty player state to process new subscriptions
     await doubleAct(async () => {
-      await player.emit();
+      await player.emit({
+        activeData: {
+          messages: [
+            {
+              topic: "/input/foo",
+              receiveTime: { sec: 0, nsec: 0 },
+              message: { foo: "bar" },
+              schemaName: "foo",
+              sizeInBytes: 0,
+            },
+          ],
+          currentTime: { sec: 0, nsec: 0 },
+          startTime: { sec: 0, nsec: 0 },
+          endTime: { sec: 1, nsec: 0 },
+          isPlaying: true,
+          repeatEnabled: false,
+          speed: 0.2,
+          lastSeekTime: 1234,
+          topics: [{ name: "/input/foo", schemaName: "foo" }],
+          topicStats: new Map<string, TopicStats>([["/input/foo", { numMessages: 1 }]]),
+          datatypes: new Map(Object.entries({ foo: { definitions: [] } })),
+          totalBytesReceived: 1234,
+        },
+      });
     });
 
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
@@ -412,6 +479,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 1, nsec: 0 },
           isPlaying: true,
+          repeatEnabled: false,
           speed: 0.2,
           lastSeekTime: 1234,
           topics: [{ name: "/input/foo", schemaName: "foo" }],
@@ -426,11 +494,6 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
       result.current.setSubscriptions("custom-id", [{ topic: "/input/foo" }]);
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
-
-    // Emit empty player state to process new subscriptions
-    await doubleAct(async () => {
-      await player.emit();
-    });
 
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
       {
@@ -460,7 +523,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
 
-    await act(async () => {
+    await doubleAct(async () => {
       await player2.emit({
         activeData: {
           messages: [],
@@ -468,6 +531,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 1, nsec: 0 },
           isPlaying: true,
+          repeatEnabled: false,
           speed: 0.2,
           lastSeekTime: 1234,
           topics: [],
@@ -502,6 +566,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 1, nsec: 0 },
           isPlaying: true,
+          repeatEnabled: false,
           speed: 0.2,
           lastSeekTime: 1234,
           topics: [{ name: "/input/foo", schemaName: "foo" }],
@@ -516,11 +581,6 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
       result.current.setSubscriptions("custom-id", [{ topic: "/input/foo" }]);
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
-
-    // Emit empty player state to process new subscriptions
-    await doubleAct(async () => {
-      await player.emit();
-    });
 
     expect(result.current.messageEventsBySubscriberId.get("custom-id")).toEqual([
       {
@@ -546,8 +606,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
       result.current.setSubscriptions("custom-id", [{ topic: "/input/foo" }]);
     });
     expect(result.current.subscriptions).toEqual([{ topic: "/input/foo" }]);
-
-    await act(async () => {
+    await doubleAct(async () => {
       await player.emit({
         playerId: "player2",
         activeData: {
@@ -556,6 +615,7 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
           startTime: { sec: 0, nsec: 0 },
           endTime: { sec: 1, nsec: 0 },
           isPlaying: true,
+          repeatEnabled: false,
           speed: 0.2,
           lastSeekTime: 1234,
           topics: [],

@@ -29,11 +29,6 @@ enum AppEvent {
 
   // Player events
   PLAYER_CONSTRUCTED = "Studio: Player Constructed",
-  PLAYER_PLAY = "Studio: Player Played",
-  PLAYER_SEEK = "Studio: Player Seeked",
-  PLAYER_SET_SPEED = "Studio: Player Speed Set",
-  PLAYER_PAUSE = "Studio: Player Paused",
-  PLAYER_CLOSE = "Studio: Player Closed",
 
   // Layout events
   LAYOUT_UPDATE = "Studio: Layout Updated",
@@ -66,6 +61,10 @@ enum AppEvent {
 
   // Experimental features
   EXPERIMENTAL_FEATURE_TOGGLE = "Studio: Experimental Feature Toggled",
+
+  // User engagement
+  USER_OBSERVATION = "Studio: User Makes Observation",
+  USER_ACTIVATION = "Studio: User Activated",
 }
 
 interface IAnalytics {

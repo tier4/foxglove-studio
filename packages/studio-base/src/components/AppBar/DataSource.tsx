@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { ErrorCircle20Filled } from "@fluentui/react-icons";
+import { ErrorCircle16Filled } from "@fluentui/react-icons";
 import { CircularProgress, IconButton } from "@mui/material";
 import { useTranslation } from "react-i18next";
 import { makeStyles } from "tss-react/mui";
@@ -96,8 +96,7 @@ export function DataSource(): JSX.Element {
     playerProblems.some((problem) => problem.severity === "error");
   const loading = reconnecting || initializing;
 
-  const playerDisplayName =
-    initializing && playerName == undefined ? "Initializing..." : playerName;
+  const playerDisplayName = initializing && playerName == undefined ? "Initializing…" : playerName;
 
   if (playerPresence === PlayerPresence.NOT_PRESENT) {
     return <div className={classes.sourceName}>{t("noDataSource")}</div>;
@@ -136,7 +135,7 @@ export function DataSource(): JSX.Element {
                 sidebarActions.left.selectItem("problems");
               }}
             >
-              <ErrorCircle20Filled />
+              <ErrorCircle16Filled />
             </IconButton>
           )}
         </div>

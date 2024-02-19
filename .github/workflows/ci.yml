@@ -45,17 +45,17 @@ jobs:
     name: ${{ matrix.config.name }} (${{ matrix.os }})
 
     steps:
-      - uses: actions/checkout@v4.0.0
+      - uses: actions/checkout@v4.1.1
         with:
           lfs: true
 
-      - uses: actions/setup-node@v3.8.1
+      - uses: actions/setup-node@v4.0.2
         with:
           node-version: 16.17
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v4.0.0
         with:
           path: |
             .yarn/cache
@@ -72,18 +72,18 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v4.0.0
+      - uses: actions/checkout@v4.1.1
         with:
           fetch-depth: 0 # Required for Chromatic
           lfs: true
 
-      - uses: actions/setup-node@v3.8.1
+      - uses: actions/setup-node@v4.0.2
         with:
           node-version: 16.17
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v4.0.0
         with:
           path: |
             .yarn/cache
@@ -96,14 +96,14 @@ jobs:
       - run: yarn workspace @foxglove/studio-base run storybook:build
 
       # Chromatic only runs on pushes or pulls to our source repo
-      - uses: chromaui/action@v1
+      - uses: chromaui/action@v10
         if: ${{ github.event.repository.full_name == 'foxglove/studio' }}
         with:
-          projectToken: f50040a29fb8
-          storybookBuildDir: storybook-static
           autoAcceptChanges: main
           exitOnceUploaded: true
           onlyChanged: true
+          projectToken: f50040a29fb8 # plaintext to allow building on PRs from forks
+          storybookBuildDir: storybook-static
 
   integration:
     runs-on: ${{ matrix.os }}
@@ -116,17 +116,17 @@ jobs:
     name: integration (${{ matrix.os }})
 
     steps:
-      - uses: actions/checkout@v4.0.0
+      - uses: actions/checkout@v4.1.1
         with:
           lfs: true
 
-      - uses: actions/setup-node@v3.8.1
+      - uses: actions/setup-node@v4.0.2
         with:
           node-version: 16.17
       - run: corepack enable yarn
 
       - name: Restore cache
-        uses: actions/cache@v3.3.2
+        uses: actions/cache@v4.0.0
         with:
           path: |
             .yarn/cache
@@ -136,17 +136,6 @@ jobs:
 
       - run: yarn install --immutable
 
-      - name: test:integration
-        if: matrix.os == 'ubuntu-20.04'
-        uses: GabrielBB/xvfb-action@v1.6
-        with:
-          working-directory: ./
-          run: yarn run test:integration
-
       - name: test:web-integration
         if: matrix.os == 'ubuntu-20.04'
         run: yarn run test:web-integration
-
-      - name: test:integration
-        if: matrix.os != 'ubuntu-20.04'
-        run: yarn run test:integration

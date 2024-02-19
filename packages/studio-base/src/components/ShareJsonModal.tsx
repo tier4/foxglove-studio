@@ -2,17 +2,16 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { ArrowDownload20Filled } from "@fluentui/react-icons";
+import { ArrowDownload20Filled, Delete20Regular } from "@fluentui/react-icons";
 import CloseIcon from "@mui/icons-material/Close";
-import DeleteOutline from "@mui/icons-material/DeleteOutline";
 import {
   Button,
   IconButton,
   Dialog,
   DialogContent,
   DialogActions,
+  DialogTitle,
   TextField,
-  Typography,
   outlinedInputClasses,
 } from "@mui/material";
 import { useCallback, useMemo, useState } from "react";
@@ -22,7 +21,6 @@ import CopyButton from "@foxglove/studio-base/components/CopyButton";
 import HoverableIconButton from "@foxglove/studio-base/components/HoverableIconButton";
 import Stack from "@foxglove/studio-base/components/Stack";
 import { downloadTextFile } from "@foxglove/studio-base/util/download";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 export type ShareJsonModalProps = {
   onRequestClose: () => void;
@@ -35,11 +33,16 @@ const useStyles = makeStyles()((theme) => ({
   textarea: {
     [`.${outlinedInputClasses.root}`]: {
       backgroundColor: theme.palette.action.hover,
-      fontFamily: fonts.MONOSPACE,
+      fontFamily: theme.typography.fontMonospace,
       maxHeight: "60vh",
       overflowY: "auto",
       padding: theme.spacing(0.25),
     },
+  },
+  dialogTitle: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
 }));
 
@@ -73,23 +76,12 @@ export function ShareJsonModal({
 
   return (
     <Dialog open onClose={onRequestClose} maxWidth="sm" fullWidth>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        paddingX={3}
-        paddingTop={2}
-      >
-        <Stack>
-          <Typography variant="h4" fontWeight={600} gutterBottom>
-            {title}
-          </Typography>
-        </Stack>
-
+      <DialogTitle className={classes.dialogTitle}>
+        {title}
         <IconButton onClick={onRequestClose} edge="end">
           <CloseIcon />
         </IconButton>
-      </Stack>
+      </DialogTitle>
       <DialogContent>
         <TextField
           className={classes.textarea}
@@ -115,7 +107,7 @@ export function ShareJsonModal({
           <IconButton onClick={handleDownload} title="Download" aria-label="Download">
             <ArrowDownload20Filled />
           </IconButton>
-          <CopyButton color="default" getText={getText} />
+          <CopyButton color="inherit" getText={getText} />
           <HoverableIconButton
             activeColor="error"
             onClick={() => {
@@ -123,18 +115,13 @@ export function ShareJsonModal({
             }}
             title="Clear"
             aria-label="Clear"
-            icon={<DeleteOutline />}
+            icon={<Delete20Regular />}
           />
         </Stack>
 
         <Stack flex="auto" />
 
-        <Button
-          disabled={error != undefined}
-          variant="contained"
-          size="large"
-          onClick={handleSubmit}
-        >
+        <Button disabled={error != undefined} variant="contained" onClick={handleSubmit}>
           Apply
         </Button>
       </DialogActions>

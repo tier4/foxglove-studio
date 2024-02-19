@@ -3,8 +3,10 @@ updates:
   - package-ecosystem: npm
     directory: "/"
     schedule:
-      interval: daily
-    open-pull-requests-limit: 10
+      # We found daily updates to be too noisy. They consumed too much CI time and engineer review
+      # time relative to the benefit of being on such a bleeding edge.
+      interval: monthly
+    open-pull-requests-limit: 25
     labels: [] # disable default labels
 
     # Define groups of dependencies to be updated together
@@ -20,12 +22,6 @@ updates:
       emotion:
         patterns:
           - "@emotion/*"
-      electron:
-        patterns:
-          - "electron"
-          - "electron-*"
-          - "app-builder-lib"
-          - "builder-util"
       jest:
         patterns:
           - "jest"
@@ -40,11 +36,6 @@ updates:
       babel:
         patterns:
           - "@babel/*"
-      monaco-editor:
-        patterns:
-          - "monaco-editor"
-          - "monaco-editor-webpack-plugin"
-          - "react-monaco-editor"
 
   - package-ecosystem: "github-actions"
     directory: "/"

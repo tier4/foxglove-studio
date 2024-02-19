@@ -71,9 +71,9 @@ export const EmptyPanelLayout = ({ tabId }: Props): JSX.Element => {
   });
 
   const onPanelSelect = useCallback(
-    ({ type, config, relatedConfigs }: PanelSelection) => {
+    ({ type, config }: PanelSelection) => {
       const id = getPanelIdForType(type);
-      addPanel({ tabId, id, config, relatedConfigs });
+      addPanel({ tabId, id, config });
     },
     [addPanel, tabId],
   );
@@ -88,7 +88,11 @@ export const EmptyPanelLayout = ({ tabId }: Props): JSX.Element => {
         <Stack paddingBottom={2}>
           <Typography variant="body2" paddingX={2} paddingTop={2}>
             {t("selectPanelToAddToLayout")}{" "}
-            <Link color="primary" target="_blank" href="https://foxglove.dev/docs/studio/layouts">
+            <Link
+              color="primary"
+              target="_blank"
+              href="https://docs.foxglove.dev/docs/visualization/layouts"
+            >
               {t("learnMore", { ns: "general" })}
             </Link>
           </Typography>

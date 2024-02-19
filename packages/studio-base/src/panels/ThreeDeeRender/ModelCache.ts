@@ -29,13 +29,15 @@ export type ModelCacheOptions = {
 
 type LoadModelOptions = {
   overrideMediaType?: string;
+  /** A URL to e.g. a URDf which may be used to resolve mesh package:// URLs */
+  referenceUrl?: string;
 };
 
 export type LoadedModel = THREE.Group | THREE.Scene;
 
 type ErrorCallback = (err: Error) => void;
 
-const DEFAULT_COLOR = new THREE.Color(0x248eff).convertSRGBToLinear();
+const DEFAULT_COLOR = new THREE.Color(0x248eff);
 
 const GLTF_MIME_TYPES = ["model/gltf", "model/gltf-binary", "model/gltf+json"];
 // Sourced from <https://github.com/Ultimaker/Cura/issues/4141>
@@ -48,7 +50,7 @@ export class ModelCache {
   #models = new Map<string, Promise<LoadedModel | undefined>>();
   #edgeMaterial: THREE.Material;
   #fetchAsset: BuiltinPanelExtensionContext["unstable_fetchAsset"];
-
+  #colladaTextureObjectUrls = new Map<string, string>();
   #dracoLoader?: DRACOLoader;
 
   public constructor(public readonly options: ModelCacheOptions) {
@@ -84,7 +86,7 @@ export class ModelCache {
   ): Promise<LoadedModel> {
     const GLB_MAGIC = 0x676c5446; // "glTF"
 
-    const asset = await this.#fetchAsset(url);
+    const asset = await this.#fetchAsset(url, { referenceUrl: options.referenceUrl });
 
     const buffer = asset.data;
     if (buffer.byteLength < 4) {
@@ -203,8 +205,32 @@ export class ModelCache {
     });
     const xmlText = xml.documentElement.outerHTML;
 
+    // Preload textures. We do this here since we can't pass in an async function in LoadingManager.setURLModifier
+    // which is supposed to be used for overriding loading behavior. See also
+    // https://threejs.org/docs/index.html#api/en/loaders/managers/LoadingManager.setURLModifier
+    for await (const node of xml.querySelectorAll("init_from")) {
+      if (!node.textContent) {
+        continue;
+      }
+
+      try {
+        const textureUrl = new URL(node.textContent, baseUrl(url)).toString();
+        if (this.#colladaTextureObjectUrls.has(textureUrl)) {
+          continue;
+        }
+        const textureAsset = await this.#fetchAsset(textureUrl);
+        const objectUrl = URL.createObjectURL(
+          new Blob([textureAsset.data], { type: textureAsset.mediaType }),
+        );
+        this.#colladaTextureObjectUrls.set(textureUrl, objectUrl);
+      } catch (e) {
+        log.error(e);
+        onError(node.textContent);
+      }
+    }
+
     const manager = new THREE.LoadingManager(undefined, undefined, onError);
-    manager.setURLModifier(rewriteUrl);
+    manager.setURLModifier((u) => this.#colladaTextureObjectUrls.get(u) ?? rewriteUrl(u));
     const daeLoader = new ColladaLoader(manager);
 
     manager.itemStart(url);
@@ -276,6 +302,9 @@ export class ModelCache {
   }
 
   public dispose(): void {
+    this.#colladaTextureObjectUrls.forEach((_key, objectUrl) => {
+      URL.revokeObjectURL(objectUrl);
+    });
     // DRACOLoader is only loader that needs to be disposed because it uses a webworker
     this.#dracoLoader?.dispose();
     this.#dracoLoader = undefined;

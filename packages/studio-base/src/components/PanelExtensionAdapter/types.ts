@@ -16,6 +16,41 @@ export type Asset = {
   mediaType?: string;
 };
 
+export type DraggedMessagePath = {
+  /** The full message path */
+  path: string;
+  /** The schema name of the top-level topic being dragged */
+  rootSchemaName: string | undefined;
+  /** True if the path represents a whole topic (no message path component). */
+  isTopic: boolean;
+  /** True if the path represents a primitive value inside a message. */
+  isLeaf: boolean;
+  /** The name of the top-level topic being dragged */
+  topicName: string;
+};
+
+export type MessagePathDropStatus = {
+  /** True if the panel would be able to accept this dragged message path. */
+  canDrop: boolean;
+  /**
+   * Indicate the type of operation that would occur if this path were dropped. Used to change the
+   * mouse cursor.
+   */
+  effect?: "replace" | "add";
+  /**
+   * A message to display to the user indicating what will happen when the path is dropped.
+   */
+  message?: string;
+};
+
+export type MessagePathDropConfig = {
+  /** Called when the user drags message paths over the panel. */
+  getDropStatus: (paths: readonly DraggedMessagePath[]) => MessagePathDropStatus;
+
+  /** Called when the user drops message paths on the panel. */
+  handleDrop: (paths: readonly DraggedMessagePath[]) => void;
+};
+
 /**
  * BuiltinPanelExtensionContext adds additional built-in only functionality to the PanelExtensionContext.
  *
@@ -30,9 +65,20 @@ export type BuiltinPanelExtensionContext = {
    * while other schemes may fall back to the data source.
    *
    * @param uri URI identifying the asset
-   * @param options Optional abort signal that allows to abort fetching of the asset. Note that this
-   * might not be supported by all fetching methods.
+   * @param options Addiotional options:
+   *  - Optional abort signal that allows to abort fetching of the asset. Note that this
+   *    might not be supported by all fetching methods.
+   *  - Optional referenceUrl URL which may be used to resolve package:// URIs
    * @returns
    */
-  unstable_fetchAsset: (uri: string, options?: { signal: AbortSignal }) => Promise<Asset>;
+  unstable_fetchAsset: (
+    uri: string,
+    options?: { signal?: AbortSignal; referenceUrl?: string },
+  ) => Promise<Asset>;
+
+  /**
+   * Updates the configuration for message path drag & drop support. A value of `undefined`
+   * indicates that the panel does not accept any dragged message paths.
+   */
+  unstable_setMessagePathDropConfig: (config: MessagePathDropConfig | undefined) => void;
 } & PanelExtensionContext;

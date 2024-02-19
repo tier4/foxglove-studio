@@ -42,9 +42,10 @@ export class RenderableSpheres extends RenderablePrimitive {
     // Sphere mesh
     this.#geometry = renderer.sharedGeometry
       .getGeometry(this.constructor.name, createGeometry)
-      .clone() as THREE.SphereGeometry;
+      .clone();
     this.#maxInstances = 16;
     this.#mesh = new THREE.InstancedMesh(this.#geometry, this.#material, this.#maxInstances);
+    this.#mesh.frustumCulled = false;
     this.#instanceOpacity = new THREE.InstancedBufferAttribute(
       new Float32Array(this.#maxInstances),
       1,
@@ -62,6 +63,7 @@ export class RenderableSpheres extends RenderablePrimitive {
       this.#mesh.removeFromParent();
       this.#mesh.dispose();
       this.#mesh = new THREE.InstancedMesh(this.#mesh.geometry, this.#material, this.#maxInstances);
+      this.#mesh.frustumCulled = false;
       this.#instanceOpacity = new THREE.InstancedBufferAttribute(
         new Float32Array(this.#maxInstances),
         1,

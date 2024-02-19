@@ -24,12 +24,11 @@ import {
 } from "@foxglove/studio-base/components/MessagePipeline";
 import Stack from "@foxglove/studio-base/components/Stack";
 import {
-  WorkspaceContextStore,
-  useWorkspaceStore,
-} from "@foxglove/studio-base/context/Workspace/WorkspaceContext";
+  ProblemsContextStore,
+  useProblemsStore,
+} from "@foxglove/studio-base/context/ProblemsContext";
 import { PlayerProblem } from "@foxglove/studio-base/players/types";
 import { DetailsType, NotificationSeverity } from "@foxglove/studio-base/util/sendNotification";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 const useStyles = makeStyles()((theme) => ({
   acccordion: {
@@ -47,7 +46,7 @@ const useStyles = makeStyles()((theme) => ({
   accordionDetails: {
     display: "flex",
     flexDirection: "column",
-    fontFamily: fonts.MONOSPACE,
+    fontFamily: theme.typography.fontMonospace,
     fontSize: "0.6875rem",
     padding: theme.spacing(1.125),
     gap: theme.spacing(1),
@@ -96,7 +95,7 @@ const useStyles = makeStyles()((theme) => ({
 const EMPTY_PLAYER_PROBLEMS: PlayerProblem[] = [];
 const selectPlayerProblems = ({ playerState }: MessagePipelineContext) =>
   playerState.problems ?? EMPTY_PLAYER_PROBLEMS;
-const selectSessionProblems = (store: WorkspaceContextStore) => store.session.problems;
+const selectProblems = (store: ProblemsContextStore) => store.problems;
 
 function ProblemIcon({ severity }: { severity: NotificationSeverity }): JSX.Element {
   const { palette } = useTheme();
@@ -147,7 +146,7 @@ export function ProblemsList(): JSX.Element {
   const { t } = useTranslation("problemsList");
   const { classes } = useStyles();
   const playerProblems = useMessagePipeline(selectPlayerProblems);
-  const sessionProblems = useWorkspaceStore(selectSessionProblems);
+  const sessionProblems = useProblemsStore(selectProblems);
 
   const allProblems = useMemo(() => {
     return [...sessionProblems, ...playerProblems];

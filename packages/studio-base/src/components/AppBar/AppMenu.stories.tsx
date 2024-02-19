@@ -5,9 +5,8 @@
 import { PopoverPosition, PopoverReference } from "@mui/material";
 import { Meta, StoryObj } from "@storybook/react";
 import { userEvent, within } from "@storybook/testing-library";
+import * as _ from "lodash-es";
 
-import { AppBarMenuItem } from "@foxglove/studio-base/components/AppBar/types";
-import { AppContext } from "@foxglove/studio-base/context/AppContext";
 import PlayerSelectionContext, {
   PlayerSelection,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
@@ -18,7 +17,6 @@ import { AppMenu } from "./AppMenu";
 
 type StoryArgs = {
   handleClose: () => void;
-  appBarMenuItems?: AppBarMenuItem[];
   anchorEl?: HTMLElement;
   anchorReference?: PopoverReference;
   anchorPosition?: PopoverPosition;
@@ -35,21 +33,17 @@ export default {
     anchorPosition: { top: 0, left: 0 },
     anchorReference: "anchorPosition",
     disablePortal: true,
-    handleClose: () => {
-      // no-op
-    },
+    handleClose: _.noop,
   },
   decorators: [
     (Story, { args: { testId: _testId, ...args } }): JSX.Element => (
-      <AppContext.Provider value={{ appBarMenuItems: args.appBarMenuItems }}>
-        <MockCurrentLayoutProvider>
-          <WorkspaceContextProvider>
-            <PlayerSelectionContext.Provider value={playerSelection}>
-              <Story {...args} />
-            </PlayerSelectionContext.Provider>
-          </WorkspaceContextProvider>
-        </MockCurrentLayoutProvider>
-      </AppContext.Provider>
+      <MockCurrentLayoutProvider>
+        <WorkspaceContextProvider>
+          <PlayerSelectionContext.Provider value={playerSelection}>
+            <Story {...args} />
+          </PlayerSelectionContext.Provider>
+        </WorkspaceContextProvider>
+      </MockCurrentLayoutProvider>
     ),
   ],
   play: async ({ canvasElement, args }) => {
@@ -71,7 +65,7 @@ const playerSelection: PlayerSelection = {
     { id: "2222", title: "http://localhost:11311", label: "ROS 1" },
     { id: "3333", title: "ws://localhost:9090/", label: "Rosbridge (ROS 1 & 2)" },
     { id: "4444", title: "ws://localhost:8765", label: "Foxglove WebSocket" },
-    { id: "5555", title: "2369", label: "Velodyne Lidar" },
+    { id: "5555", title: "ws://1.2.3.4:8765", label: "Foxglove WebSocket" },
     { id: "6666", title: "THIS ITEM SHOULD BE HIDDEN IN STORYBOOKS", label: "!!!!!!!!!!!!" },
   ],
   availableSources: [],
@@ -80,17 +74,6 @@ const playerSelection: PlayerSelection = {
 type Story = StoryObj<StoryArgs>;
 
 export const Default: Story = {};
-
-export const WithAppContextMenuItens: Story = {
-  args: {
-    appBarMenuItems: [
-      { type: "item", key: "item1", label: "App Context Item 1" },
-      { type: "divider" },
-      { type: "item", key: "item2", label: "App Context Item 2" },
-      { type: "divider" },
-    ],
-  },
-};
 
 export const FileMenuDark: Story = {
   args: { testId: "app-menu-file" },

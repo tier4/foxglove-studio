@@ -1015,3 +1015,330 @@ export const UpdateLineEnableVertexColors: StoryObj<UpdateLineArgs> = {
     await ctx.parameters.storyReady;
   },
 };
+
+export const OddLengthLineList: StoryObj = {
+  render: function Story() {
+    const width = 60;
+    const height = 45;
+    const { calibrationMessage, cameraMessage } = makeRawImageAndCalibration({
+      width,
+      height,
+      frameId: "camera",
+      imageTopic: "camera",
+      calibrationTopic: "calibration",
+    });
+
+    const annotationsMessage: MessageEvent<Partial<ImageAnnotations>> = {
+      topic: "annotations",
+      receiveTime: { sec: 10, nsec: 0 },
+      message: {
+        points: [
+          {
+            timestamp: { sec: 0, nsec: 0 },
+            type: PointsAnnotationType.LINE_LIST,
+            points: [
+              { x: 20 + 0, y: 10 + 0 },
+              { x: 20 + 0, y: 10 + 8 },
+              { x: 20 + 2, y: 10 + 6 },
+              { x: 20 + 5, y: 10 + 2 },
+              { x: 20 + 3, y: 10 + 1 },
+            ],
+            outline_color: { r: 0, g: 0, b: 0, a: 1 },
+            outline_colors: [
+              // 1 color per line
+              { r: 1, g: 0, b: 0, a: 1 },
+              { r: 0, g: 1, b: 0, a: 0.75 },
+              { r: 0, g: 0, b: 1, a: 0.75 },
+            ],
+            fill_color: { r: 0, g: 0, b: 0, a: 0 },
+            thickness: 2,
+          },
+        ],
+      },
+      schemaName: "foxglove.ImageAnnotations",
+      sizeInBytes: 0,
+    };
+
+    const fixture: Fixture = {
+      topics: [
+        { name: "calibration", schemaName: "foxglove.CameraCalibration" },
+        { name: "camera", schemaName: "foxglove.RawImage" },
+        { name: "annotations", schemaName: "foxglove.ImageAnnotations" },
+      ],
+      frame: {
+        calibration: [calibrationMessage],
+        camera: [cameraMessage],
+        annotations: [annotationsMessage],
+      },
+      capabilities: [],
+      activeData: {
+        currentTime: { sec: 0, nsec: 0 },
+      },
+    };
+    return (
+      <div style={{ width: 1200, height: 900, flexShrink: 0 }}>
+        <PanelSetup fixture={fixture} includeSettings>
+          <ImagePanel
+            overrideConfig={{
+              ...ImagePanel.defaultConfig,
+              imageMode: {
+                calibrationTopic: "calibration",
+                imageTopic: "camera",
+                annotations: { annotations: { visible: true } },
+              },
+            }}
+          />
+        </PanelSetup>
+      </div>
+    );
+  },
+};
+
+export const LinesWithAndWithoutVertexColors: StoryObj = {
+  render: function Story() {
+    const width = 60;
+    const height = 45;
+    const { calibrationMessage, cameraMessage } = makeRawImageAndCalibration({
+      width,
+      height,
+      frameId: "camera",
+      imageTopic: "camera",
+      calibrationTopic: "calibration",
+    });
+    const points = [
+      { x: 10 + 0, y: 10 + 0 },
+      { x: 10 - 5, y: 10 + 2 },
+      { x: 10 - 5, y: 10 + 8 },
+      { x: 10 + 0, y: 10 + 10 },
+      { x: 10 + 5, y: 10 + 8 },
+      { x: 10 + 5, y: 10 + 2 },
+    ];
+    const defaultPoints = {
+      timestamp: { sec: 0, nsec: 0 },
+      outline_color: { r: 0, g: 0, b: 0, a: 1 },
+      outline_colors: [
+        { r: 1, g: 0, b: 0, a: 1 },
+        { r: 0, g: 1, b: 0, a: 0.75 },
+        { r: 0, g: 0, b: 1, a: 0.75 },
+        { r: 1, g: 0, b: 1, a: 0.75 },
+      ],
+      fill_color: { r: 0, g: 0, b: 0, a: 0 },
+      thickness: 1,
+    };
+
+    const annotationsMessage: MessageEvent<Partial<ImageAnnotations>> = {
+      topic: "annotations",
+      receiveTime: { sec: 10, nsec: 0 },
+      message: {
+        points: [
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_LIST,
+            points,
+          },
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_LOOP,
+            points: points.map(({ x, y }) => ({ x: x + 20, y })),
+          },
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_STRIP,
+            points: points.map(({ x, y }) => ({ x: x + 40, y })),
+          },
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_LIST,
+            points: points.map(({ x, y }) => ({ x, y: y + 20 })),
+            outline_colors: [],
+          },
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_LOOP,
+            points: points.map(({ x, y }) => ({ x: x + 20, y: y + 20 })),
+            outline_colors: [],
+          },
+          {
+            ...defaultPoints,
+            type: PointsAnnotationType.LINE_STRIP,
+            points: points.map(({ x, y }) => ({ x: x + 40, y: y + 20 })),
+            outline_colors: [],
+          },
+        ],
+      },
+      schemaName: "foxglove.ImageAnnotations",
+      sizeInBytes: 0,
+    };
+
+    const fixture: Fixture = {
+      topics: [
+        { name: "calibration", schemaName: "foxglove.CameraCalibration" },
+        { name: "camera", schemaName: "foxglove.RawImage" },
+        { name: "annotations", schemaName: "foxglove.ImageAnnotations" },
+      ],
+      frame: {
+        calibration: [calibrationMessage],
+        camera: [cameraMessage],
+        annotations: [annotationsMessage],
+      },
+      capabilities: [],
+      activeData: {
+        currentTime: { sec: 0, nsec: 0 },
+      },
+    };
+    return (
+      <div style={{ width: 1200, height: 900, flexShrink: 0 }}>
+        <PanelSetup fixture={fixture} includeSettings>
+          <ImagePanel
+            overrideConfig={{
+              ...ImagePanel.defaultConfig,
+              imageMode: {
+                calibrationTopic: "calibration",
+                imageTopic: "camera",
+                annotations: { annotations: { visible: true } },
+              },
+            }}
+          />
+        </PanelSetup>
+      </div>
+    );
+  },
+};
+
+type SyncAnnotationsStoryArgs = {
+  status: "waiting" | "ready";
+  hasCalibrationTopic: boolean;
+};
+
+const SyncAnnotationsStory = (args: SyncAnnotationsStoryArgs): JSX.Element => {
+  const { status, hasCalibrationTopic } = args;
+  const width = 60;
+  const height = 45;
+  const { calibrationMessage, cameraMessage } = makeRawImageAndCalibration({
+    width,
+    height,
+    frameId: "camera",
+    imageTopic: "camera",
+    calibrationTopic: "calibration",
+  });
+
+  const annotationTimestamp =
+    status === "ready" ? cameraMessage.message.timestamp! : { sec: 5, nsec: 0 };
+
+  const annotationsMessage: MessageEvent<Partial<ImageAnnotations>> = {
+    topic: "annotations",
+    receiveTime: { sec: 10, nsec: 0 },
+    message: {
+      circles: [
+        {
+          timestamp: annotationTimestamp,
+          position: { x: 20, y: 5 },
+          diameter: 4,
+          thickness: 1,
+          fill_color: { r: 1, g: 0, b: 1, a: 1 },
+          outline_color: { r: 1, g: 1, b: 0, a: 1 },
+        },
+        {
+          timestamp: annotationTimestamp,
+          position: { x: 25, y: 5 },
+          diameter: 4,
+          thickness: 1,
+          fill_color: { r: 1, g: 0, b: 1, a: 0.5 },
+          outline_color: { r: 0, g: 0, b: 0, a: 0 },
+        },
+        {
+          timestamp: annotationTimestamp,
+          position: { x: 30, y: 5 },
+          diameter: 4,
+          thickness: 0.5,
+          fill_color: { r: 1, g: 1, b: 0, a: 0 },
+          outline_color: { r: 0, g: 1, b: 1, a: 0.5 },
+        },
+      ],
+      points: [],
+      texts: [
+        {
+          timestamp: annotationTimestamp,
+          position: { x: 20, y: 30 },
+          text: "Hi",
+          font_size: 5,
+          text_color: { r: 1, g: 0, b: 0, a: 1 },
+          background_color: { r: 1, g: 1, b: 0, a: 1 },
+        },
+        {
+          timestamp: annotationTimestamp,
+          position: { x: 20, y: 32 },
+          text: "hello",
+          font_size: 3,
+          text_color: { r: 0.3, g: 0.5, b: 0.5, a: 0.8 },
+          background_color: { r: 1, g: 1, b: 1, a: 0.2 },
+        },
+      ],
+    },
+    schemaName: "foxglove.ImageAnnotations",
+    sizeInBytes: 0,
+  };
+
+  const fixture: Fixture = {
+    topics: [
+      { name: "calibration", schemaName: "foxglove.CameraCalibration" },
+      { name: "camera", schemaName: "foxglove.RawImage" },
+      { name: "annotations", schemaName: "foxglove.ImageAnnotations" },
+    ],
+    frame: {
+      calibration: [calibrationMessage],
+      camera: [cameraMessage],
+      annotations: [annotationsMessage],
+    },
+    capabilities: [],
+    activeData: {
+      currentTime: { sec: 0, nsec: 0 },
+    },
+  };
+  return (
+    <div style={{ width: 1200, height: 900, flexShrink: 0 }}>
+      <PanelSetup fixture={fixture}>
+        <ImagePanel
+          overrideConfig={{
+            ...ImagePanel.defaultConfig,
+            imageMode: {
+              calibrationTopic: hasCalibrationTopic ? "calibration" : undefined,
+              imageTopic: "camera",
+              annotations: { annotations: { visible: true } },
+              synchronize: true,
+            },
+          }}
+        />
+      </PanelSetup>
+    </div>
+  );
+};
+
+export const SyncAnnotationsWaitingWithCalibration: StoryObj<SyncAnnotationsStoryArgs> = {
+  render: SyncAnnotationsStory,
+  args: {
+    hasCalibrationTopic: true,
+    status: "waiting",
+  },
+};
+export const SyncAnnotationsWaitingWithoutCalibration: StoryObj<SyncAnnotationsStoryArgs> = {
+  render: SyncAnnotationsStory,
+  args: {
+    hasCalibrationTopic: false,
+    status: "waiting",
+  },
+};
+export const SyncAnnotationsReadyWithCalibration: StoryObj<SyncAnnotationsStoryArgs> = {
+  render: SyncAnnotationsStory,
+  args: {
+    hasCalibrationTopic: true,
+    status: "ready",
+  },
+};
+export const SyncAnnotationsReadyWithoutCalibration: StoryObj<SyncAnnotationsStoryArgs> = {
+  render: SyncAnnotationsStory,
+  args: {
+    hasCalibrationTopic: false,
+    status: "ready",
+  },
+};

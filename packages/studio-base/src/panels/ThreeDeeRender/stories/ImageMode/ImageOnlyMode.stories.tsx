@@ -6,7 +6,13 @@ import { StoryObj } from "@storybook/react";
 import { screen, userEvent, within } from "@storybook/testing-library";
 import tinycolor from "tinycolor2";
 
-import { ImageAnnotations, LineType, PointsAnnotationType, SceneUpdate } from "@foxglove/schemas";
+import {
+  FrameTransforms,
+  ImageAnnotations,
+  LineType,
+  PointsAnnotationType,
+  SceneUpdate,
+} from "@foxglove/schemas";
 import { MessageEvent } from "@foxglove/studio";
 import { ImageModeConfig } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
 import { makeRawImageAndCalibration } from "@foxglove/studio-base/panels/ThreeDeeRender/stories/ImageMode/imageCommon";
@@ -15,7 +21,6 @@ import { Topic } from "@foxglove/studio-base/players/types";
 import PanelSetup, { Fixture } from "@foxglove/studio-base/stories/PanelSetup";
 
 import { ImagePanel } from "../../index";
-import { TransformStamped } from "../../ros";
 import { QUAT_IDENTITY, makeColor } from "../common";
 
 export default {
@@ -34,34 +39,31 @@ const ImageWith3D = (initialConfig: ImageModeConfig): JSX.Element => {
     { name: "sceneUpdate2", schemaName: "foxglove.SceneUpdate" },
   ];
 
-  const tfCam: MessageEvent<TransformStamped> = {
+  const tfs: MessageEvent<FrameTransforms> = {
     topic: "tf",
     receiveTime: { sec: 0, nsec: 0 },
     message: {
-      header: { seq: 0, stamp: { sec: 0, nsec: 0 }, frame_id: "base_link" },
-      child_frame_id: "cam",
-      transform: {
-        translation: { x: 0.5, y: 0, z: -10 },
-        rotation: QUAT_IDENTITY,
-      },
+      transforms: [
+        {
+          timestamp: { sec: 0, nsec: 0 },
+          parent_frame_id: "base_link",
+          child_frame_id: "cam",
+          translation: { x: 0.5, y: 0, z: -10 },
+          rotation: QUAT_IDENTITY,
+        },
+        {
+          timestamp: { sec: 0, nsec: 0 },
+          parent_frame_id: "base_link",
+          child_frame_id: "scene",
+          translation: { x: 0, y: 0, z: 0 },
+          rotation: { x: 1, y: 0, z: 0, w: 1 },
+        },
+      ],
     },
-    schemaName: "geometry_msgs/TransformStamped",
+    schemaName: "foxglove.FrameTransforms",
     sizeInBytes: 0,
   };
-  const tfScene: MessageEvent<TransformStamped> = {
-    topic: "tf",
-    receiveTime: { sec: 0, nsec: 0 },
-    message: {
-      header: { seq: 0, stamp: { sec: 0, nsec: 0 }, frame_id: "base_link" },
-      child_frame_id: "scene",
-      transform: {
-        translation: { x: 0, y: 0, z: 0 },
-        rotation: { x: 1, y: 0, z: 0, w: 1 },
-      },
-    },
-    schemaName: "geometry_msgs/TransformStamped",
-    sizeInBytes: 0,
-  };
+
   const annotationsMessage: MessageEvent<Partial<ImageAnnotations>> = {
     topic: "annotations",
     receiveTime: { sec: 10, nsec: 0 },
@@ -209,6 +211,24 @@ const ImageWith3D = (initialConfig: ImageModeConfig): JSX.Element => {
           thickness: 0.5,
         },
       ],
+      texts: [
+        {
+          timestamp: { sec: 0, nsec: 0 },
+          position: { x: 20, y: 30 },
+          text: "Hi",
+          font_size: 5,
+          text_color: { r: 1, g: 0, b: 0, a: 1 },
+          background_color: { r: 1, g: 1, b: 0, a: 1 },
+        },
+        {
+          timestamp: { sec: 0, nsec: 0 },
+          position: { x: 20, y: 32 },
+          text: "hello",
+          font_size: 3,
+          text_color: { r: 0.3, g: 0.5, b: 0.5, a: 0.8 },
+          background_color: { r: 1, g: 1, b: 1, a: 0.2 },
+        },
+      ],
     },
     schemaName: "foxglove.ImageAnnotations",
     sizeInBytes: 0,
@@ -239,7 +259,7 @@ const ImageWith3D = (initialConfig: ImageModeConfig): JSX.Element => {
       annotations: [annotationsMessage],
       calibration: [calibrationMessage],
       camera: [cameraMessage],
-      tf: [tfCam, tfScene],
+      tf: [tfs],
       sceneUpdate1: [sceneUpdate1Message],
       sceneUpdate2: [sceneUpdate2Message],
     },
@@ -283,12 +303,12 @@ const ImageWith3D = (initialConfig: ImageModeConfig): JSX.Element => {
   );
 };
 
-export const ImageOnlyModeOff: StoryObj<React.ComponentProps<typeof ImageWith3D>> = {
+export const ImageOnlyModeOff: StoryObj<typeof ImageWith3D> = {
   render: ImageWith3D,
   args: { imageTopic: "camera/img", calibrationTopic: "camera/calibration" },
 };
 
-export const ImageOnlyModeOn: StoryObj<React.ComponentProps<typeof ImageWith3D>> = {
+export const ImageOnlyModeOn: StoryObj<typeof ImageWith3D> = {
   render: ImageWith3D,
   args: { imageTopic: "camera/img", calibrationTopic: undefined },
   play: async ({ canvasElement }) => {
@@ -298,16 +318,12 @@ export const ImageOnlyModeOn: StoryObj<React.ComponentProps<typeof ImageWith3D>>
   },
 };
 
-export const ImageOnlyModeOffWithAutoSelectedTopics: StoryObj<
-  React.ComponentProps<typeof ImageWith3D>
-> = {
+export const ImageOnlyModeOffWithAutoSelectedTopics: StoryObj<typeof ImageWith3D> = {
   render: ImageWith3D,
   args: { imageTopic: undefined, calibrationTopic: undefined },
 };
 
-export const ImageOnlyModeOffWithAutoSelectedCalibration: StoryObj<
-  React.ComponentProps<typeof ImageWith3D>
-> = {
+export const ImageOnlyModeOffWithAutoSelectedCalibration: StoryObj<typeof ImageWith3D> = {
   render: ImageWith3D,
   args: { imageTopic: "abc", calibrationTopic: undefined },
   play: async () => {

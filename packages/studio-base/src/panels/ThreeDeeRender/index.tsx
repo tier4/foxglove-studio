@@ -4,6 +4,7 @@
 
 import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom";
+import { DeepPartial } from "ts-essentials";
 
 import { useCrash } from "@foxglove/hooks";
 import { CaptureErrorBoundary } from "@foxglove/studio-base/components/CaptureErrorBoundary";
@@ -17,8 +18,11 @@ import {
   BuiltinPanelExtensionContext,
   PanelExtensionAdapter,
 } from "@foxglove/studio-base/components/PanelExtensionAdapter";
+import { INJECTED_FEATURE_KEYS, useAppContext } from "@foxglove/studio-base/context/AppContext";
+import { TestOptions } from "@foxglove/studio-base/panels/ThreeDeeRender/IRenderer";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
+import { SceneExtensionConfig } from "./SceneExtensionConfig";
 import { ThreeDeeRender } from "./ThreeDeeRender";
 import { InterfaceMode } from "./types";
 
@@ -26,12 +30,13 @@ type InitPanelArgs = {
   crash: ReturnType<typeof useCrash>;
   forwardedAnalytics: ForwardedAnalytics;
   interfaceMode: InterfaceMode;
-  onDownloadImage: ((blob: Blob, fileName: string) => void) | undefined;
-  debugPicking?: boolean;
+  testOptions: TestOptions;
+  customSceneExtensions?: DeepPartial<SceneExtensionConfig>;
 };
 
 function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
-  const { crash, forwardedAnalytics, interfaceMode, onDownloadImage, debugPicking } = args;
+  const { crash, forwardedAnalytics, interfaceMode, testOptions, customSceneExtensions } = args;
+  // eslint-disable-next-line react/no-deprecated
   ReactDOM.render(
     <StrictMode>
       <CaptureErrorBoundary onError={crash}>
@@ -39,8 +44,8 @@ function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
           <ThreeDeeRender
             context={context}
             interfaceMode={interfaceMode}
-            onDownloadImage={onDownloadImage}
-            debugPicking={debugPicking}
+            testOptions={testOptions}
+            customSceneExtensions={customSceneExtensions}
           />
         </ForwardAnalyticsContextProvider>
       </CaptureErrorBoundary>
@@ -48,6 +53,7 @@ function initPanel(args: InitPanelArgs, context: BuiltinPanelExtensionContext) {
     context.panelElement,
   );
   return () => {
+    // eslint-disable-next-line react/no-deprecated
     ReactDOM.unmountComponentAtNode(context.panelElement);
   };
 }
@@ -63,16 +69,34 @@ function ThreeDeeRenderAdapter(interfaceMode: InterfaceMode, props: Props) {
   const crash = useCrash();
 
   const forwardedAnalytics = useForwardAnalytics();
+  const { injectedFeatures } = useAppContext();
+  const customSceneExtensions = useMemo(() => {
+    if (injectedFeatures == undefined) {
+      return undefined;
+    }
+    const injectedSceneExtensions =
+      injectedFeatures.availableFeatures[INJECTED_FEATURE_KEYS.customSceneExtensions]
+        ?.customSceneExtensions;
+    return injectedSceneExtensions;
+  }, [injectedFeatures]);
+
   const boundInitPanel = useMemo(
     () =>
       initPanel.bind(undefined, {
         crash,
         forwardedAnalytics,
         interfaceMode,
-        onDownloadImage: props.onDownloadImage,
-        debugPicking: props.debugPicking,
+        testOptions: { onDownloadImage: props.onDownloadImage, debugPicking: props.debugPicking },
+        customSceneExtensions,
       }),
-    [crash, forwardedAnalytics, interfaceMode, props.onDownloadImage, props.debugPicking],
+    [
+      crash,
+      forwardedAnalytics,
+      interfaceMode,
+      props.onDownloadImage,
+      props.debugPicking,
+      customSceneExtensions,
+    ],
   );
 
   return (

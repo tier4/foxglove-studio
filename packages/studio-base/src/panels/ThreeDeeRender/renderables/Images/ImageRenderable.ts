@@ -2,6 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import * as _ from "lodash-es";
 import * as THREE from "three";
 import { assert } from "ts-essentials";
 
@@ -18,10 +19,10 @@ import { RosValue } from "@foxglove/studio-base/players/types";
 import { AnyImage } from "./ImageTypes";
 import { decodeCompressedImageToBitmap } from "./decodeImage";
 import { CameraInfo } from "../../ros";
+import { DECODE_IMAGE_ERR_KEY, IMAGE_TOPIC_PATH } from "../ImageMode/constants";
 import { ColorModeSettings } from "../colorMode";
 
 const log = Logger.getLogger(__filename);
-
 export interface ImageRenderableSettings extends Partial<ColorModeSettings> {
   visible: boolean;
   frameLocked?: boolean;
@@ -30,9 +31,6 @@ export interface ImageRenderableSettings extends Partial<ColorModeSettings> {
   planarProjectionFactor: number;
   color: string;
 }
-
-const DECODE_IMAGE_ERR_KEY = "CreateBitmap";
-const IMAGE_TOPIC_PATH = ["imageMode", "imageTopic"];
 
 const DEFAULT_DISTANCE = 1;
 const DEFAULT_PLANAR_PROJECTION_FACTOR = 0;
@@ -73,9 +71,10 @@ export class ImageRenderable extends Renderable<ImageUserData> {
   #isUpdating = false;
 
   #decodedImage?: ImageBitmap | ImageData;
-  #decoder?: WorkerImageDecoder;
+  protected decoder?: WorkerImageDecoder;
   #receivedImageSequenceNumber = 0;
   #displayedImageSequenceNumber = 0;
+  #showingErrorImage = false;
 
   #disposed = false;
 
@@ -83,12 +82,20 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     super(topicName, renderer, userData);
   }
 
+  protected isDisposed(): boolean {
+    return this.#disposed;
+  }
+
+  public getDecodedImage(): ImageBitmap | ImageData | undefined {
+    return this.#decodedImage;
+  }
+
   public override dispose(): void {
     this.#disposed = true;
     this.userData.texture?.dispose();
     this.userData.material?.dispose();
     this.userData.geometry?.dispose();
-    this.#decoder?.terminate();
+    this.decoder?.terminate();
     super.dispose();
   }
 
@@ -119,10 +126,10 @@ export class ImageRenderable extends Renderable<ImageUserData> {
   }
 
   // Renderable should only need to care about the model
-  public setCameraModel = (cameraModel: PinholeCameraModel): void => {
+  public setCameraModel(cameraModel: PinholeCameraModel): void {
     this.#geometryNeedsUpdate ||= this.userData.cameraModel !== cameraModel;
     this.userData.cameraModel = cameraModel;
-  };
+  }
 
   public setSettings(newSettings: ImageRenderableSettings): void {
     const prevSettings = this.userData.settings;
@@ -148,7 +155,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     if (
       prevSettings.colorMode !== newSettings.colorMode ||
       prevSettings.flatColor !== newSettings.flatColor ||
-      prevSettings.gradient !== newSettings.gradient ||
+      !_.isEqual(prevSettings.gradient, newSettings.gradient) ||
       prevSettings.colorMap !== newSettings.colorMap ||
       prevSettings.minValue !== newSettings.minValue ||
       prevSettings.maxValue !== newSettings.maxValue
@@ -165,21 +172,15 @@ export class ImageRenderable extends Renderable<ImageUserData> {
     this.userData.settings = newSettings;
   }
 
-  public setImage(
-    image: AnyImage,
-    resizeWidth?: number,
-    onDecoded?: (result: { width: number; height: number }) => void,
-  ): void {
+  public setImage(image: AnyImage, resizeWidth?: number, onDecoded?: () => void): void {
     this.userData.image = image;
 
     const seq = ++this.#receivedImageSequenceNumber;
-    const decodePromise =
-      "format" in image
-        ? decodeCompressedImageToBitmap(image, resizeWidth)
-        : (this.#decoder ??= new WorkerImageDecoder()).decode(image, this.userData.settings);
+    const decodePromise = this.decodeImage(image, resizeWidth);
+
     decodePromise
       .then((result) => {
-        if (this.#disposed) {
+        if (this.isDisposed()) {
           return;
         }
         // prevent displaying an image older than the one currently displayed
@@ -190,28 +191,50 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         this.#decodedImage = result;
         this.#textureNeedsUpdate = true;
         this.update();
+        this.#showingErrorImage = false;
 
-        onDecoded?.(result);
-        this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, DECODE_IMAGE_ERR_KEY);
-        this.renderer.settings.errors.removeFromTopic(this.userData.topic, DECODE_IMAGE_ERR_KEY);
+        onDecoded?.();
+        this.removeError(DECODE_IMAGE_ERR_KEY);
         this.renderer.queueAnimationFrame();
       })
       .catch((err) => {
         log.error(err);
-        if (this.#disposed) {
+        if (this.isDisposed()) {
           return;
         }
-        this.renderer.settings.errors.add(
-          IMAGE_TOPIC_PATH,
-          DECODE_IMAGE_ERR_KEY,
-          `Error decoding image: ${err.message}`,
-        );
-        this.renderer.settings.errors.addToTopic(
-          this.userData.topic,
-          DECODE_IMAGE_ERR_KEY,
-          `Error decoding image: ${err.message}`,
-        );
+        // avoid needing to recreate error image if it already shown
+        if (!this.#showingErrorImage) {
+          void this.#setErrorImage(seq, onDecoded);
+        }
+        this.addError(DECODE_IMAGE_ERR_KEY, `Error decoding image: ${err.message}`);
       });
+  }
+
+  async #setErrorImage(seq: number, onDecoded?: () => void): Promise<void> {
+    const errorBitmap = await getErrorImage(64, 64);
+    if (this.isDisposed()) {
+      return;
+    }
+    if (this.#displayedImageSequenceNumber > seq) {
+      return;
+    }
+    this.#decodedImage = errorBitmap;
+    this.#textureNeedsUpdate = true;
+    this.update();
+    this.#showingErrorImage = true;
+    // call ondecoded to display the error image when calibration is None
+    onDecoded?.();
+    this.renderer.queueAnimationFrame();
+  }
+
+  protected async decodeImage(
+    image: AnyImage,
+    resizeWidth?: number,
+  ): Promise<ImageBitmap | ImageData> {
+    if ("format" in image) {
+      return await decodeCompressedImageToBitmap(image, resizeWidth);
+    }
+    return await (this.decoder ??= new WorkerImageDecoder()).decode(image, this.userData.settings);
   }
 
   public update(): void {
@@ -277,6 +300,7 @@ export class ImageRenderable extends Renderable<ImageUserData> {
         !bitmapDimensionsEqual(decodedImage, canvasTexture.image as ImageBitmap | undefined)
       ) {
         if (canvasTexture?.image instanceof ImageBitmap) {
+          // don't close the image if it is the error image
           canvasTexture.image.close();
         }
         canvasTexture?.dispose();
@@ -367,6 +391,20 @@ export class ImageRenderable extends Renderable<ImageUserData> {
 
     this.userData.mesh.renderOrder = -1 * Number.MAX_SAFE_INTEGER;
   }
+
+  protected addError(key: string, message: string): void {
+    if (this.isDisposed()) {
+      return;
+    }
+    // must account for if the renderable is part of `ImageMode` or `Images` scene extension
+    this.renderer.settings.errors.add(IMAGE_TOPIC_PATH, key, message);
+    this.renderer.settings.errors.addToTopic(this.userData.topic, key, message);
+  }
+
+  protected removeError(key: string): void {
+    this.renderer.settings.errors.remove(IMAGE_TOPIC_PATH, key);
+    this.renderer.settings.errors.removeFromTopic(this.userData.topic, key);
+  }
 }
 
 let tempColor = { r: 0, g: 0, b: 0, a: 0 };
@@ -383,7 +421,7 @@ function createCanvasTexture(bitmap: ImageBitmap): THREE.CanvasTexture {
     THREE.UnsignedByteType,
   );
   texture.generateMipmaps = false;
-  texture.encoding = THREE.sRGBEncoding;
+  texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
 }
 
@@ -400,7 +438,7 @@ function createDataTexture(imageData: ImageData): THREE.DataTexture {
     THREE.NearestFilter,
     THREE.LinearFilter,
     1,
-    THREE.sRGBEncoding,
+    THREE.SRGBColorSpace,
   );
   dataTexture.needsUpdate = true; // ensure initial image data is displayed
   return dataTexture;
@@ -463,3 +501,35 @@ function createGeometry(
 
 const bitmapDimensionsEqual = (a?: ImageBitmap, b?: ImageBitmap) =>
   a?.width === b?.width && a?.height === b?.height;
+
+async function getErrorImage(width: number, height: number): Promise<ImageBitmap> {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw Error("Could not instantiate 2D canvas context");
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // Draw outline
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, width, height);
+
+  // Draw X
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(width, height);
+  ctx.moveTo(width, 0);
+  ctx.lineTo(0, height);
+  ctx.stroke();
+
+  // Get the updated image data
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const bitmap = await createImageBitmap(imageData, { resizeWidth: width });
+
+  return bitmap;
+}

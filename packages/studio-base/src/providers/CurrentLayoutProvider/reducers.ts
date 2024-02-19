@@ -43,11 +43,7 @@ import {
   SaveFullConfigPayload,
 } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
 import { TabPanelConfig } from "@foxglove/studio-base/types/layouts";
-import {
-  SavedProps,
-  PlaybackConfig,
-  MosaicDropTargetPosition,
-} from "@foxglove/studio-base/types/panels";
+import { MosaicDropTargetPosition } from "@foxglove/studio-base/types/panels";
 import { TAB_PANEL_TYPE } from "@foxglove/studio-base/util/globalConstants";
 import {
   updateTabPanelLayout,
@@ -69,10 +65,6 @@ import {
 } from "@foxglove/studio-base/util/layout";
 
 import { isTabPanelConfig } from "../../util/layout";
-
-export const defaultPlaybackConfig: PlaybackConfig = {
-  speed: 1.0,
-};
 
 function changePanelLayout(
   state: LayoutData,
@@ -176,14 +168,16 @@ const closePanel = (
 
 const splitPanel = (
   panelsState: LayoutData,
-  { id, tabId, direction, config, root, path }: SplitPanelPayload,
+  { id, tabId, direction, root, path }: SplitPanelPayload,
 ): LayoutData => {
   const type = getPanelTypeFromId(id);
   const newId = getPanelIdForType(type);
   let newPanelsState = { ...panelsState };
-  const { configById: savedProps } = newPanelsState;
+  const { configById } = newPanelsState;
+  const config = configById[id] ?? {};
+  // If splitting inside a Tab, update that Tab's layout instead of the root layout
   if (tabId != undefined) {
-    const prevConfig = savedProps[tabId] as TabPanelConfig;
+    const prevConfig = configById[tabId] as TabPanelConfig;
     const activeTabLayout = prevConfig.tabs[prevConfig.activeTabIdx]?.layout;
     if (activeTabLayout != undefined) {
       const newTabLayout = updateTree(activeTabLayout, [
@@ -205,36 +199,19 @@ const splitPanel = (
       layout: updateTree(root, [{ path, spec: { $set: { first: id, second: newId, direction } } }]),
       trimConfigById: type !== TAB_PANEL_TYPE,
     });
-
-    const relatedConfigs =
-      type === TAB_PANEL_TYPE
-        ? (getPanelIdsInsideTabPanels([id], savedProps).reduce(
-            (res: Record<string, unknown>, panelId: string) => ({
-              ...res,
-              [panelId]: savedProps[panelId],
-            }),
-            {},
-          ) as SavedProps)
-        : undefined;
-    newPanelsState = savePanelConfigs(
-      newPanelsState,
-      getSaveConfigsPayloadForAddedPanel({ id: newId, config, relatedConfigs }),
-    );
   }
+
+  // Save the new panel's config and clone any panels in tabs if necessary
+  newPanelsState = savePanelConfigs(
+    newPanelsState,
+    getSaveConfigsPayloadForAddedPanel({ id: newId, config, savedProps: configById }),
+  );
   return newPanelsState;
 };
 
 const swapPanel = (
   panelsState: LayoutData,
-  {
-    tabId,
-    originalId,
-    type,
-    config,
-    relatedConfigs,
-    root,
-    path,
-  }: MarkOptional<SwapPanelPayload, "originalId">,
+  { tabId, originalId, type, config, root, path }: MarkOptional<SwapPanelPayload, "originalId">,
 ): LayoutData => {
   const newId = getPanelIdForType(type);
   let newPanelsState = { ...panelsState };
@@ -261,7 +238,11 @@ const swapPanel = (
 
   newPanelsState = savePanelConfigs(
     newPanelsState,
-    getSaveConfigsPayloadForAddedPanel({ id: newId, config, relatedConfigs }),
+    getSaveConfigsPayloadForAddedPanel({
+      id: newId,
+      config,
+      savedProps: newPanelsState.configById,
+    }),
   );
   return newPanelsState;
 };
@@ -342,14 +323,15 @@ const moveTab = (panelsState: LayoutData, { source, target }: MoveTabPayload): L
   return savePanelConfigs(panelsState, saveConfigsPayload);
 };
 
-const addPanel = (
-  panelsState: LayoutData,
-  { tabId, id, config, relatedConfigs }: AddPanelPayload,
-) => {
+const addPanel = (panelsState: LayoutData, { tabId, id, config }: AddPanelPayload) => {
   let newPanelsState = { ...panelsState };
   let saveConfigsPayload: { configs: ConfigsPayload[] } = { configs: [] };
   if (config) {
-    saveConfigsPayload = getSaveConfigsPayloadForAddedPanel({ id, config, relatedConfigs });
+    saveConfigsPayload = getSaveConfigsPayloadForAddedPanel({
+      id,
+      config,
+      savedProps: panelsState.configById,
+    });
   }
   let layout: MosaicNode<string> | undefined;
   if (tabId != undefined) {
@@ -365,7 +347,7 @@ const addPanel = (
     : { direction: "row", first: id, second: layout! };
   const changeLayoutPayload = {
     layout: fixedLayout,
-    trimConfigById: !relatedConfigs,
+    trimConfigById: true,
   };
   if (tabId != undefined && typeof changeLayoutPayload.layout === "string") {
     newPanelsState = savePanelConfigs(newPanelsState, {
@@ -388,7 +370,7 @@ const addPanel = (
 
 const dropPanel = (
   panelsState: LayoutData,
-  { newPanelType, destinationPath = [], position, tabId, config, relatedConfigs }: DropPanelPayload,
+  { newPanelType, destinationPath = [], position, tabId, config }: DropPanelPayload,
 ) => {
   const id = getPanelIdForType(newPanelType);
 
@@ -413,20 +395,18 @@ const dropPanel = (
           createAddUpdates(panelsState.layout, id, destinationPath, position ?? "left"),
         );
 
-  // 'relatedConfigs' are used in Tab panel presets, so that the panels'
-  // respective configs will be saved globally.
   if (config) {
     const { configs: newConfigs } = getSaveConfigsPayloadForAddedPanel({
       id,
       config,
-      relatedConfigs,
+      savedProps: panelsState.configById,
     });
     configs.push(...newConfigs);
   }
 
   let newPanelsState = changePanelLayout(panelsState, {
     layout: newLayout,
-    trimConfigById: !relatedConfigs,
+    trimConfigById: true,
   });
   newPanelsState = savePanelConfigs(newPanelsState, { configs });
   return newPanelsState;
@@ -823,14 +803,6 @@ export default function (panelsState: Readonly<LayoutData>, action: PanelsAction
       };
     }
 
-    case "SET_PLAYBACK_CONFIG":
-      return {
-        ...panelsState,
-        playbackConfig: {
-          ...panelsState.playbackConfig,
-          ...action.payload,
-        },
-      };
     case "CLOSE_PANEL":
       return closePanel(panelsState, action.payload);
 

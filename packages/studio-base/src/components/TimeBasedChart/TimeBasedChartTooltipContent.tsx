@@ -11,32 +11,31 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { Square24Filled } from "@fluentui/react-icons";
+import { Square12Filled } from "@fluentui/react-icons";
 import * as _ from "lodash-es";
 import { Fragment, PropsWithChildren, useMemo } from "react";
 import { makeStyles } from "tss-react/mui";
 
 import { Immutable } from "@foxglove/studio";
 import Stack from "@foxglove/studio-base/components/Stack";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 export type TimeBasedChartTooltipData = {
-  datasetIndex: number;
+  configIndex: number;
   value: number | bigint | boolean | string;
   constantName?: string;
 };
 
 type Props = Immutable<{
-  colorsByDatasetIndex?: Record<string, undefined | string>;
+  colorsByConfigIndex?: Record<string, undefined | string>;
   content: TimeBasedChartTooltipData[];
-  labelsByDatasetIndex?: Record<string, undefined | string>;
+  labelsByConfigIndex?: Record<string, undefined | string>;
   // Flag indicating the containing chart has multiple datasets
   multiDataset: boolean;
 }>;
 
 const useStyles = makeStyles()((theme) => ({
   root: {
-    fontFamily: fonts.MONOSPACE,
+    fontFamily: theme.typography.fontMonospace,
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
     overflowWrap: "break-word",
@@ -46,7 +45,7 @@ const useStyles = makeStyles()((theme) => ({
     display: "grid",
     gridTemplateColumns: "auto minmax(0px, max-content) minmax(auto, max-content)",
     alignItems: "center",
-    fontFamily: fonts.MONOSPACE,
+    fontFamily: theme.typography.fontMonospace,
     fontSize: theme.typography.caption.fontSize,
     lineHeight: theme.typography.caption.lineHeight,
     overflowWrap: "break-word",
@@ -55,6 +54,9 @@ const useStyles = makeStyles()((theme) => ({
     gridColumn: "1",
     height: 12,
     width: 12,
+  },
+  colorIconReplacement: {
+    gridColumn: "1",
   },
   path: {
     opacity: 0.9,
@@ -84,7 +86,12 @@ function OverflowMessage(): JSX.Element {
 export default function TimeBasedChartTooltipContent(
   props: PropsWithChildren<Props>,
 ): React.ReactElement {
-  const { colorsByDatasetIndex, content, labelsByDatasetIndex, multiDataset } = props;
+  const {
+    colorsByConfigIndex: colorsByDatasetIndex,
+    content,
+    labelsByConfigIndex: labelsByDatasetIndex,
+    multiDataset,
+  } = props;
   const { classes, cx } = useStyles();
 
   // Compute whether there are multiple items for the dataset so we can show the user
@@ -104,7 +111,7 @@ export default function TimeBasedChartTooltipContent(
 
     // group items by path
     for (const item of content) {
-      const datasetIndex = item.datasetIndex;
+      const datasetIndex = item.configIndex;
       const existing = out.get(datasetIndex);
       if (existing) {
         existing.hasMultipleValues = true;
@@ -118,7 +125,7 @@ export default function TimeBasedChartTooltipContent(
     }
 
     // Sort by datasetIndex to keep the displayed values in the same order as the settings
-    return _.sortBy([...out.entries()], ([, items]) => items.tooltip.datasetIndex);
+    return _.sortBy([...out.entries()], ([, items]) => items.tooltip.configIndex);
   }, [content, multiDataset]);
 
   // If the chart contains only one dataset, we don't need to render the dataset label - saving space
@@ -152,7 +159,7 @@ export default function TimeBasedChartTooltipContent(
   return (
     <div className={cx(classes.root, classes.grid)} data-testid="TimeBasedChartTooltipContent">
       {sortedItems.map(([datasetIndex, item], idx) => {
-        const color = colorsByDatasetIndex?.[datasetIndex] ?? "auto";
+        const color = colorsByDatasetIndex?.[datasetIndex];
         const label = labelsByDatasetIndex?.[datasetIndex];
         const tooltip = item.tooltip;
         const value =
@@ -164,7 +171,11 @@ export default function TimeBasedChartTooltipContent(
 
         return (
           <Fragment key={idx}>
-            <Square24Filled className={classes.icon} primaryFill={color} />
+            {color ? (
+              <Square12Filled className={classes.icon} primaryFill={color} />
+            ) : (
+              <span className={classes.colorIconReplacement} />
+            )}
             <div className={classes.path}>{label ?? ""}</div>
             <div className={classes.value}>
               {value}

@@ -4,9 +4,10 @@
 
 import {
   Delete20Regular,
+  SplitHorizontal20Regular,
+  SplitVertical20Regular,
   TabDesktop20Regular,
   TabDesktopMultiple20Regular,
-  TableSimple20Regular,
 } from "@fluentui/react-icons";
 import { Meta, StoryFn, StoryObj } from "@storybook/react";
 
@@ -92,8 +93,9 @@ export const QuickActions: Story = {
     open: true,
     variant: "selected",
     actions: [
-      { key: "split", text: "Split panel", icon: <TableSimple20Regular /> },
-      { key: "remove", text: "Remove panel", icon: <Delete20Regular />, color: "error" },
+      { key: "vsplit", text: "Split right", icon: <SplitVertical20Regular /> },
+      { key: "hsplit", text: "Split down", icon: <SplitHorizontal20Regular /> },
+      { key: "remove", text: "Remove", icon: <Delete20Regular />, color: "error" },
     ],
   },
   parameters: {

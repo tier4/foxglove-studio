@@ -2,11 +2,12 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import * as _ from "lodash-es";
 import * as THREE from "three";
 
 import { Time, toNanoSec } from "@foxglove/rostime";
 import { LaserScan as FoxgloveLaserScan } from "@foxglove/schemas";
-import { SettingsTreeAction } from "@foxglove/studio";
+import { SettingsTreeAction, MessageEvent } from "@foxglove/studio";
 import {
   DEFAULT_POINT_SETTINGS,
   LayerSettingsPointExtension,
@@ -315,8 +316,9 @@ class LaserScanHistoryRenderable extends Renderable<LaserScanHistoryUserData> {
 }
 
 export class LaserScans extends SceneExtension<LaserScanHistoryRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.LaserScans", renderer);
+  public static extensionId = "foxglove.LaserScans";
+  public constructor(renderer: IRenderer, name: string = LaserScans.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -324,16 +326,45 @@ export class LaserScans extends SceneExtension<LaserScanHistoryRenderable> {
       {
         type: "schema",
         schemaNames: ROS_LASERSCAN_DATATYPES,
-        subscription: { handler: this.#handleLaserScan },
+        subscription: {
+          handler: this.#handleLaserScan,
+          filterQueue: this.#processMessageQueue.bind(this),
+        },
       },
       {
         type: "schema",
         schemaNames: FOXGLOVE_LASERSCAN_DATATYPES,
-        subscription: { handler: this.#handleLaserScan },
+        subscription: {
+          handler: this.#handleLaserScan,
+          filterQueue: this.#processMessageQueue.bind(this),
+        },
       },
     ];
   }
 
+  #processMessageQueue<T>(msgs: MessageEvent<T>[]): MessageEvent<T>[] {
+    if (msgs.length === 0) {
+      return msgs;
+    }
+    const msgsByTopic = _.groupBy(msgs, (msg) => msg.topic);
+    const finalQueue: MessageEvent<T>[] = [];
+    for (const topic in msgsByTopic) {
+      const topicMsgs = msgsByTopic[topic]!;
+      const userSettings = this.renderer.config.topics[topic] as
+        | Partial<LayerSettingsLaserScan>
+        | undefined;
+      // if the topic has a decaytime add all messages to queue for topic
+      if ((userSettings?.decayTime ?? DEFAULT_SETTINGS.decayTime) > 0) {
+        finalQueue.push(...topicMsgs);
+        continue;
+      }
+      const latestMsg = topicMsgs[topicMsgs.length - 1];
+      if (latestMsg) {
+        finalQueue.push(latestMsg);
+      }
+    }
+    return finalQueue;
+  }
   public override settingsNodes(): SettingsTreeEntry[] {
     const configTopics = this.renderer.config.topics;
     const handler = this.handleSettingsAction;
@@ -467,8 +498,8 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
 
   public constructor({ picking = false }: { picking?: boolean } = {}) {
     super({
-      vertexShader: /*glsl*/ `\
-        #version 300 es
+      glslVersion: THREE.GLSL3,
+      vertexShader: /*glsl*/ `
         precision highp float;
         precision highp int;
         uniform mat4 projectionMatrix, modelViewMatrix;
@@ -499,8 +530,7 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
 
         }
       `,
-      fragmentShader: `\
-        #version 300 es
+      fragmentShader: `
         #ifdef GL_FRAGMENT_PRECISION_HIGH
           precision highp float;
         #else
@@ -510,7 +540,7 @@ export class LaserScanMaterial extends THREE.RawShaderMaterial {
         ${picking ? "uniform vec4 objectId;" : "in mediump vec4 vColor;"}
         out vec4 outColor;
 
-        ${THREE.ShaderChunk.encodings_pars_fragment /* for LinearTosRGB() */}
+        ${THREE.ShaderChunk.colorspace_pars_fragment /* for LinearTosRGB() */}
 
         void main() {
           if (isCircle) {
@@ -564,8 +594,8 @@ class LaserScanInstancePickingMaterial extends THREE.RawShaderMaterial {
   public constructor() {
     const minPointSize = LaserScanInstancePickingMaterial.#MIN_PICKING_POINT_SIZE.toFixed(1);
     super({
-      vertexShader: /* glsl */ `\
-        #version 300 es
+      glslVersion: THREE.GLSL3,
+      vertexShader: /* glsl */ `
         precision highp float;
         precision highp int;
         uniform mat4 projectionMatrix, modelViewMatrix;
@@ -592,8 +622,7 @@ class LaserScanInstancePickingMaterial extends THREE.RawShaderMaterial {
           gl_PointSize = pixelRatio * max(pointSize, ${minPointSize});
         }
       `,
-      fragmentShader: /* glsl */ `\
-        #version 300 es
+      fragmentShader: /* glsl */ `
         #ifdef GL_FRAGMENT_PRECISION_HIGH
           precision highp float;
         #else

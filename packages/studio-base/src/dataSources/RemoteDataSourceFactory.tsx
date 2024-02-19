@@ -6,10 +6,13 @@ import { Link } from "@mui/material";
 import path from "path";
 
 import {
-  IDataSourceFactory,
   DataSourceFactoryInitializeArgs,
+  IDataSourceFactory,
 } from "@foxglove/studio-base/context/PlayerSelectionContext";
-import { IterablePlayer, WorkerIterableSource } from "@foxglove/studio-base/players/IterablePlayer";
+import {
+  IterablePlayer,
+  WorkerSerializedIterableSource,
+} from "@foxglove/studio-base/players/IterablePlayer";
 import { Player } from "@foxglove/studio-base/players/types";
 
 const initWorkers: Record<string, () => Worker> = {
@@ -48,8 +51,14 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
   public supportedFileTypes = [".bag", ".mcap"];
   public description = "Open pre-recorded .bag or .mcap files from a remote location.";
   public docsLinks = [
-    { label: "ROS 1", url: "https://foxglove.dev/docs/studio/connection/ros1#cloud-data" },
-    { label: "MCAP", url: "https://foxglove.dev/docs/studio/connection/mcap#cloud-data" },
+    {
+      label: "ROS 1",
+      url: "https://docs.foxglove.dev/docs/connecting-to-data/frameworks/ros1#remote-file",
+    },
+    {
+      label: "MCAP",
+      url: "https://docs.foxglove.dev/docs/connecting-to-data/frameworks/mcap#remote-file",
+    },
   ];
 
   public formConfig = {
@@ -87,8 +96,7 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
       throw new Error(`Unsupported extension: ${extension}`);
     }
 
-    const source = new WorkerIterableSource({ initWorker, initArgs: { url } });
-
+    const source = new WorkerSerializedIterableSource({ initWorker, initArgs: { url } });
     return new IterablePlayer({
       source,
       name: url,
@@ -96,8 +104,7 @@ class RemoteDataSourceFactory implements IDataSourceFactory {
       // Use blank url params so the data source is set in the url
       urlParams: { url },
       sourceId: this.id,
-      // improve loading performance by not preloading the first message
-      enablePreload: false,
+      readAheadDuration: { sec: 10, nsec: 0 },
     });
   }
 

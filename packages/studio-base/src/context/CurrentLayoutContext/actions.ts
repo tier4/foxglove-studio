@@ -17,8 +17,7 @@ import { VariableValue } from "@foxglove/studio";
 import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import { TabLocation } from "@foxglove/studio-base/types/layouts";
 import {
-  UserNodes,
-  PlaybackConfig,
+  UserScripts,
   SavedProps,
   PanelConfig,
   MosaicDropTargetPosition,
@@ -29,8 +28,7 @@ export type LayoutData = {
   configById: SavedProps;
   layout?: MosaicNode<string>;
   globalVariables: GlobalVariables;
-  playbackConfig: PlaybackConfig;
-  userNodes: UserNodes;
+  userNodes: UserScripts;
   /** @deprecated renamed to configById */
   savedProps?: SavedProps;
   /**
@@ -89,9 +87,7 @@ export type SET_GLOBAL_DATA = {
   payload: Record<string, VariableValue>;
 };
 
-export type SET_STUDIO_NODES = { type: "SET_USER_NODES"; payload: Partial<UserNodes> };
-
-export type SET_PLAYBACK_CONFIG = { type: "SET_PLAYBACK_CONFIG"; payload: Partial<PlaybackConfig> };
+export type SET_STUDIO_NODES = { type: "SET_USER_NODES"; payload: Partial<UserScripts> };
 
 export type ClosePanelPayload = {
   tabId?: string;
@@ -106,7 +102,6 @@ export type SplitPanelPayload = {
   direction: "row" | "column";
   root: MosaicNode<string>;
   path: MosaicPath;
-  config: PanelConfig;
 };
 export type SPLIT_PANEL = { type: "SPLIT_PANEL"; payload: SplitPanelPayload };
 
@@ -117,7 +112,6 @@ export type SwapPanelPayload = {
   root: MosaicNode<string>;
   path: MosaicPath;
   config: PanelConfig;
-  relatedConfigs?: SavedProps;
 };
 export type SWAP_PANEL = { type: "SWAP_PANEL"; payload: SwapPanelPayload };
 
@@ -131,7 +125,6 @@ export type AddPanelPayload = {
   id: string;
   tabId?: string;
   config?: PanelConfig;
-  relatedConfigs?: SavedProps;
 };
 export type ADD_PANEL = { type: "ADD_PANEL"; payload: AddPanelPayload };
 
@@ -141,7 +134,6 @@ export type DropPanelPayload = {
   position?: "top" | "bottom" | "left" | "right";
   tabId?: string;
   config?: PanelConfig;
-  relatedConfigs?: SavedProps;
 };
 export type DROP_PANEL = { type: "DROP_PANEL"; payload: DropPanelPayload };
 
@@ -171,7 +163,6 @@ export type PanelsActions =
   | OVERWRITE_GLOBAL_DATA
   | SET_GLOBAL_DATA
   | SET_STUDIO_NODES
-  | SET_PLAYBACK_CONFIG
   | CLOSE_PANEL
   | SPLIT_PANEL
   | SWAP_PANEL

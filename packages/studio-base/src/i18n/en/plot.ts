@@ -5,6 +5,7 @@
 export const plot = {
   accumulatedPath: "Path (accumulated)",
   addSeries: "Add series",
+  clickToAddASeries: "Click to add a series",
   color: "Color",
   currentPath: "Path (current)",
   deleteSeries: "Delete series",
@@ -16,6 +17,7 @@ export const plot = {
   label: "Label",
   left: "Left",
   legend: "Legend",
+  lineSize: "Line size",
   max: "Max",
   maxXError: "X max must be greater than X min.",
   maxYError: "Y max must be greater than Y min.",
@@ -34,4 +36,5 @@ export const plot = {
   value: "Value",
   xAxis: "X Axis",
   yAxis: "Y Axis",
+  resetView: "Reset view",
 };

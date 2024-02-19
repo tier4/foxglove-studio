@@ -2,8 +2,8 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { produce } from "immer";
 import * as _ from "lodash-es";
+import { useSnackbar } from "notistack";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import { useLatest } from "react-use";
@@ -25,8 +25,11 @@ import {
 } from "@foxglove/studio";
 import { AppSetting } from "@foxglove/studio-base/AppSetting";
 import { BuiltinPanelExtensionContext } from "@foxglove/studio-base/components/PanelExtensionAdapter";
-import { ALL_SUPPORTED_IMAGE_SCHEMAS } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ImageMode/ImageMode";
-import { ALL_SUPPORTED_ANNOTATION_SCHEMAS } from "@foxglove/studio-base/panels/ThreeDeeRender/renderables/ImageMode/annotations/ImageAnnotations";
+import { useAnalytics } from "@foxglove/studio-base/context/AnalyticsContext";
+import {
+  DEFAULT_SCENE_EXTENSION_CONFIG,
+  SceneExtensionConfig,
+} from "@foxglove/studio-base/panels/ThreeDeeRender/SceneExtensionConfig";
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 
 import type {
@@ -34,13 +37,13 @@ import type {
   IRenderer,
   ImageModeConfig,
   RendererConfig,
-  RendererEvents,
   RendererSubscription,
+  TestOptions,
 } from "./IRenderer";
 import type { PickedRenderable } from "./Picker";
 import { SELECTED_ID_VARIABLE } from "./Renderable";
 import { Renderer } from "./Renderer";
-import { RendererContext, useRendererEvent } from "./RendererContext";
+import { RendererContext, useRendererEvent, useRendererProperty } from "./RendererContext";
 import { RendererOverlay } from "./RendererOverlay";
 import { CameraState, DEFAULT_CAMERA_STATE } from "./camera";
 import {
@@ -51,7 +54,7 @@ import {
   makePoseMessage,
 } from "./publish";
 import type { LayerSettingsTransform } from "./renderables/FrameAxes";
-import { PublishClickEvent } from "./renderables/PublishClickTool";
+import { PublishClickEventMap } from "./renderables/PublishClickTool";
 import { DEFAULT_PUBLISH_SETTINGS } from "./renderables/PublishSettings";
 import { InterfaceMode } from "./types";
 
@@ -70,43 +73,24 @@ const PANEL_STYLE: React.CSSProperties = {
   position: "relative",
 };
 
-function useRendererProperty<K extends keyof IRenderer>(
-  renderer: IRenderer | undefined,
-  key: K,
-  event: keyof RendererEvents,
-  fallback: () => IRenderer[K],
-): IRenderer[K] {
-  const [value, setValue] = useState<IRenderer[K]>(() => renderer?.[key] ?? fallback());
-  useEffect(() => {
-    if (!renderer) {
-      return;
-    }
-    const onChange = () => {
-      setValue(() => renderer[key]);
-    };
-    onChange();
-
-    renderer.addListener(event, onChange);
-    return () => {
-      renderer.removeListener(event, onChange);
-    };
-  }, [renderer, event, key]);
-  return value;
-}
-
 /**
  * A panel that renders a 3D scene. This is a thin wrapper around a `Renderer` instance.
  */
 export function ThreeDeeRender(props: {
   context: BuiltinPanelExtensionContext;
   interfaceMode: InterfaceMode;
-  /** Override default downloading behavior, used for Storybook */
-  onDownloadImage?: (blob: Blob, fileName: string) => void;
-  /** Enable hitmap debugging by default, used for picking stories */
-  debugPicking?: boolean;
+  testOptions: TestOptions;
+  /** Allow for injection or overriding of default extensions by custom extensions */
+  customSceneExtensions?: DeepPartial<SceneExtensionConfig>;
 }): JSX.Element {
-  const { context, interfaceMode, onDownloadImage, debugPicking } = props;
-  const { initialState, saveState, unstable_fetchAsset: fetchAsset } = context;
+  const { context, interfaceMode, testOptions, customSceneExtensions } = props;
+  const {
+    initialState,
+    saveState,
+    unstable_fetchAsset: fetchAsset,
+    unstable_setMessagePathDropConfig: setMessagePathDropConfig,
+  } = context;
+  const analytics = useAnalytics();
 
   // Load and save the persisted panel configuration
   const [config, setConfig] = useState<Immutable<RendererConfig>>(() => {
@@ -145,9 +129,31 @@ export function ThreeDeeRender(props: {
   const [canvas, setCanvas] = useState<HTMLCanvasElement | ReactNull>(ReactNull);
   const [renderer, setRenderer] = useState<IRenderer | undefined>(undefined);
   const rendererRef = useRef<IRenderer | undefined>(undefined);
+
+  const { enqueueSnackbar } = useSnackbar();
+
+  const displayTemporaryError = useCallback(
+    (errorString: string) => {
+      enqueueSnackbar(errorString, { variant: "error" });
+    },
+    [enqueueSnackbar],
+  );
+
   useEffect(() => {
     const newRenderer = canvas
-      ? new Renderer({ canvas, config: configRef.current, interfaceMode, fetchAsset, debugPicking })
+      ? new Renderer({
+          canvas,
+          config: configRef.current,
+          interfaceMode,
+          fetchAsset,
+          sceneExtensionConfig: _.merge(
+            {},
+            DEFAULT_SCENE_EXTENSION_CONFIG,
+            customSceneExtensions ?? {},
+          ),
+          displayTemporaryError,
+          testOptions,
+        })
       : undefined;
     setRenderer(newRenderer);
     rendererRef.current = newRenderer;
@@ -159,52 +165,29 @@ export function ThreeDeeRender(props: {
     canvas,
     configRef,
     config.scene.transforms?.enablePreloading,
+    customSceneExtensions,
     interfaceMode,
     fetchAsset,
-    debugPicking,
+    testOptions,
+    displayTemporaryError,
   ]);
 
   useEffect(() => {
-    context.EXPERIMENTAL_setMessagePathDropConfig({
-      getDropStatus(paths) {
-        if (interfaceMode !== "image") {
-          return { canDrop: false };
-        }
-        let effect: "add" | "replace" = "add";
-        for (const path of paths) {
-          if (!path.isTopic || path.rootSchemaName == undefined) {
-            return { canDrop: false };
+    if (renderer) {
+      renderer.setAnalytics(analytics);
+    }
+  }, [renderer, analytics]);
+
+  useEffect(() => {
+    setMessagePathDropConfig(
+      renderer
+        ? {
+            getDropStatus: renderer.getDropStatus,
+            handleDrop: renderer.handleDrop,
           }
-          if (ALL_SUPPORTED_IMAGE_SCHEMAS.has(path.rootSchemaName)) {
-            effect = "replace";
-          } else if (ALL_SUPPORTED_ANNOTATION_SCHEMAS.has(path.rootSchemaName)) {
-            // nothing to do
-          } else {
-            return { canDrop: false };
-          }
-        }
-        return { canDrop: true, effect };
-      },
-      handleDrop(paths) {
-        setConfig((prevConfig) =>
-          produce(prevConfig, (draft) => {
-            for (const path of paths) {
-              if (path.rootSchemaName == undefined) {
-                continue;
-              }
-              if (ALL_SUPPORTED_IMAGE_SCHEMAS.has(path.rootSchemaName)) {
-                draft.imageMode.imageTopic = path.path;
-              } else {
-                draft.imageMode.annotations ??= {};
-                draft.imageMode.annotations[path.path] ??= {};
-                draft.imageMode.annotations[path.path]!.visible = true;
-              }
-            }
-          }),
-        );
-      },
-    });
-  }, [context, interfaceMode]);
+        : undefined,
+    );
+  }, [setMessagePathDropConfig, renderer]);
 
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
   const [timezone, setTimezone] = useState<string | undefined>();
@@ -223,17 +206,17 @@ export function ThreeDeeRender(props: {
   const renderRef = useRef({ needsRender: false });
   const [renderDone, setRenderDone] = useState<(() => void) | undefined>();
 
-  const schemaHandlers = useRendererProperty(
-    renderer,
-    "schemaHandlers",
-    "schemaHandlersChanged",
+  const schemaSubscriptions = useRendererProperty(
+    "schemaSubscriptions",
+    "schemaSubscriptionsChanged",
     () => new Map(),
+    renderer,
   );
-  const topicHandlers = useRendererProperty(
-    renderer,
-    "topicHandlers",
-    "topicHandlersChanged",
+  const topicSubscriptions = useRendererProperty(
+    "topicSubscriptions",
+    "topicSubscriptionsChanged",
     () => new Map(),
+    renderer,
   );
 
   // Config cameraState
@@ -315,14 +298,21 @@ export function ThreeDeeRender(props: {
   );
   useRendererEvent("selectedRenderable", updateSelectedRenderable, renderer);
 
+  const [focusedSettingsPath, setFocusedSettingsPath] = useState<undefined | readonly string[]>();
+
+  const onShowTopicSettings = useCallback((topic: string) => {
+    setFocusedSettingsPath(["topics", topic]);
+  }, []);
+
   // Rebuild the settings sidebar tree as needed
   useEffect(() => {
     context.updatePanelSettingsEditor({
       actionHandler,
       enableFilter: true,
+      focusedPath: focusedSettingsPath,
       nodes: settingsTree ?? {},
     });
-  }, [actionHandler, context, settingsTree]);
+  }, [actionHandler, context, focusedSettingsPath, settingsTree]);
 
   // Update the renderer's reference to `config` when it changes. Note that this does *not*
   // automatically update the settings tree.
@@ -399,11 +389,9 @@ export function ThreeDeeRender(props: {
         setParameters(renderState.parameters);
 
         // currentFrame has messages on subscribed topics since the last render call
-        deepParseMessageEvents(renderState.currentFrame);
         setCurrentFrameMessages(renderState.currentFrame);
 
         // allFrames has messages on preloaded topics across all frames (as they are loaded)
-        deepParseMessageEvents(renderState.allFrames);
         setAllFrames(renderState.allFrames);
       });
     };
@@ -455,14 +443,14 @@ export function ThreeDeeRender(props: {
     };
 
     for (const topic of topics) {
-      for (const rendererSubscription of topicHandlers.get(topic.name) ?? []) {
+      for (const rendererSubscription of topicSubscriptions.get(topic.name) ?? []) {
         addSubscription(topic, rendererSubscription);
       }
-      for (const rendererSubscription of schemaHandlers.get(topic.schemaName) ?? []) {
+      for (const rendererSubscription of schemaSubscriptions.get(topic.schemaName) ?? []) {
         addSubscription(topic, rendererSubscription);
       }
       for (const schemaName of topic.convertibleTo ?? []) {
-        for (const rendererSubscription of schemaHandlers.get(schemaName) ?? []) {
+        for (const rendererSubscription of schemaSubscriptions.get(schemaName) ?? []) {
           addSubscription(topic, rendererSubscription, schemaName);
         }
       }
@@ -478,8 +466,8 @@ export function ThreeDeeRender(props: {
     // shouldSubscribe values will be re-evaluated
     config.imageMode.calibrationTopic,
     config.imageMode.imageTopic,
-    schemaHandlers,
-    topicHandlers,
+    schemaSubscriptions,
+    topicSubscriptions,
     config.imageMode.annotations,
     // Need to update subscriptions when layers change as URDF layers might subscribe to topics
     // shouldSubscribe values will be re-evaluated
@@ -686,7 +674,7 @@ export function ThreeDeeRender(props: {
     const onStart = () => {
       setPublishActive(true);
     };
-    const onSubmit = (event: PublishClickEvent & { type: "foxglove.publish-submit" }) => {
+    const onSubmit = (event: PublishClickEventMap["foxglove.publish-submit"]) => {
       const frameId = renderer?.followFrameId;
       if (frameId == undefined) {
         log.warn("Unable to publish, renderFrameId is not set");
@@ -771,7 +759,7 @@ export function ThreeDeeRender(props: {
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
-      if (event.key === "3") {
+      if (event.key === "3" && !(event.metaKey || event.ctrlKey)) {
         onTogglePerspective();
         event.stopPropagation();
         event.preventDefault();
@@ -810,28 +798,16 @@ export function ThreeDeeRender(props: {
             canPublish={canPublish}
             publishActive={publishActive}
             onClickPublish={onClickPublish}
+            onShowTopicSettings={onShowTopicSettings}
             publishClickType={renderer?.publishClickTool.publishClickType ?? "point"}
             onChangePublishClickType={(type) => {
               renderer?.publishClickTool.setPublishClickType(type);
               renderer?.publishClickTool.start();
             }}
             timezone={timezone}
-            onDownloadImage={onDownloadImage}
           />
         </RendererContext.Provider>
       </div>
     </ThemeProvider>
   );
-}
-
-function deepParseMessageEvents(messageEvents: ReadonlyArray<MessageEvent> | undefined): void {
-  if (!messageEvents) {
-    return;
-  }
-  for (const messageEvent of messageEvents) {
-    const maybeLazy = messageEvent.message as { toJSON?: () => unknown };
-    if ("toJSON" in maybeLazy) {
-      (messageEvent as { message: unknown }).message = maybeLazy.toJSON!();
-    }
-  }
 }

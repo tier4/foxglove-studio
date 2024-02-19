@@ -11,7 +11,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { MessagePathStructureItem } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
+import { MessagePathStructureItem } from "@foxglove/message-path";
 
 import { getValueActionForValue, getStructureItemForPath } from "./getValueActionForValue";
 
@@ -46,6 +46,15 @@ describe("getValueActionForValue", () => {
       multiSlicePath: "[:].some_id",
       primitiveType: "uint32",
       singleSlicePath: "[:]{some_id==123}.some_id",
+    });
+  });
+
+  it("returns paths even when a schema is not available", () => {
+    expect(getValueActionForValue([{ some_id: 123 }], undefined, [0, "some_id"])).toEqual({
+      filterPath: "",
+      multiSlicePath: "[:].some_id",
+      primitiveType: "int32",
+      singleSlicePath: "[0].some_id",
     });
   });
 

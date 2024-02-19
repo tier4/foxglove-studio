@@ -3,7 +3,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook } from "@testing-library/react";
 
 import { TopicListItem, UseTopicListSearchParams, useTopicListSearch } from "./useTopicListSearch";
 
@@ -58,5 +58,21 @@ describe("useTopicListSearch", () => {
       useTopicListSearch({ topics, datatypes, filterText: "foobar" }),
     );
     expect(result.current.map(itemToString)).toEqual(["xyz", "xyz.foobar", "footballer"]);
+  });
+
+  it("includes topic matches when there's a trailing dot", () => {
+    const topics: UseTopicListSearchParams["topics"] = [
+      { name: "abc", schemaName: "ABCD" },
+      { name: "abc2", schemaName: "ABCD" },
+      { name: "xyz", schemaName: "XYZW" },
+    ];
+    const datatypes: UseTopicListSearchParams["datatypes"] = new Map([
+      ["ABCD", { definitions: [{ name: "xyz", type: "string" }] }],
+      ["XYZW", { definitions: [{ name: "abcd", type: "string" }] }],
+    ]);
+    const { result } = renderHook(() =>
+      useTopicListSearch({ topics, datatypes, filterText: "abc." }),
+    );
+    expect(result.current.map(itemToString)).toEqual(["abc", "abc.xyz", "abc2", "abc2.xyz"]);
   });
 });

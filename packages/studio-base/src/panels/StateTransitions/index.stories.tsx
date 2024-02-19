@@ -85,8 +85,8 @@ const fixture: Fixture = {
     { name: "/blocks", schemaName: "msgs/SystemState" },
   ],
   activeData: {
-    startTime: { sec: 1526191527, nsec: 202050 },
-    endTime: { sec: 1526191551, nsec: 999997069 },
+    startTime: { sec: 1526191539, nsec: 202050 },
+    endTime: { sec: 1526191542, nsec: 999997069 },
     isPlaying: false,
     speed: 0.2,
   },
@@ -116,8 +116,26 @@ export default {
   title: "panels/StateTransitions",
   component: StateTransitions,
   parameters: {
+    colorScheme: "light",
     chromatic: { delay: 100 },
   },
+};
+
+export const Empty: StoryObj = {
+  render: function Story() {
+    const readySignal = useReadySignal({ count: 1 });
+    const pauseFrame = useCallback(() => readySignal, [readySignal]);
+
+    return (
+      <PanelSetup fixture={fixture} pauseFrame={pauseFrame}>
+        <StateTransitions />
+      </PanelSetup>
+    );
+  },
+  play: async ({ parameters }) => {
+    await parameters.storyReady;
+  },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 export const ColorPalette: StoryObj = {
@@ -201,7 +219,7 @@ export const OnePath: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 export const WithXAxisMinMax: StoryObj = {
@@ -213,8 +231,8 @@ export const WithXAxisMinMax: StoryObj = {
       <PanelSetup fixture={fixture} pauseFrame={pauseFrame} includeSettings>
         <StateTransitions
           overrideConfig={{
-            xAxisMinValue: 11,
-            xAxisMaxValue: 15,
+            xAxisMinValue: 1,
+            xAxisMaxValue: 3,
             paths: [{ value: "/some/topic/with/state.state", timestampMethod: "receiveTime" }],
             isSynced: true,
           }}
@@ -274,7 +292,7 @@ export const WithSettings: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 export const MultiplePaths: StoryObj = {
@@ -299,7 +317,7 @@ export const MultiplePaths: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 export const LongPath: StoryObj = {
@@ -321,7 +339,7 @@ export const LongPath: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 export const ColorClash: StoryObj = {
@@ -345,7 +363,7 @@ export const ColorClash: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };
 
 const messageCache: BlockCache = {
@@ -419,5 +437,5 @@ export const Blocks: StoryObj = {
   play: async ({ parameters }) => {
     await parameters.storyReady;
   },
-  parameters: { useReadySignal: true },
+  parameters: { useReadySignal: true, colorScheme: "light" },
 };

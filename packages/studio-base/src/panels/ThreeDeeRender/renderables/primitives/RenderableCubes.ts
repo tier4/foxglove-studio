@@ -49,10 +49,11 @@ export class RenderableCubes extends RenderablePrimitive {
     // Cube mesh
     this.#geometry = renderer.sharedGeometry
       .getGeometry(`${this.constructor.name}-cube`, createCubeGeometry)
-      .clone() as THREE.BoxGeometry;
+      .clone();
 
     this.#maxInstances = 16;
     this.#mesh = new THREE.InstancedMesh(this.#geometry, this.#material, this.#maxInstances);
+    this.#mesh.frustumCulled = false;
     this.#instanceOpacity = new THREE.InstancedBufferAttribute(
       new Float32Array(this.#maxInstances),
       1,
@@ -66,7 +67,8 @@ export class RenderableCubes extends RenderablePrimitive {
       `${this.constructor.name}-edges`,
       () => createEdgesGeometry(this.#geometry),
     );
-    this.#outlineGeometry = new THREE.InstancedBufferGeometry().copy(this.#sharedEdgesGeometry);
+    this.#outlineGeometry = new THREE.InstancedBufferGeometry();
+    (this.#outlineGeometry as THREE.BufferGeometry).copy(this.#sharedEdgesGeometry);
     this.#outlineGeometry.setAttribute("instanceMatrix", this.#mesh.instanceMatrix);
     this.#outline = new THREE.LineSegments(
       this.#outlineGeometry,
@@ -85,6 +87,7 @@ export class RenderableCubes extends RenderablePrimitive {
       this.#mesh.removeFromParent();
       this.#mesh.dispose();
       this.#mesh = new THREE.InstancedMesh(this.#geometry, this.#material, this.#maxInstances);
+      this.#mesh.frustumCulled = false;
       this.#instanceOpacity = new THREE.InstancedBufferAttribute(
         new Float32Array(this.#maxInstances),
         1,
@@ -95,7 +98,8 @@ export class RenderableCubes extends RenderablePrimitive {
       // THREE.js doesn't correctly recompute the new max instance count when dynamically
       // reassigning the attribute of InstancedBufferGeometry, so we just create a new geometry
       this.#outlineGeometry.dispose();
-      this.#outlineGeometry = new THREE.InstancedBufferGeometry().copy(this.#sharedEdgesGeometry);
+      this.#outlineGeometry = new THREE.InstancedBufferGeometry();
+      (this.#outlineGeometry as THREE.BufferGeometry).copy(this.#sharedEdgesGeometry);
       this.#outlineGeometry.instanceCount = newCapacity;
       this.#outlineGeometry.setAttribute("instanceMatrix", this.#mesh.instanceMatrix);
       this.#outline.geometry = this.#outlineGeometry;
@@ -157,6 +161,7 @@ export class RenderableCubes extends RenderablePrimitive {
   }
 
   public override dispose(): void {
+    this.clear();
     this.#mesh.dispose();
     this.#geometry.dispose();
     this.#material.dispose();

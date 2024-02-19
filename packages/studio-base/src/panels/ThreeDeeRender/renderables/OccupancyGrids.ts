@@ -11,7 +11,12 @@ import type { RosValue } from "@foxglove/studio-base/players/types";
 
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import {
+  PartialMessage,
+  PartialMessageEvent,
+  SceneExtension,
+  onlyLastByTopicMessage,
+} from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import { rgbaToCssString, SRGBToLinear, stringToRgba } from "../color";
 import {
@@ -83,8 +88,9 @@ export class OccupancyGridRenderable extends Renderable<OccupancyGridUserData> {
 }
 
 export class OccupancyGrids extends SceneExtension<OccupancyGridRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.OccupancyGrids", renderer);
+  public static extensionId = "foxglove.OccupancyGrids";
+  public constructor(renderer: IRenderer, name: string = OccupancyGrids.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -92,7 +98,7 @@ export class OccupancyGrids extends SceneExtension<OccupancyGridRenderable> {
       {
         type: "schema",
         schemaNames: OCCUPANCY_GRID_DATATYPES,
-        subscription: { handler: this.#handleOccupancyGrid },
+        subscription: { handler: this.#handleOccupancyGrid, filterQueue: onlyLastByTopicMessage },
       },
     ];
   }
@@ -336,7 +342,7 @@ function createTexture(occupancyGrid: OccupancyGrid): THREE.DataTexture {
     THREE.NearestFilter,
     THREE.LinearFilter,
     1,
-    THREE.LinearEncoding, // OccupancyGrid carries linear grayscale values, not sRGB
+    THREE.LinearSRGBColorSpace, // OccupancyGrid carries linear-sRGB grayscale values, not sRGB
   );
   texture.generateMipmaps = false;
   return texture;

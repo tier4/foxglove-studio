@@ -23,14 +23,10 @@ import { AppEvent } from "@foxglove/studio-base/services/IAnalytics";
 
 const useStyles = makeStyles()({
   checkbox: {
-    "&.MuiCheckbox-root": {
-      paddingTop: 0,
-    },
+    paddingTop: 0,
   },
   formControlLabel: {
-    "&.MuiFormControlLabel-root": {
-      alignItems: "start",
-    },
+    alignItems: "start",
   },
 });
 
@@ -45,14 +41,9 @@ function useFeatures(): Feature[] {
 
   const features: Feature[] = [
     {
-      key: AppSetting.SHOW_DEBUG_PANELS,
-      name: t("studioDebugPanels"),
-      description: <>{t("studioDebugPanelsDescription")}</>,
-    },
-    {
-      key: AppSetting.ENABLE_MEMORY_USE_INDICATOR,
-      name: t("memoryUseIndicator"),
-      description: <>{t("memoryUseIndicatorDescription")}</>,
+      key: AppSetting.ENABLE_UNIFIED_NAVIGATION,
+      name: t("newAppMenu"),
+      description: <>{t("newAppMenuDescription")}</>,
     },
   ];
 

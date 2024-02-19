@@ -37,9 +37,8 @@ export function parseJsonSchema(
         `Expected "type": "object" for schema ${typeName}, got ${JSON.stringify(schema.type)}`,
       );
     }
-    for (const [fieldName, fieldSchema] of Object.entries(
-      schema.properties as Record<string, Record<string, unknown>>,
-    )) {
+    const properties = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+    for (const [fieldName, fieldSchema] of Object.entries(properties)) {
       if (Array.isArray(fieldSchema.oneOf)) {
         if (fieldSchema.oneOf.every((alternative) => typeof alternative.const === "number")) {
           for (const alternative of fieldSchema.oneOf) {
@@ -96,8 +95,18 @@ export function parseJsonSchema(
           }
           break;
         case "number":
-        case "integer":
           fields.push({ name: fieldName, type: "float64" });
+          break;
+        case "integer":
+          fields.push({
+            name: fieldName,
+            type:
+              (typeof fieldSchema.minimum === "number" && fieldSchema.minimum >= 0) ||
+              (typeof fieldSchema.exclusiveMinimum === "number" &&
+                fieldSchema.exclusiveMinimum >= 0)
+                ? "uint32"
+                : "int32",
+          });
           break;
         case "object": {
           const nestedTypeName = `${typeName}.${fieldName}`;
@@ -134,8 +143,19 @@ export function parseJsonSchema(
               fields.push({ name: fieldName, type: "string", isArray: true });
               break;
             case "number":
-            case "integer":
               fields.push({ name: fieldName, type: "float64", isArray: true });
+              break;
+            case "integer":
+              fields.push({
+                name: fieldName,
+                type:
+                  (typeof itemSchema.minimum === "number" && itemSchema.minimum >= 0) ||
+                  (typeof itemSchema.exclusiveMinimum === "number" &&
+                    itemSchema.exclusiveMinimum >= 0)
+                    ? "uint32"
+                    : "int32",
+                isArray: true,
+              });
               break;
             case "object": {
               const nestedTypeName = `${typeName}.${fieldName}`;

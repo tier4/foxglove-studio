@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { t } from "i18next";
+import * as _ from "lodash-es";
 import * as THREE from "three";
 
 import { toNanoSec } from "@foxglove/rostime";
@@ -15,11 +16,15 @@ import { RenderableArrow } from "./markers/RenderableArrow";
 import { RenderableSphere } from "./markers/RenderableSphere";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import {
+  onlyLastByTopicMessage,
+  PartialMessage,
+  PartialMessageEvent,
+  SceneExtension,
+} from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import { makeRgba, rgbaToCssString, stringToRgba } from "../color";
 import { POSE_IN_FRAME_DATATYPES } from "../foxglove";
-import { vecEqual } from "../math";
 import {
   normalizeHeader,
   normalizeMatrix6,
@@ -97,8 +102,9 @@ export class PoseRenderable extends Renderable<PoseUserData> {
 }
 
 export class Poses extends SceneExtension<PoseRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.Poses", renderer);
+  public static extensionId = "foxglove.Poses";
+  public constructor(renderer: IRenderer, name: string = Poses.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -106,17 +112,20 @@ export class Poses extends SceneExtension<PoseRenderable> {
       {
         type: "schema",
         schemaNames: POSE_STAMPED_DATATYPES,
-        subscription: { handler: this.#handlePoseStamped },
+        subscription: { handler: this.#handlePoseStamped, filterQueue: onlyLastByTopicMessage },
       },
       {
         type: "schema",
         schemaNames: POSE_IN_FRAME_DATATYPES,
-        subscription: { handler: this.#handlePoseInFrame },
+        subscription: { handler: this.#handlePoseInFrame, filterQueue: onlyLastByTopicMessage },
       },
       {
         type: "schema",
         schemaNames: POSE_WITH_COVARIANCE_STAMPED_DATATYPES,
-        subscription: { handler: this.#handlePoseWithCovariance },
+        subscription: {
+          handler: this.#handlePoseWithCovariance,
+          filterQueue: onlyLastByTopicMessage,
+        },
       },
     ];
   }
@@ -316,7 +325,7 @@ export class Poses extends SceneExtension<PoseRenderable> {
     const axisOrArrowSettingsChanged =
       settings.type !== prevSettings.type ||
       settings.axisScale !== prevSettings.axisScale ||
-      !vecEqual(settings.arrowScale, prevSettings.arrowScale) ||
+      !_.isEqual(settings.arrowScale, prevSettings.arrowScale) ||
       settings.color !== prevSettings.color ||
       (!renderable.userData.arrow && !renderable.userData.axis);
 

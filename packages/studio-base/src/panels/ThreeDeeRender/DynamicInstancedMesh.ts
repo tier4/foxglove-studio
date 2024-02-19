@@ -25,6 +25,7 @@ export class DynamicInstancedMesh<
     super(geometry, material, 0);
 
     this.#capacity = initialCapacity;
+    this.frustumCulled = false;
     this.#resize();
   }
 
@@ -61,8 +62,6 @@ export class DynamicInstancedMesh<
       this.#expand();
     }
     this.count = count;
-    this.instanceMatrix.count = count;
-    this.instanceColor!.count = count;
   }
 
   #expand() {

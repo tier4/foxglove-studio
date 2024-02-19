@@ -3,12 +3,12 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { ReOrderDotsVertical16Regular } from "@fluentui/react-icons";
-import { Typography } from "@mui/material";
+import { Badge, Typography } from "@mui/material";
 import { FzfResultItem } from "fzf";
 import { useCallback, useMemo } from "react";
 
-import { DraggedMessagePath } from "@foxglove/studio";
 import { HighlightChars } from "@foxglove/studio-base/components/HighlightChars";
+import { DraggedMessagePath } from "@foxglove/studio-base/components/PanelExtensionAdapter";
 import Stack from "@foxglove/studio-base/components/Stack";
 import { useMessagePathDrag } from "@foxglove/studio-base/services/messagePathDragging";
 
@@ -20,11 +20,13 @@ export function MessagePathRow({
   style,
   selected,
   onClick,
+  onContextMenu,
 }: {
   messagePathResult: FzfResultItem<MessagePathSearchItem>;
   style: React.CSSProperties;
   selected: boolean;
   onClick: React.MouseEventHandler<HTMLDivElement>;
+  onContextMenu: React.MouseEventHandler<HTMLDivElement>;
 }): JSX.Element {
   const { cx, classes } = useTopicListStyles();
 
@@ -40,8 +42,9 @@ export function MessagePathRow({
       rootSchemaName: topic.schemaName,
       isTopic: false,
       isLeaf,
+      topicName: topic.name,
     }),
-    [fullPath, isLeaf, topic.schemaName],
+    [fullPath, isLeaf, topic.name, topic.schemaName],
   );
 
   const { connectDragSource, connectDragPreview, cursor, isDragging, draggedItemCount } =
@@ -67,8 +70,11 @@ export function MessagePathRow({
       })}
       style={{ ...style, cursor }}
       onClick={onClick}
+      onContextMenu={onContextMenu}
     >
-      {draggedItemCount > 1 && <div className={classes.countBadge}>{draggedItemCount}</div>}
+      {draggedItemCount > 1 && (
+        <Badge color="primary" className={classes.countBadge} badgeContent={draggedItemCount} />
+      )}
       <Stack flex="auto" direction="row" gap={2} overflow="hidden">
         <Typography variant="body2" noWrap>
           <HighlightChars

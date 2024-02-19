@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { t } from "i18next";
+import * as _ from "lodash-es";
 import * as THREE from "three";
 
 import { toNanoSec } from "@foxglove/rostime";
@@ -16,11 +17,15 @@ import { RenderableArrow } from "./markers/RenderableArrow";
 import { RenderableLineStrip } from "./markers/RenderableLineStrip";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import {
+  onlyLastByTopicMessage,
+  PartialMessage,
+  PartialMessageEvent,
+  SceneExtension,
+} from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import { makeRgba, rgbaGradient, rgbaToCssString, stringToRgba } from "../color";
 import { POSES_IN_FRAME_DATATYPES } from "../foxglove";
-import { vecEqual } from "../math";
 import { normalizeHeader, normalizePose, normalizeTime } from "../normalizeMessages";
 import {
   PoseArray,
@@ -138,8 +143,9 @@ export class PoseArrayRenderable extends Renderable<PoseArrayUserData> {
 }
 
 export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.PoseArrays", renderer);
+  public static extensionId = "foxglove.PoseArrays";
+  public constructor(renderer: IRenderer, name: string = PoseArrays.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -147,17 +153,17 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
       {
         type: "schema",
         schemaNames: POSE_ARRAY_DATATYPES,
-        subscription: { handler: this.#handlePoseArray },
+        subscription: { handler: this.#handlePoseArray, filterQueue: onlyLastByTopicMessage },
       },
       {
         type: "schema",
         schemaNames: POSES_IN_FRAME_DATATYPES,
-        subscription: { handler: this.#handlePosesInFrame },
+        subscription: { handler: this.#handlePosesInFrame, filterQueue: onlyLastByTopicMessage },
       },
       {
         type: "schema",
         schemaNames: NAV_PATH_DATATYPES,
-        subscription: { handler: this.#handleNavPath },
+        subscription: { handler: this.#handleNavPath, filterQueue: onlyLastByTopicMessage },
       },
     ];
   }
@@ -410,8 +416,8 @@ export class PoseArrays extends SceneExtension<PoseArrayRenderable> {
     const axisOrArrowSettingsChanged =
       settings.type !== prevSettings.type ||
       settings.axisScale !== prevSettings.axisScale ||
-      !vecEqual(settings.arrowScale, prevSettings.arrowScale) ||
-      !vecEqual(settings.gradient, prevSettings.gradient) ||
+      !_.isEqual(settings.arrowScale, prevSettings.arrowScale) ||
+      !_.isEqual(settings.gradient, prevSettings.gradient) ||
       (renderable.userData.arrows.length === 0 && renderable.userData.axes.length === 0);
 
     renderable.userData.settings = settings;

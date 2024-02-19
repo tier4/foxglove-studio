@@ -13,7 +13,7 @@
 
 import { Stack } from "@mui/material";
 import { StoryObj } from "@storybook/react";
-import { screen, userEvent, waitFor, within } from "@storybook/testing-library";
+import { fireEvent, screen, userEvent, waitFor, within } from "@storybook/testing-library";
 import { useState } from "react";
 
 import { Topic } from "@foxglove/studio-base/players/types";
@@ -41,7 +41,7 @@ const heavyFixture: Fixture = {
 
 const clickInput: StoryObj["play"] = async ({ canvasElement }) => {
   const canvas = within(canvasElement);
-  await userEvent.click(await canvas.findByTestId("autocomplete-textfield"));
+  fireEvent.click(await canvas.findByTestId("autocomplete-textfield"));
 };
 
 function MessagePathInputStory(props: {
@@ -56,7 +56,6 @@ function MessagePathInputStory(props: {
     <PanelSetup fixture={props.heavy ?? false ? heavyFixture : MessagePathInputStoryFixture}>
       <Stack direction="row" flex="auto" margin={1.25}>
         <MessagePathInput
-          autoSize={false}
           path={path}
           validTypes={props.validTypes}
           prioritizedDatatype={props.prioritizedDatatype}
@@ -94,12 +93,11 @@ export const AutocompleteScalarFromTopicAndEmptyPath: MsgPathInputStoryObj = {
   render: MessagePathInputStory,
   args: { path: "", validTypes: ["int32"] },
   play: async ({ canvasElement }) => {
-    const { click } = userEvent.setup();
     const canvas = within(canvasElement);
 
-    await click(await canvas.findByTestId("autocomplete-textfield"));
+    fireEvent.click(await canvas.findByTestId("autocomplete-textfield"));
     const options = await waitFor(() => screen.queryAllByTestId("autocomplete-item"));
-    await click(options[2]!);
+    fireEvent.click(options[2]!);
   },
 };
 
@@ -107,15 +105,15 @@ export const AutocompleteScalarFromTopic: MsgPathInputStoryObj = {
   render: MessagePathInputStory,
   args: { path: "", validTypes: ["int32"] },
   play: async ({ canvasElement }) => {
-    const { click, keyboard } = userEvent.setup();
+    const { keyboard } = userEvent.setup();
     const canvas = within(canvasElement);
     const input = await canvas.findByTestId("autocomplete-textfield");
 
-    await click(input);
+    fireEvent.click(input);
     await keyboard("/some_logs_");
 
     const options = await waitFor(() => screen.queryAllByTestId("autocomplete-item"));
-    await click(options[1]!);
+    fireEvent.click(options[1]!);
   },
 };
 
@@ -123,16 +121,22 @@ export const AutocompleteScalarFromFullTopic: MsgPathInputStoryObj = {
   render: MessagePathInputStory,
   args: { path: "", validTypes: ["int32"] },
   play: async ({ canvasElement }) => {
-    const { click, keyboard } = userEvent.setup();
+    const { keyboard } = userEvent.setup();
     const canvas = within(canvasElement);
     const input = await canvas.findByTestId("autocomplete-textfield");
 
-    await click(input);
+    fireEvent.click(input);
     await keyboard("/some_logs_topic");
 
     const options = await waitFor(() => screen.queryAllByTestId("autocomplete-item"));
-    await click(options[0]!);
+    fireEvent.click(options[0]!);
   },
+};
+
+export const AutocompleteWithFilterAndArraySuggestions: MsgPathInputStoryObj = {
+  render: MessagePathInputStory,
+  args: { path: "stateitems" },
+  play: clickInput,
 };
 
 export const AutocompleteMessagePath: MsgPathInputStoryObj = {

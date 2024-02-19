@@ -16,7 +16,14 @@ import { useEffect, useMemo } from "react";
 import { makeStyles } from "tss-react/mui";
 import { useDebounce } from "use-debounce";
 
+import { MessageDefinition } from "@foxglove/message-definition";
+import CommonRosTypes from "@foxglove/rosmsg-msgs-common";
+import { Immutable } from "@foxglove/studio";
 import { useDataSourceInfo } from "@foxglove/studio-base/PanelAPI";
+import {
+  MessagePipelineContext,
+  useMessagePipeline,
+} from "@foxglove/studio-base/components/MessagePipeline";
 import Panel from "@foxglove/studio-base/components/Panel";
 import PanelToolbar from "@foxglove/studio-base/components/PanelToolbar";
 import Stack from "@foxglove/studio-base/components/Stack";
@@ -25,7 +32,6 @@ import usePublisher from "@foxglove/studio-base/hooks/usePublisher";
 import { PlayerCapabilities } from "@foxglove/studio-base/players/types";
 import { useDefaultPanelTitle } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
 
 import { defaultConfig, usePublishPanelSettings } from "./settings";
 import { PublishConfig } from "./types";
@@ -65,7 +71,7 @@ const useStyles = makeStyles<{ buttonColor?: string }>()((theme, { buttonColor }
         [`.${inputBaseClasses.input}`]: {
           height: "100% !important",
           lineHeight: 1.4,
-          fontFamily: fonts.MONOSPACE,
+          fontFamily: theme.typography.fontMonospace,
           overflow: "auto !important",
           resize: "none",
         },
@@ -94,11 +100,34 @@ function parseInput(value: string): { error?: string; parsedObject?: unknown } {
   return { error, parsedObject };
 }
 
+function selectDataSourceProfile(ctx: MessagePipelineContext) {
+  return ctx.playerState.profile;
+}
+
 function Publish(props: Props) {
   const { saveConfig, config } = props;
-  const { topics, datatypes, capabilities } = useDataSourceInfo();
+  const { topics, datatypes: dataSourceDatatypes, capabilities } = useDataSourceInfo();
   const { classes } = useStyles({ buttonColor: config.buttonColor });
   const [debouncedTopicName] = useDebounce(config.topicName ?? "", 500);
+  const dataSourceProfile = useMessagePipeline(selectDataSourceProfile);
+
+  const datatypes = useMemo(() => {
+    // Add common ROS datatypes, depending on the data source profile.
+    const commonTypes: Record<string, MessageDefinition> | undefined = {
+      ros1: CommonRosTypes.ros1,
+      ros2: CommonRosTypes.ros2galactic,
+    }[dataSourceProfile ?? ""];
+
+    if (commonTypes == undefined) {
+      return dataSourceDatatypes;
+    }
+
+    // dataSourceDatatypes is added after commonTypes to take precedence (override) any commonTypes of the same name
+    return new Map<string, Immutable<MessageDefinition>>([
+      ...Object.entries(commonTypes),
+      ...dataSourceDatatypes,
+    ]);
+  }, [dataSourceProfile, dataSourceDatatypes]);
 
   const publish = usePublisher({
     name: "Publish",

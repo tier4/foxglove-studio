@@ -14,13 +14,20 @@
 import { useTheme } from "@mui/material";
 import { TFunction } from "i18next";
 import * as _ from "lodash-es";
-import { ComponentProps, ReactNode, useLayoutEffect, useMemo, useState } from "react";
+import {
+  ComponentProps,
+  PropsWithChildren,
+  ReactNode,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useTranslation } from "react-i18next";
 import { Mosaic, MosaicNode, MosaicWindow } from "react-mosaic-component";
+import { createStore } from "zustand";
 
-import { useShallowMemo } from "@foxglove/hooks";
 import {
   MessageEvent,
   ParameterValue,
@@ -32,6 +39,10 @@ import SettingsTreeEditor from "@foxglove/studio-base/components/SettingsTreeEdi
 import AppConfigurationContext from "@foxglove/studio-base/context/AppConfigurationContext";
 import { useCurrentLayoutActions } from "@foxglove/studio-base/context/CurrentLayoutContext";
 import { PanelsActions } from "@foxglove/studio-base/context/CurrentLayoutContext/actions";
+import {
+  ExtensionCatalog,
+  ExtensionCatalogContext,
+} from "@foxglove/studio-base/context/ExtensionCatalogContext";
 import PanelCatalogContext, {
   PanelCatalog,
 } from "@foxglove/studio-base/context/PanelCatalogContext";
@@ -39,13 +50,8 @@ import {
   PanelStateStore,
   usePanelStateStore,
 } from "@foxglove/studio-base/context/PanelStateContext";
-import {
-  UserNodeStateProvider,
-  useUserNodeState,
-} from "@foxglove/studio-base/context/UserNodeStateContext";
 import { GlobalVariables } from "@foxglove/studio-base/hooks/useGlobalVariables";
 import * as panels from "@foxglove/studio-base/panels";
-import { Diagnostic, UserNodeLog } from "@foxglove/studio-base/players/UserNodePlayer/types";
 import {
   AdvertiseOptions,
   PlayerStateActiveData,
@@ -54,13 +60,12 @@ import {
   Topic,
 } from "@foxglove/studio-base/players/types";
 import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
-import ExtensionCatalogProvider from "@foxglove/studio-base/providers/ExtensionCatalogProvider";
 import { PanelStateContextProvider } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import TimelineInteractionStateProvider from "@foxglove/studio-base/providers/TimelineInteractionStateProvider";
 import WorkspaceContextProvider from "@foxglove/studio-base/providers/WorkspaceContextProvider";
 import ThemeProvider from "@foxglove/studio-base/theme/ThemeProvider";
 import { RosDatatypes } from "@foxglove/studio-base/types/RosDatatypes";
-import { SavedProps, UserNodes } from "@foxglove/studio-base/types/panels";
+import { SavedProps, UserScripts } from "@foxglove/studio-base/types/panels";
 
 import "react-mosaic-component/react-mosaic-component.css";
 
@@ -75,16 +80,15 @@ export type Fixture = {
   topics?: Topic[];
   capabilities?: string[];
   profile?: string;
-  activeData?: Partial<PlayerStateActiveData>;
+  /** Do not include `messages` in player `activeData`.
+   * Use `frame` instead, as it will populate player `activeData` automatically as necessary.
+   */
+  activeData?: Omit<Partial<PlayerStateActiveData>, "messages">;
   progress?: Progress;
   datatypes?: RosDatatypes;
   globalVariables?: GlobalVariables;
   layout?: MosaicNode<string>;
-  userNodes?: UserNodes;
-  userNodeDiagnostics?: { [nodeId: string]: readonly Diagnostic[] };
-  userNodeFlags?: { id: string };
-  userNodeLogs?: { [nodeId: string]: readonly UserNodeLog[] };
-  userNodeRosLib?: string;
+  userScripts?: UserScripts;
   savedProps?: SavedProps;
   publish?: (request: PublishPayload) => void;
   setPublishers?: (publisherId: string, advertisements: AdvertiseOptions[]) => void;
@@ -110,7 +114,7 @@ type UnconnectedProps = {
 };
 
 function makeMockPanelCatalog(t: TFunction<"panels">): PanelCatalog {
-  const allPanels = [...panels.getBuiltin(t), ...panels.getDebug(t)];
+  const allPanels = [...panels.getBuiltin(t)];
 
   const visiblePanels = [...panels.getBuiltin(t)];
 
@@ -122,6 +126,31 @@ function makeMockPanelCatalog(t: TFunction<"panels">): PanelCatalog {
       return allPanels.find((panel) => panel.type === type);
     },
   };
+}
+
+type ExtensionCatalogProps = {
+  messageConverters: ExtensionCatalog["installedMessageConverters"];
+};
+
+function MockExtensionCatalogProvider(props: PropsWithChildren<ExtensionCatalogProps>) {
+  const value = useMemo(() => {
+    return createStore(
+      () =>
+        ({
+          installExtension: async () => await Promise.reject("unsupported"),
+          installedExtensions: [],
+          installedMessageConverters: props.messageConverters ?? [],
+          installedPanels: {},
+          installedTopicAliasFunctions: [],
+        }) satisfies ExtensionCatalog,
+    );
+  }, [props.messageConverters]);
+
+  return (
+    <ExtensionCatalogContext.Provider value={value}>
+      {props.children}
+    </ExtensionCatalogContext.Provider>
+  );
 }
 
 export function triggerWheel(target: HTMLElement, deltaX: number): void {
@@ -211,48 +240,20 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
   }));
 
   const actions = useCurrentLayoutActions();
-  const { setUserNodeDiagnostics, addUserNodeLogs, setUserNodeRosLib } = useUserNodeState();
-  const userNodeActions = useShallowMemo({
-    setUserNodeDiagnostics,
-    addUserNodeLogs,
-    setUserNodeRosLib,
-  });
-
   const [initialized, setInitialized] = useState(false);
   useLayoutEffect(() => {
     if (initialized) {
       return;
     }
-    const {
-      globalVariables,
-      userNodes,
-      layout,
-      userNodeDiagnostics,
-      userNodeLogs,
-      userNodeRosLib,
-      savedProps,
-    } = props.fixture ?? {};
+    const { globalVariables, userScripts, layout, savedProps } = props.fixture ?? {};
     if (globalVariables) {
       actions.overwriteGlobalVariables(globalVariables);
     }
-    if (userNodes) {
-      actions.setUserNodes(userNodes);
+    if (userScripts) {
+      actions.setUserScripts(userScripts);
     }
     if (layout != undefined) {
       actions.changePanelLayout({ layout });
-    }
-    if (userNodeDiagnostics) {
-      for (const [nodeId, diagnostics] of Object.entries(userNodeDiagnostics)) {
-        userNodeActions.setUserNodeDiagnostics(nodeId, diagnostics);
-      }
-    }
-    if (userNodeLogs) {
-      for (const [nodeId, logs] of Object.entries(userNodeLogs)) {
-        userNodeActions.addUserNodeLogs(nodeId, logs);
-      }
-    }
-    if (userNodeRosLib != undefined) {
-      userNodeActions.setUserNodeRosLib(userNodeRosLib);
     }
     if (savedProps) {
       actions.savePanelConfigs({
@@ -260,7 +261,7 @@ function UnconnectedPanelSetup(props: UnconnectedProps): JSX.Element | ReactNull
       });
     }
     setInitialized(true);
-  }, [initialized, props.fixture, actions, userNodeActions]);
+  }, [initialized, props.fixture, actions]);
 
   const {
     frame = {},
@@ -346,22 +347,17 @@ export default function PanelSetup(props: Props): JSX.Element {
   const theme = useTheme();
   return (
     <WorkspaceContextProvider disablePersistenceForStorybook>
-      <UserNodeStateProvider>
-        <TimelineInteractionStateProvider>
-          <MockCurrentLayoutProvider onAction={props.onLayoutAction}>
-            <PanelStateContextProvider initialState={props.fixture?.panelState}>
-              <ExtensionCatalogProvider
-                loaders={[]}
-                mockMessageConverters={props.fixture?.messageConverters}
-              >
-                <ThemeProvider isDark={theme.palette.mode === "dark"}>
-                  <UnconnectedPanelSetup {...props} />
-                </ThemeProvider>
-              </ExtensionCatalogProvider>
-            </PanelStateContextProvider>
-          </MockCurrentLayoutProvider>
-        </TimelineInteractionStateProvider>
-      </UserNodeStateProvider>
+      <TimelineInteractionStateProvider>
+        <MockCurrentLayoutProvider onAction={props.onLayoutAction}>
+          <PanelStateContextProvider initialState={props.fixture?.panelState}>
+            <MockExtensionCatalogProvider messageConverters={props.fixture?.messageConverters}>
+              <ThemeProvider isDark={theme.palette.mode === "dark"}>
+                <UnconnectedPanelSetup {...props} />
+              </ThemeProvider>
+            </MockExtensionCatalogProvider>
+          </PanelStateContextProvider>
+        </MockCurrentLayoutProvider>
+      </TimelineInteractionStateProvider>
     </WorkspaceContextProvider>
   );
 }

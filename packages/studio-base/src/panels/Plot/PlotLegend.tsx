@@ -3,68 +3,68 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import {
-  ChevronDown20Regular,
-  ChevronUp20Regular,
-  ChevronLeft20Regular,
-  ChevronRight20Regular,
+  ChevronDown16Regular,
+  ChevronUp16Regular,
+  ChevronLeft16Regular,
+  ChevronRight16Regular,
   TextBulletListLtr20Filled,
-  ArrowMinimize24Filled,
+  ArrowMinimize20Filled,
 } from "@fluentui/react-icons";
 import { IconButton } from "@mui/material";
 import * as _ from "lodash-es";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import tinycolor from "tinycolor2";
 import { makeStyles } from "tss-react/mui";
 
 import { Immutable } from "@foxglove/studio";
-import { PANEL_TOOLBAR_MIN_HEIGHT } from "@foxglove/studio-base/components/PanelToolbar";
-import Stack from "@foxglove/studio-base/components/Stack";
-import { PlotLegendRow } from "@foxglove/studio-base/panels/Plot/PlotLegendRow";
-import { PlotPath } from "@foxglove/studio-base/panels/Plot/internalTypes";
-import { PlotConfig } from "@foxglove/studio-base/panels/Plot/types";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 
-import { TypedDataSet } from "./internalTypes";
+import type { PlotCoordinator } from "./PlotCoordinator";
+import { PlotLegendRow, ROW_HEIGHT } from "./PlotLegendRow";
+import { PlotPath, PlotConfig } from "./config";
+import { DEFAULT_PATH } from "./settings";
 
 const minLegendWidth = 25;
 const maxLegendWidth = 800;
 
 type Props = Immutable<{
-  currentTime?: number;
-  datasets: TypedDataSet[];
+  coordinator: PlotCoordinator | undefined;
   legendDisplay: "floating" | "top" | "left";
   onClickPath: (index: number) => void;
   paths: PlotPath[];
-  pathsWithMismatchedDataLengths: string[];
   saveConfig: SaveConfig<PlotConfig>;
   showLegend: boolean;
-  showPlotValuesInLegend: boolean;
   sidebarDimension: number;
+  showValues: boolean;
+  hoveredValuesBySeriesIndex?: string[];
 }>;
 
-const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonFloating">()(
+const useStyles = makeStyles<void, "grid" | "toggleButton" | "toggleButtonFloating">()(
   ({ palette, shadows, shape, spacing }, _params, classes) => ({
     root: {
       display: "flex",
       overflow: "hidden",
     },
     rootFloating: {
-      padding: spacing(0.75), // pad the container to prevent shadow from being clipped
       pointerEvents: "none",
-      gap: spacing(0.75),
-      position: "absolute",
-      top: spacing(4.5),
-      left: spacing(4),
-      zIndex: 1000,
-      backgroundColor: "transparent",
       alignItems: "flex-start",
-      height: `calc(100% - ${PANEL_TOOLBAR_MIN_HEIGHT}px - ${spacing(5.25)})`,
+      justifyContent: "flex-start",
+      position: "absolute",
+      inset: "0 0 0 0",
+      height: "100%",
+      width: "100%",
       overflow: "hidden",
-      minWidth: 200,
+      zIndex: 1000,
+      gap: spacing(0.75),
+      padding: spacing(1.5, 3.75, 4, 4.5),
 
-      [`.${classes.container}`]: {
+      [`.${classes.grid}`]: {
         pointerEvents: "auto",
+        flex: "0 1 auto",
+        width: "max-content",
+        maxHeight: "100%",
         borderRadius: shape.borderRadius,
+        gridTemplateColumns: "auto repeat(2, minmax(max-content, auto)) auto",
         backgroundImage: `linear-gradient(${[
           "0deg",
           tinycolor(palette.background.default).setAlpha(0.2).toHex8String(),
@@ -72,7 +72,6 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
         ].join(" ,")})`,
         backgroundColor: tinycolor(palette.background.paper).setAlpha(0.8).toHex8String(),
         backdropFilter: "blur(3px)",
-        maxWidth: `calc(100% - ${spacing(1)})`,
         boxShadow: shadows[3],
       },
     },
@@ -87,7 +86,7 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
         borderTop: "none",
         borderBottom: "none",
       },
-      [`.${classes.container}`]: {
+      [`.${classes.grid}`]: {
         overflow: "auto",
         height: "100%",
         alignContent: "flex-start",
@@ -104,12 +103,15 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
         borderLeft: "none",
       },
     },
-    container: {
+    grid: {
       alignItems: "center",
-      overflow: "auto",
       display: "grid",
-      gridTemplateColumns: "auto minmax(0, 1fr) auto auto",
+      gridTemplateColumns: "auto repeat(2, minmax(max-content, 1fr)) auto",
+      gridAutoRows: ROW_HEIGHT,
+      width: "100%",
       columnGap: 1,
+      overflow: "auto",
+      justifyItems: "flex-start",
     },
     dragHandle: {
       userSelect: "none",
@@ -119,14 +121,7 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
         borderColor: palette.action.selected,
       },
     },
-    toggleButton: {
-      fontSize: "1rem",
-      padding: spacing(0.75),
-
-      "svg:not(.MuiSvgIcon-root)": {
-        fontSize: "1em",
-      },
-    },
+    toggleButton: {},
     toggleButtonFloating: {
       backdropFilter: "blur(3px)",
       pointerEvents: "auto",
@@ -146,18 +141,19 @@ const useStyles = makeStyles<void, "container" | "toggleButton" | "toggleButtonF
   }),
 );
 
+const emptyPaths: string[] = [];
+
 function PlotLegendComponent(props: Props): JSX.Element {
   const {
-    currentTime,
-    datasets,
+    coordinator,
     legendDisplay,
     onClickPath,
     paths,
-    pathsWithMismatchedDataLengths,
     saveConfig,
     showLegend,
-    showPlotValuesInLegend,
     sidebarDimension,
+    showValues,
+    hoveredValuesBySeriesIndex,
   } = props;
   const { classes, cx } = useStyles();
 
@@ -170,11 +166,11 @@ function PlotLegendComponent(props: Props): JSX.Element {
   const legendIcon = useMemo(() => {
     switch (legendDisplay) {
       case "floating":
-        return showLegend ? <ArrowMinimize24Filled /> : <TextBulletListLtr20Filled />;
+        return showLegend ? <ArrowMinimize20Filled /> : <TextBulletListLtr20Filled />;
       case "left":
-        return showLegend ? <ChevronLeft20Regular /> : <ChevronRight20Regular />;
+        return showLegend ? <ChevronLeft16Regular /> : <ChevronRight16Regular />;
       case "top":
-        return showLegend ? <ChevronUp20Regular /> : <ChevronDown20Regular />;
+        return showLegend ? <ChevronUp16Regular /> : <ChevronDown16Regular />;
     }
   }, [showLegend, legendDisplay]);
 
@@ -216,6 +212,42 @@ function PlotLegendComponent(props: Props): JSX.Element {
     [saveConfig],
   );
 
+  const [pathsWithMismatchedDataLengths, setPathsWithMismatchedDataLengths] =
+    useState<string[]>(emptyPaths);
+  useEffect(() => {
+    if (!coordinator) {
+      return;
+    }
+    const handler = (newPaths: readonly string[]) => {
+      setPathsWithMismatchedDataLengths(newPaths.slice());
+    };
+    coordinator.on("pathsWithMismatchedDataLengthsChanged", handler);
+    return () => {
+      coordinator.off("pathsWithMismatchedDataLengthsChanged", handler);
+      setPathsWithMismatchedDataLengths(emptyPaths);
+    };
+  }, [coordinator]);
+
+  const [currentValuesBySeriesIndex, setCurrentValuesBySeriesIndex] = useState<
+    unknown[] | undefined
+  >();
+  useEffect(() => {
+    if (!coordinator || !showValues) {
+      return;
+    }
+    const handler = (values: readonly unknown[]) => {
+      setCurrentValuesBySeriesIndex(values.slice());
+    };
+    coordinator.on("currentValuesChanged", handler);
+    return () => {
+      coordinator.off("currentValuesChanged", handler);
+      setCurrentValuesBySeriesIndex(undefined);
+    };
+  }, [coordinator, showValues]);
+
+  const valuesBySeriesIndex = hoveredValuesBySeriesIndex ?? currentValuesBySeriesIndex;
+  const valueSource = hoveredValuesBySeriesIndex ? "hover" : "current";
+
   return (
     <div
       className={cx(classes.root, {
@@ -225,6 +257,7 @@ function PlotLegendComponent(props: Props): JSX.Element {
       })}
     >
       <IconButton
+        size="small"
         onClick={toggleLegend}
         className={cx(classes.toggleButton, {
           [classes.toggleButtonFloating]: legendDisplay === "floating",
@@ -233,42 +266,29 @@ function PlotLegendComponent(props: Props): JSX.Element {
         {legendIcon}
       </IconButton>
       {showLegend && (
-        <Stack
-          flexGrow={1}
-          gap={0.5}
-          overflow="auto"
-          fullHeight={legendDisplay !== "top"}
+        <div
+          className={classes.grid}
           style={{
             height: legendDisplay === "top" ? Math.round(sidebarDimension) : undefined,
             width: legendDisplay === "left" ? Math.round(sidebarDimension) : undefined,
           }}
         >
-          <Stack
-            flex="auto"
-            fullWidth
-            fullHeight={legendDisplay !== "top"}
-            overflow={legendDisplay === "floating" ? "auto" : undefined}
-          >
-            <div className={classes.container}>
-              {paths.map((path, index) => (
-                <PlotLegendRow
-                  currentTime={currentTime}
-                  datasets={datasets}
-                  hasMismatchedDataLength={pathsWithMismatchedDataLengths.includes(path.value)}
-                  index={index}
-                  key={index}
-                  onClickPath={() => {
-                    onClickPath(index);
-                  }}
-                  path={path}
-                  paths={paths}
-                  savePaths={savePaths}
-                  showPlotValuesInLegend={showPlotValuesInLegend}
-                />
-              ))}
-            </div>
-          </Stack>
-        </Stack>
+          {(paths.length === 0 ? [DEFAULT_PATH] : paths).map((path, index) => (
+            <PlotLegendRow
+              hasMismatchedDataLength={pathsWithMismatchedDataLengths.includes(path.value)}
+              index={index}
+              key={index}
+              onClickPath={() => {
+                onClickPath(index);
+              }}
+              path={path}
+              paths={paths}
+              savePaths={savePaths}
+              value={valuesBySeriesIndex?.[index]}
+              valueSource={valueSource}
+            />
+          ))}
+        </div>
       )}
       {legendDisplay !== "floating" && (
         <div

@@ -29,7 +29,7 @@ import { RenderableSphere } from "./markers/RenderableSphere";
 import { missingTransformMessage, MISSING_TRANSFORM } from "./transforms";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import { PartialMessageEvent, SceneExtension, onlyLastByTopicMessage } from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import {
   ColorRGBA,
@@ -127,8 +127,6 @@ const tempEuler = new THREE.Euler();
 export type UrdfUserData = BaseUserData & {
   settings: LayerSettingsUrdf | LayerSettingsCustomUrdf;
   fetching?: { url: string; control: AbortController };
-  url: string | undefined;
-  filePath: string | undefined;
   urdf: string | undefined;
   sourceType: LayerSettingsCustomUrdf["sourceType"] | undefined;
   parameter: string | undefined;
@@ -176,14 +174,15 @@ export class UrdfRenderable extends Renderable<UrdfUserData> {
 }
 
 export class Urdfs extends SceneExtension<UrdfRenderable> {
+  public static extensionId = "foxglove.Urdfs";
   #framesByInstanceId = new Map<string, string[]>();
   #transformsByInstanceId = new Map<string, TransformData[]>();
   #jointStates = new Map<string, JointPosition>();
   #textDecoder = new TextDecoder();
   #urdfsByTopic = new Map<string, string>();
 
-  public constructor(renderer: IRenderer) {
-    super("foxglove.Urdfs", renderer);
+  public constructor(renderer: IRenderer, name: string = Urdfs.extensionId) {
+    super(name, renderer);
 
     renderer.on("parametersChange", this.#handleParametersChange);
     renderer.addCustomLayerAction({
@@ -206,7 +205,10 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
       {
         type: "topic",
         topicName: TOPIC_NAME,
-        subscription: { handler: this.#handleRobotDescription },
+        subscription: {
+          handler: this.#handleRobotDescription,
+          filterQueue: onlyLastByTopicMessage,
+        },
       },
 
       // Note that this subscription will never happen because it does not appear as a topic in the
@@ -215,7 +217,7 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
       {
         type: "schema",
         schemaNames: JOINTSTATE_DATATYPES,
-        subscription: { handler: this.#handleJointState },
+        subscription: { handler: this.#handleJointState, filterQueue: onlyLastByTopicMessage },
       },
 
       {
@@ -224,6 +226,7 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
         subscription: {
           shouldSubscribe: this.#shouldSubscribe,
           handler: this.#handleRobotDescription,
+          filterQueue: onlyLastByTopicMessage,
         },
       },
     ];
@@ -350,7 +353,7 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
             ],
           },
           url:
-            config.sourceType === "url"
+            (config.sourceType ?? DEFAULT_CUSTOM_SETTINGS.sourceType) === "url"
               ? {
                   label: "URL",
                   input: "string",
@@ -741,15 +744,6 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     }
     this.renderer.settings.errors.remove(renderable.userData.settingsPath, VALID_SRC_ERR);
 
-    // Check if this URL has already been fetched
-    if (
-      (renderable.userData.sourceType === "url" && renderable.userData.url === url) ||
-      (renderable.userData.sourceType === "filePath" &&
-        `file://${renderable.userData.filePath}` === url)
-    ) {
-      return;
-    }
-
     if (renderable.userData.fetching) {
       // Check if this fetch is already in progress
       if (renderable.userData.fetching.url === url) {
@@ -832,8 +826,6 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     if (!renderable) {
       renderable = new UrdfRenderable(instanceId, this.renderer, {
         urdf,
-        url: urdf != undefined ? url : undefined,
-        filePath: urdf != undefined ? filePath : undefined,
         fetching: undefined,
         renderables: new Map(),
         receiveTime: 0n,
@@ -851,9 +843,6 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     }
 
     renderable.userData.urdf = urdf;
-    renderable.userData.url = urdf != undefined && sourceType === "url" ? url : undefined;
-    renderable.userData.filePath =
-      urdf != undefined && sourceType === "filePath" ? filePath : undefined;
     renderable.userData.sourceType = sourceType;
     renderable.userData.topic = topic;
     renderable.userData.parameter = parameter;
@@ -891,11 +880,18 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
       this.renderer.settings.errors.remove(renderable.userData.settingsPath, VALID_SRC_ERR);
     }
 
+    let baseUrl: string | undefined;
+    if (sourceType === "url") {
+      baseUrl = url;
+    } else if (sourceType === "filePath") {
+      baseUrl = `file://${filePath}`;
+    }
+
     // Parse the URDF
     const loadedRenderable = renderable;
-    parseUrdf(urdf, async (uri) => await this.#getFileFetch(uri), framePrefix)
+    parseUrdf(urdf, async (uri) => await this.#getFileFetch(uri, baseUrl), framePrefix)
       .then((parsed) => {
-        this.#loadRobot(loadedRenderable, parsed);
+        this.#loadRobot(loadedRenderable, parsed, baseUrl);
         this.renderer.settings.errors.remove(
           loadedRenderable.userData.settingsPath,
           PARSE_URDF_ERR,
@@ -917,7 +913,11 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
 
   #debouncedLoadUrdf = _.debounce(this.#loadUrdf.bind(this), 500);
 
-  #loadRobot(renderable: UrdfRenderable, { robot, frames, transforms }: ParsedUrdf): void {
+  #loadRobot(
+    renderable: UrdfRenderable,
+    { robot, frames, transforms }: ParsedUrdf,
+    baseUrl: string | undefined,
+  ): void {
     const renderer = this.renderer;
     const settings = renderable.userData.settings;
     const instanceId = settings.instanceId;
@@ -934,7 +934,6 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     renderable.removeChildren();
 
     const createChild = (frameId: string, i: number, visual: UrdfVisual): void => {
-      const baseUrl = renderable.userData.url;
       const childRenderable = createRenderable({
         visual,
         robot,
@@ -991,10 +990,10 @@ export class Urdfs extends SceneExtension<UrdfRenderable> {
     }
   }
 
-  async #getFileFetch(url: string): Promise<string> {
+  async #getFileFetch(url: string, referenceUrl?: string): Promise<string> {
     try {
       log.debug(`fetch(${url}) requested`);
-      const asset = await this.renderer.fetchAsset(url);
+      const asset = await this.renderer.fetchAsset(url, { referenceUrl });
       return this.#textDecoder.decode(asset.data);
     } catch (err) {
       throw new Error(`Failed to fetch "${url}": ${err}`);
@@ -1089,7 +1088,9 @@ function createRenderable(args: {
       // Use embedded materials if the mesh is a Collada file
       const embedded = isCollada ? EmbeddedMaterialUsage.Use : EmbeddedMaterialUsage.Ignore;
       const marker = createMeshMarker(frameId, pose, embedded, visual.geometry, baseUrl, color);
-      return new RenderableMeshResource(name, marker, undefined, renderer);
+      return new RenderableMeshResource(name, marker, undefined, renderer, {
+        referenceUrl: baseUrl,
+      });
     }
     default:
       throw new Error(`Unrecognized visual geometryType: ${type}`);

@@ -7,12 +7,12 @@
     <a href="https://github.com/foxglove/studio/releases"><img src="https://img.shields.io/github/v/release/foxglove/studio?label=version" /></a>
     <a href="https://github.com/foxglove/studio/blob/main/LICENSE"><img src="https://img.shields.io/github/license/foxglove/studio" /></a>
     <a href="https://github.com/orgs/foxglove/discussions"><img src="https://img.shields.io/github/discussions/foxglove/community.svg?logo=github" /></a>
-    <a href="https://foxglove.dev/join-slack"><img src="https://img.shields.io/badge/chat-slack-purple.svg?logo=slack" /></a>
+    <a href="https://foxglove.dev/slack"><img src="https://img.shields.io/badge/chat-slack-purple.svg?logo=slack" /></a>
     <br />
     <br />
     <a href="https://foxglove.dev/download">Download</a>
     <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
-    <a href="https://foxglove.dev/docs/studio">Docs</a>
+    <a href="https://docs.foxglove.dev/docs">Docs</a>
     <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
     <a href="https://foxglove.dev/blog">Blog</a>
     <span>&nbsp;&nbsp;•&nbsp;&nbsp;</span>
@@ -24,7 +24,7 @@
   <br />
   <br />
 
-[Foxglove Studio](https://foxglove.dev) is an integrated visualization and diagnosis tool for robotics, available [in your browser](https://studio.foxglove.dev/) or [as a desktop app](https://foxglove.dev/download) on Linux, Windows, and macOS.
+[Foxglove](https://foxglove.dev) is an integrated visualization and diagnosis tool for robotics.
 
   <p align="center">
     <a href="https://foxglove.dev"><img alt="Foxglove Studio screenshot" src="/resources/screenshot.png"></a>
@@ -37,7 +37,7 @@ To learn more, visit the following resources:
 
 [About](https://foxglove.dev/about)
 &nbsp;•&nbsp;
-[Documentation](https://foxglove.dev/docs)
+[Documentation](https://docs.foxglove.dev/docs)
 &nbsp;•&nbsp;
 [Release notes](https://github.com/foxglove/studio/releases)
 &nbsp;•&nbsp;

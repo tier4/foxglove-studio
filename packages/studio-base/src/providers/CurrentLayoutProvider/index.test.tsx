@@ -3,8 +3,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { render } from "@testing-library/react";
-import { act, renderHook } from "@testing-library/react-hooks";
+import { render, act, renderHook } from "@testing-library/react";
 import { SnackbarProvider } from "notistack";
 import { useEffect } from "react";
 
@@ -36,7 +35,6 @@ describe("CurrentLayoutProvider", () => {
             configById: { "Foo!bar": { setting: 1 } },
             globalVariables: { var: "hello" },
             layout: "Foo!bar",
-            playbackConfig: { speed: 0.1 },
             userNodes: { node1: { name: "node", sourceCode: "node()" } },
             version: MAX_SUPPORTED_LAYOUT_VERSION + 1,
           },

@@ -15,7 +15,7 @@ import { RenderableLineList } from "./markers/RenderableLineList";
 import { cameraInfosEqual, normalizeCameraInfo, projectPixel } from "./projections";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import { PartialMessageEvent, SceneExtension, onlyLastByTopicMessage } from "../SceneExtension";
 import { SettingsTreeEntry } from "../SettingsManager";
 import { makeRgba, rgbaToCssString, stringToRgba } from "../color";
 import { CAMERA_CALIBRATION_DATATYPES } from "../foxglove";
@@ -83,8 +83,9 @@ export class CameraInfoRenderable extends Renderable<CameraInfoUserData> {
 }
 
 export class Cameras extends SceneExtension<CameraInfoRenderable> {
-  public constructor(renderer: IRenderer) {
-    super("foxglove.Cameras", renderer);
+  public static extensionId = "foxglove.Cameras";
+  public constructor(renderer: IRenderer, name: string = Cameras.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -92,12 +93,12 @@ export class Cameras extends SceneExtension<CameraInfoRenderable> {
       {
         type: "schema",
         schemaNames: ROS_CAMERA_INFO_DATATYPES,
-        subscription: { handler: this.#handleCameraInfo },
+        subscription: { handler: this.#handleCameraInfo, filterQueue: onlyLastByTopicMessage },
       },
       {
         type: "schema",
         schemaNames: CAMERA_CALIBRATION_DATATYPES,
-        subscription: { handler: this.#handleCameraInfo },
+        subscription: { handler: this.#handleCameraInfo, filterQueue: onlyLastByTopicMessage },
       },
     ];
   }

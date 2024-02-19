@@ -10,26 +10,35 @@ import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 import { SettingsTreeAction, SettingsTreeNode, SettingsTreeNodes } from "@foxglove/studio";
-import { PlotPath } from "@foxglove/studio-base/panels/Plot/internalTypes";
 import { usePanelSettingsTreeUpdate } from "@foxglove/studio-base/providers/PanelStateContextProvider";
 import { SaveConfig } from "@foxglove/studio-base/types/panels";
 import { lineColors } from "@foxglove/studio-base/util/plotColors";
 
-import { plotableRosTypes, PlotConfig, plotPathDisplayName } from "./types";
+import { PlotPath, PlotConfig, plotPathDisplayName } from "./config";
+import { plotableRosTypes } from "./plotableRosTypes";
+
+export const DEFAULT_PATH: PlotPath = Object.freeze({
+  timestampMethod: "receiveTime",
+  value: "",
+  enabled: true,
+});
 
 const makeSeriesNode = memoizeWeak(
-  (path: PlotPath, index: number, t: TFunction<"plot">): SettingsTreeNode => {
+  // eslint-disable-next-line @foxglove/no-boolean-parameters
+  (path: PlotPath, index: number, canDelete: boolean, t: TFunction<"plot">): SettingsTreeNode => {
     return {
-      actions: [
-        {
-          type: "action",
-          id: "delete-series",
-          label: t("deleteSeries"),
-          display: "inline",
-          icon: "Clear",
-        },
-      ],
-      label: plotPathDisplayName(path, index),
+      actions: canDelete
+        ? [
+            {
+              type: "action",
+              id: "delete-series",
+              label: t("deleteSeries"),
+              display: "inline",
+              icon: "Clear",
+            },
+          ]
+        : [],
+      label: plotPathDisplayName(path, index, t),
       visible: path.enabled,
       fields: {
         value: {
@@ -48,6 +57,16 @@ const makeSeriesNode = memoizeWeak(
           input: "rgb",
           label: t("color"),
           value: path.color ?? lineColors[index % lineColors.length],
+        },
+        lineSize: {
+          input: "number",
+          label: t("lineSize"),
+          value: path.lineSize,
+          step: 0.2,
+          min: 0,
+          placeholder: t("auto", {
+            ns: "general",
+          }),
         },
         showLine: {
           label: t("showLine"),
@@ -71,7 +90,12 @@ const makeSeriesNode = memoizeWeak(
 const makeRootSeriesNode = memoizeWeak(
   (paths: PlotPath[], t: TFunction<"plot">): SettingsTreeNode => {
     const children = Object.fromEntries(
-      paths.map((path, index) => [`${index}`, makeSeriesNode(path, index, t)]),
+      paths.length === 0
+        ? [["0", makeSeriesNode(DEFAULT_PATH, 0, /*canDelete=*/ false, t)]]
+        : paths.map((path, index) => [
+            `${index}`,
+            makeSeriesNode(path, index, /*canDelete=*/ true, t),
+          ]),
     );
     return {
       label: t("series"),
@@ -145,14 +169,18 @@ function buildSettingsTree(config: PlotConfig, t: TFunction<"plot">): SettingsTr
           label: t("min"),
           input: "number",
           value: config.minYValue != undefined ? Number(config.minYValue) : undefined,
-          placeholder: "auto",
+          placeholder: t("auto", {
+            ns: "general",
+          }),
         },
         maxYValue: {
           label: t("max"),
           input: "number",
           error: maxYError,
           value: config.maxYValue != undefined ? Number(config.maxYValue) : undefined,
-          placeholder: "auto",
+          placeholder: t("auto", {
+            ns: "general",
+          }),
         },
       },
     },
@@ -189,19 +217,25 @@ function buildSettingsTree(config: PlotConfig, t: TFunction<"plot">): SettingsTr
           label: t("min"),
           input: "number",
           value: config.minXValue != undefined ? Number(config.minXValue) : undefined,
-          placeholder: "auto",
+          placeholder: t("auto", {
+            ns: "general",
+          }),
         },
         maxXValue: {
           label: t("max"),
           input: "number",
           error: maxXError,
           value: config.maxXValue != undefined ? Number(config.maxXValue) : undefined,
-          placeholder: "auto",
+          placeholder: t("auto", {
+            ns: "general",
+          }),
         },
         followingViewWidth: {
           label: t("secondsRange"),
           input: "number",
-          placeholder: "auto",
+          placeholder: t("auto", {
+            ns: "general",
+          }),
           value: config.followingViewWidth,
         },
       },
@@ -225,6 +259,9 @@ export function usePlotPanelSettings(
         saveConfig(
           produce((draft) => {
             if (path[0] === "paths") {
+              if (draft.paths.length === 0) {
+                draft.paths.push({ ...DEFAULT_PATH });
+              }
               if (path[2] === "visible") {
                 _.set(draft, [...path.slice(0, 2), "enabled"], value);
               } else {
@@ -252,11 +289,10 @@ export function usePlotPanelSettings(
         if (action.payload.id === "add-series") {
           saveConfig(
             produce<PlotConfig>((draft) => {
-              draft.paths.push({
-                timestampMethod: "receiveTime",
-                value: "",
-                enabled: true,
-              });
+              if (draft.paths.length === 0) {
+                draft.paths.push({ ...DEFAULT_PATH });
+              }
+              draft.paths.push({ ...DEFAULT_PATH });
             }),
           );
         } else if (action.payload.id === "delete-series") {

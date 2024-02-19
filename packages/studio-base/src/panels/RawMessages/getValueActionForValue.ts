@@ -11,7 +11,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { MessagePathStructureItem } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
+import { MessagePathStructureItem, PrimitiveType } from "@foxglove/message-path";
 import { isTypicalFilterName } from "@foxglove/studio-base/components/MessagePathSyntax/isTypicalFilterName";
 
 export type ValueAction = {
@@ -24,11 +24,11 @@ export type ValueAction = {
 const isObjectElement = (
   value: unknown,
   pathItem: string | number,
-  structureItem: MessagePathStructureItem,
+  structureItem: MessagePathStructureItem | undefined,
 ): boolean => {
   return (
     typeof pathItem === "string" &&
-    structureItem.structureType === "message" &&
+    (structureItem == undefined || structureItem.structureType === "message") &&
     typeof value === "object"
   );
 };
@@ -36,9 +36,11 @@ const isObjectElement = (
 const isArrayElement = (
   value: unknown,
   pathItem: string | number,
-  structureItem: MessagePathStructureItem,
+  structureItem: MessagePathStructureItem | undefined,
 ): boolean =>
-  typeof pathItem === "number" && structureItem.structureType === "array" && Array.isArray(value);
+  typeof pathItem === "number" &&
+  (structureItem == undefined || structureItem.structureType === "array") &&
+  Array.isArray(value);
 
 // Given a root value (e.g. a message object), a root structureItem (e.g. a message definition),
 // and a key path to navigate down the value and strutureItem (e.g. ["items", 10, "speed"]), return
@@ -55,11 +57,11 @@ export function getValueActionForValue(
   let structureItem: MessagePathStructureItem | undefined = rootStructureItem;
   // Walk down the keyPath, while updating `value` and `structureItem`
   for (const pathItem of keyPath) {
-    if (structureItem == undefined || value == undefined) {
+    if (value == undefined) {
       break;
     } else if (isObjectElement(value, pathItem, structureItem)) {
       structureItem =
-        structureItem.structureType === "message" && typeof pathItem === "string"
+        structureItem?.structureType === "message" && typeof pathItem === "string"
           ? structureItem.nextByName[pathItem]
           : undefined;
       value = (value as Record<string, unknown>)[pathItem];
@@ -77,7 +79,7 @@ export function getValueActionForValue(
       multiSlicePath += `.${pathItem}`;
     } else if (isArrayElement(value, pathItem, structureItem)) {
       value = (value as Record<string, unknown>)[pathItem];
-      structureItem = structureItem.structureType === "array" ? structureItem.next : undefined;
+      structureItem = structureItem?.structureType === "array" ? structureItem.next : undefined;
       multiSlicePath = `${singleSlicePath}[:]`;
 
       // Ideally show something like `/topic.object[:]{id=123}` for the singleSlicePath, but fall
@@ -103,22 +105,51 @@ export function getValueActionForValue(
       } else {
         singleSlicePath += `[${pathItem}]`;
       }
-    } else if (structureItem.structureType === "primitive") {
+    } else if (structureItem?.structureType === "primitive") {
       // ROS has primitives with nested data (time, duration).
       // We currently don't support looking inside them.
       return undefined;
     } else {
-      throw new Error(`Invalid structureType: ${structureItem.structureType} for value/pathItem.`);
+      throw new Error(`Invalid structureType: ${structureItem?.structureType} for value/pathItem.`);
     }
   }
   // At this point we should be looking at a primitive. If not, just return nothing.
-  if (structureItem && structureItem.structureType === "primitive" && value != undefined) {
-    return {
-      singleSlicePath,
-      multiSlicePath,
-      primitiveType: structureItem.primitiveType,
-      filterPath,
-    };
+  if (value != undefined) {
+    // If we know the primitive type from the schema, use it.
+    if (structureItem?.structureType === "primitive") {
+      return {
+        singleSlicePath,
+        multiSlicePath,
+        primitiveType: structureItem.primitiveType,
+        filterPath,
+      };
+    }
+    // Otherwise, deduce a roughly-correct type from the runtime type of the value.
+    let primitiveType: PrimitiveType | undefined;
+    switch (typeof value) {
+      case "bigint":
+        primitiveType = "int64";
+        break;
+      case "boolean":
+        primitiveType = "bool";
+        break;
+      case "number":
+        primitiveType = "int32"; // compatible with both Plot and State Transitions
+        break;
+      case "string":
+        primitiveType = "string";
+        break;
+      default:
+        break;
+    }
+    if (primitiveType != undefined) {
+      return {
+        singleSlicePath,
+        multiSlicePath,
+        primitiveType,
+        filterPath,
+      };
+    }
   }
   return undefined;
 }

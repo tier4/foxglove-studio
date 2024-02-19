@@ -36,6 +36,7 @@ const useStyles = makeStyles<void, "buttonGroup">()((theme, _params, classes) =>
       padding: theme.spacing(2),
       container: "backdrop / size",
       backgroundColor: transparentBackground,
+      overflow: "hidden",
     },
     invalidTarget: {
       backgroundColor: hoverBackground,
@@ -60,23 +61,25 @@ const useStyles = makeStyles<void, "buttonGroup">()((theme, _params, classes) =>
     },
     buttonGroup: {
       display: "flex",
-      flexDirection: "column",
+      minWidth: "100%",
       justifyContent: "center",
+      alignItems: "center",
       gap: theme.spacing(1),
 
-      "@container backdrop (max-height: 80px)": {
-        flexDirection: "row",
-      },
       "@container backdrop (min-height: 120px)": {
         marginTop: PANEL_TOOLBAR_MIN_HEIGHT,
       },
-      "@container backdrop (min-width: 240px)": {
-        flexDirection: "row",
+      "@container backdrop (max-width: 240px)": {
+        flexDirection: "column",
       },
     },
     buttonPaper: {
-      flex: "0 0 50%",
-      minWidth: "50%",
+      "@container backdrop (min-width: 100px)": {
+        minWidth: 90,
+      },
+      "@container backdrop (min-width: 120px)": {
+        minWidth: "none",
+      },
     },
     button: {
       display: "flex",
@@ -152,7 +155,12 @@ export const PanelOverlay = forwardRef<HTMLDivElement, PanelOverlayProps>(
             actions && (
               <div className={classes.buttonGroup}>
                 {actions.map((action) => (
-                  <Paper key={action.key} elevation={0} className={classes.buttonPaper}>
+                  <Paper
+                    square={false}
+                    key={action.key}
+                    elevation={0}
+                    className={classes.buttonPaper}
+                  >
                     <Button
                       fullWidth
                       variant="outlined"

@@ -4,11 +4,13 @@
 
 import * as _ from "lodash-es";
 import * as THREE from "three";
-import { DeepPartial } from "ts-essentials";
+import { DeepPartial, Writable } from "ts-essentials";
 
 import { MessageEvent, SettingsTreeAction } from "@foxglove/studio";
+import { PanelContextMenuItem } from "@foxglove/studio-base/components/PanelContextMenu";
+import { DraggedMessagePath } from "@foxglove/studio-base/components/PanelExtensionAdapter";
 
-import type { AnyRendererSubscription, IRenderer } from "./IRenderer";
+import type { AnyRendererSubscription, IRenderer, RendererConfig } from "./IRenderer";
 import { Path } from "./LayerErrors";
 import { Renderable } from "./Renderable";
 import type { SettingsTreeEntry } from "./SettingsManager";
@@ -40,12 +42,14 @@ export type PartialMessageEvent<T> = MessageEvent<DeepPartial<T>>;
  */
 export class SceneExtension<
   TRenderable extends Renderable = Renderable,
-  E extends THREE.BaseEvent = THREE.Event,
+  E extends THREE.Object3DEventMap = THREE.Object3DEventMap,
 > extends THREE.Object3D<E> {
   /** A unique identifier for this SceneExtension, such as `foxglove.Markers`. */
   public readonly extensionId: string;
   /** A reference to the parent `Renderer` instance. */
   protected readonly renderer: IRenderer;
+  /** HUD API to place things on the canvas*/
+  public readonly hud: IRenderer["hud"];
   /**
    * A map of string identifiers to Renderable instances. SceneExtensions are free to use any IDs
    * they choose, although topic names are a common choice for extensions display up to one
@@ -61,6 +65,7 @@ export class SceneExtension<
     super();
     this.extensionId = this.name = extensionId;
     this.renderer = renderer;
+    this.hud = renderer.hud;
     // updateSettingsTree() will call settingsNodes() which may be overridden in a child class.
     // The child class may not assign its members until after this constructor returns. This breaks
     // type assumptions, so we need to defer the call to updateSettingsTree()
@@ -101,6 +106,11 @@ export class SceneExtension<
     }
     this.renderables.clear();
     this.updateSettingsTree();
+  }
+
+  /** Allows SceneExtensions to add options to the context menu. */
+  public getContextMenuItems(): readonly PanelContextMenuItem[] {
+    return [];
   }
 
   /**
@@ -157,6 +167,23 @@ export class SceneExtension<
     void colorScheme;
     void backgroundColor;
   }
+
+  /** Returns a drop effect if the Scene Extension can handle a message path drop, undefined if it cannot */
+  public getDropEffectForPath = (path: DraggedMessagePath): "add" | "replace" | undefined => {
+    void path;
+    return undefined;
+  };
+
+  /** Called when a Message Path is dropped on the panel. Allows the scene extension to update the config in response.
+   * All updates across all SceneExtensions will occur in one `updateConfig` call on the Renderer
+   */
+  public updateConfigForDropPath = (
+    draft: Writable<RendererConfig>,
+    path: DraggedMessagePath,
+  ): void => {
+    void draft;
+    void path;
+  };
 
   /**
    * Called before the Renderer renders a new frame. The base class implementation calls
@@ -217,4 +244,27 @@ export class SceneExtension<
       }
     }
   }
+}
+
+/**
+ * Takes a list of MessageEvents, groups them by topic, then takes the last message for each topic and adds it to the return array.
+ * Used for filtering the subscription message queue between frames (`filterQueue` on `RendererSubscriptions`), such that we don't
+ * unnecessarily process messages that will be overwritten.
+ */
+export function onlyLastByTopicMessage<T>(msgs: MessageEvent<T>[]): MessageEvent<T>[] {
+  if (msgs.length === 0) {
+    return [];
+  }
+  /**
+   * NOTE: We group by topic because renderables are keyed by topic. If a renderable does not represent the current state of a topic,
+   * what we group by will need to change.
+   *
+   * ALSO: for message converters. Both the original message and converted message are in the queue. This depends on the
+   * converted message being after the original message. Which is currently the case.
+   */
+  const msgsByTopic = _.groupBy(msgs, (msg) => msg.topic);
+
+  const list = Object.values(msgsByTopic).map((topicMsgs) => topicMsgs[topicMsgs.length - 1]!);
+
+  return list;
 }

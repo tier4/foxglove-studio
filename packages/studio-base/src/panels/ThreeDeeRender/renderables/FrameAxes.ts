@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { t } from "i18next";
+import * as _ from "lodash-es";
 import * as THREE from "three";
 import { Line2 } from "three/examples/jsm/lines/Line2";
 import { LineGeometry } from "three/examples/jsm/lines/LineGeometry";
@@ -84,6 +85,7 @@ const tempEuler = new THREE.Euler();
 const tempTfPath: [string, string] = ["transforms", ""];
 
 export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
+  public static extensionId = "foxglove.FrameAxes";
   #lineMaterial: LineMaterial;
   #linePickingMaterial: THREE.ShaderMaterial;
 
@@ -95,8 +97,9 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
   public constructor(
     renderer: IRenderer,
     defaultRenderableSettings: Partial<LayerSettingsTransform>,
+    name: string = FrameAxes.extensionId,
   ) {
-    super("foxglove.FrameAxes", renderer);
+    super(name, renderer);
 
     const linewidth = this.renderer.config.scene.transforms?.lineWidth ?? DEFAULT_LINE_WIDTH_PX;
     const color = stringToRgb(
@@ -225,6 +228,16 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
     ];
   }
 
+  #throttledUpdateSettingsTree = _.throttle(() => {
+    this.updateSettingsTree();
+    /**
+     * Chose .5s because it gives better performance than .1s and doesn't feel sluggish.
+     * This doesn't conform to our principles around response times but I believe performance
+     * is a bigger issue here than responsiveness. The longer time between updates also gives users
+     * a chance read the numbers more clearly, though I don't think that's a big use case here.
+     */
+  }, 500);
+
   public override startFrame(
     currentTime: bigint,
     renderFrameId: string,
@@ -235,7 +248,8 @@ export class FrameAxes extends SceneExtension<FrameAxisRenderable> {
 
     // Update all the transforms settings nodes each frame since they contain
     // fields that change when currentTime changes
-    this.updateSettingsTree();
+    this.#throttledUpdateSettingsTree();
+    // this.updateSettingsTree();
 
     super.startFrame(currentTime, renderFrameId, fixedFrameId);
 

@@ -12,7 +12,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { act, renderHook } from "@testing-library/react-hooks";
+import { act, renderHook } from "@testing-library/react";
 import React, { PropsWithChildren } from "react";
 
 import useMessagesByPath from "@foxglove/studio-base/components/MessagePathSyntax/useMessagesByPath";
@@ -51,7 +51,7 @@ type WrapperProps = {
   datatypes?: RosDatatypes;
   activeData?: Partial<PlayerStateActiveData>;
   globalVariables?: GlobalVariables;
-};
+} & PropsWithChildren;
 function makeMessagePipelineWrapper(initialProps?: WrapperProps) {
   const setSubscriptions = jest.fn();
 
@@ -59,7 +59,7 @@ function makeMessagePipelineWrapper(initialProps?: WrapperProps) {
   let datatypes: RosDatatypes = initialProps?.datatypes ?? new Map();
   let messages = initialProps?.messages ?? [];
   let activeData = initialProps?.activeData;
-  const wrapper = ({ children }: PropsWithChildren<unknown>) => (
+  const wrapper = ({ children }: PropsWithChildren) => (
     <MockCurrentLayoutProvider initialState={{ globalVariables: initialProps?.globalVariables }}>
       <MockMessagePipelineProvider
         topics={topics}
@@ -204,6 +204,7 @@ describe("useMessagesByPath", () => {
       wrapper,
       initialProps,
     });
+    rerender(initialProps);
     expect(result.current.messagesByPath).toEqual({
       "/some/topic": [queriedMessage(0), queriedMessage(1)],
     });
@@ -245,17 +246,18 @@ describe("useMessagesByPath", () => {
       datatypes: fixture.datatypes,
       messages: [fixture.messages[0]!, fixture.messages[1]!],
     });
-    const { result: result1 } = renderHook(Hooks, {
+    const { result, rerender } = renderHook(Hooks, {
       wrapper,
       initialProps: { paths: ["/some/topic"] },
     });
-    const { result: result2 } = renderHook(Hooks, {
-      wrapper,
-      initialProps: { paths: ["/some/topic", "/some/topic"] },
-    });
 
-    expect(result1.current.messagesByPath["/some/topic"]).toHaveLength(2);
-    expect(result1.current.messagesByPath).toEqual(result2.current.messagesByPath);
+    const result1 = result.current.messagesByPath;
+
+    rerender({ paths: ["/some/topic", "/some/topic"] });
+    const result2 = result.current.messagesByPath;
+
+    expect(result1["/some/topic"]).toHaveLength(2);
+    expect(result1).toEqual(result2);
   });
 
   it("lets you drill down in a path", () => {

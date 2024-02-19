@@ -123,6 +123,7 @@ describe("renderState", () => {
           endTime: { sec: 100, nsec: 1 },
           startTime: { sec: 1, nsec: 1 },
           isPlaying: true,
+          repeatEnabled: false,
           messages: [],
           speed: 1,
           topics: [],
@@ -760,6 +761,90 @@ describe("renderState", () => {
           },
           receiveTime: { nsec: 0, sec: 1 },
           schemaName: "anotherSchema",
+          sizeInBytes: 1,
+          topic: "test",
+        },
+      ],
+    });
+  });
+
+  it("should ignore messages if a convert returns undefined or null", () => {
+    const buildRenderState = initRenderStateBuilder();
+    const state = buildRenderState({
+      watchedFields: new Set(["topics", "currentFrame", "allFrames"]),
+      playerState: {
+        presence: PlayerPresence.INITIALIZING,
+        capabilities: [],
+        profile: undefined,
+        playerId: "test",
+        progress: {
+          messageCache: {
+            startTime: { sec: 0, nsec: 0 },
+            blocks: [
+              {
+                sizeInBytes: 0,
+                messagesByTopic: {
+                  test: [
+                    {
+                      topic: "test",
+                      schemaName: "schema",
+                      receiveTime: { sec: 1, nsec: 0 },
+                      sizeInBytes: 1,
+                      message: { from: "allFrames" },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      },
+      appSettings: undefined,
+      currentFrame: [
+        {
+          topic: "test",
+          schemaName: "schema",
+          receiveTime: { sec: 0, nsec: 0 },
+          sizeInBytes: 1,
+          message: { from: "currentFrame" },
+        },
+      ],
+      colorScheme: undefined,
+      globalVariables: {},
+      hoverValue: undefined,
+      sharedPanelState: {},
+      sortedTopics: [{ name: "test", schemaName: "schema" }],
+      subscriptions: [
+        { topic: "test" },
+        { topic: "test", convertTo: "otherSchema", preload: true },
+      ],
+      messageConverters: [
+        {
+          fromSchemaName: "schema",
+          toSchemaName: "otherSchema",
+          converter: () => undefined,
+        },
+      ],
+    });
+
+    expect(state).toEqual({
+      topics: [
+        { name: "test", schemaName: "schema", datatype: "schema", convertibleTo: ["otherSchema"] },
+      ],
+      currentFrame: [
+        {
+          topic: "test",
+          schemaName: "schema",
+          message: { from: "currentFrame" },
+          receiveTime: { sec: 0, nsec: 0 },
+          sizeInBytes: 1,
+        },
+      ],
+      allFrames: [
+        {
+          message: { from: "allFrames" },
+          receiveTime: { nsec: 0, sec: 1 },
+          schemaName: "schema",
           sizeInBytes: 1,
           topic: "test",
         },

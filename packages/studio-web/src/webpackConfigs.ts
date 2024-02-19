@@ -9,11 +9,14 @@ import Dotenv from "dotenv-webpack";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import path from "path";
 import { Configuration, WebpackPluginInstance } from "webpack";
-import type { Configuration as WebpackDevServerConfiguration } from "webpack-dev-server";
+import type {
+  ConnectHistoryApiFallbackOptions,
+  Configuration as WebpackDevServerConfiguration,
+} from "webpack-dev-server";
 
 import type { WebpackArgv } from "@foxglove/studio-base/WebpackArgv";
-import * as palette from "@foxglove/studio-base/src/theme/palette";
 import { makeConfig } from "@foxglove/studio-base/webpack";
+import * as palette from "@foxglove/theme/src/palette";
 
 export interface WebpackConfiguration extends Configuration {
   devServer?: WebpackDevServerConfiguration;
@@ -24,10 +27,15 @@ export type ConfigParams = {
   contextPath: string;
   entrypoint: string;
   outputPath: string;
+  publicPath?: string;
   /** Source map (`devtool`) setting to use for production builds */
   prodSourceMap: string | false;
   /** Set the app version information */
   version: string;
+  /** Needs to be overridden for react-router */
+  historyApiFallback?: ConnectHistoryApiFallbackOptions;
+  /** Customizations to index.html */
+  indexHtmlOptions?: Partial<HtmlWebpackPlugin.Options>;
 };
 
 export const devServerConfig = (params: ConfigParams): WebpackConfiguration => ({
@@ -36,7 +44,7 @@ export const devServerConfig = (params: ConfigParams): WebpackConfiguration => (
 
   // Output path must be specified here for HtmlWebpackPlugin within render config to work
   output: {
-    publicPath: "",
+    publicPath: params.publicPath ?? "",
     path: params.outputPath,
   },
 
@@ -44,6 +52,7 @@ export const devServerConfig = (params: ConfigParams): WebpackConfiguration => (
     static: {
       directory: params.outputPath,
     },
+    historyApiFallback: params.historyApiFallback,
     hot: true,
     // The problem and solution are described at <https://github.com/webpack/webpack-dev-server/issues/1604>.
     // When running in dev mode two errors are logged to the dev console:
@@ -51,7 +60,43 @@ export const devServerConfig = (params: ConfigParams): WebpackConfiguration => (
     //  "[WDS] Disconnected!"
     // Since we are only connecting to localhost, DNS rebinding attacks are not a concern during dev
     allowedHosts: "all",
-    historyApiFallback: true,
+    headers: {
+      // Enable cross-origin isolation: https://resourcepolicy.fyi
+      "cross-origin-opener-policy": "same-origin",
+      "cross-origin-embedder-policy": "credentialless",
+    },
+
+    client: {
+      overlay: {
+        runtimeErrors: (error) => {
+          // Suppress overlays for importScript errors from terminated webworkers.
+          //
+          // When a webworker is terminated, any pending `importScript` calls are cancelled by the
+          // browser. These appear in the devtools network tab as "(cancelled)" and bubble up to the
+          // parent page as errors which trigger `window.onerror`.
+          //
+          // webpack devserver attaches to the window error handler surface unhandled errors sent to
+          // the page. However this kind of error is a false-positive for a worker that is
+          // terminated because we do not care that its network requests were cancelled since the
+          // worker itself is gone.
+          //
+          // Will this hide real importScript errors during development?
+          // It is possible that a worker encounters this error during normal operation (if
+          // importing a script does fail for a legitimate reason). In that case we expect the
+          // worker logic that depended on the script to fail execution and trigger other kinds of
+          // errors. The developer can still see the importScripts error in devtools console.
+          if (
+            error.message.startsWith(
+              `Uncaught NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope'`,
+            )
+          ) {
+            return false;
+          }
+
+          return true;
+        },
+      },
+    },
   },
 
   plugins: [new CleanWebpackPlugin()],
@@ -89,7 +134,7 @@ export const mainConfig =
       devtool: isDev ? "eval-cheap-module-source-map" : params.prodSourceMap,
 
       output: {
-        publicPath: "/",
+        publicPath: params.publicPath ?? "auto",
 
         // Output filenames should include content hashes in order to cache bust when new versions are available
         filename: isDev ? "[name].js" : "[name].[contenthash].js",
@@ -107,7 +152,7 @@ export const mainConfig =
           patterns: [{ from: path.resolve(__dirname, "..", "public") }],
         }),
         new HtmlWebpackPlugin({
-          templateContent: `
+          templateContent: ({ htmlWebpackPlugin }) => `
   <!doctype html>
   <html>
     <head>
@@ -127,6 +172,7 @@ export const mainConfig =
       <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
       <link rel="manifest" href="manifest.json" />
       <title>Foxglove Studio</title>
+      ${htmlWebpackPlugin.options.foxgloveExtraHeadTags}
       <style type="text/css" id="loading-styles">
         body {
           margin: 0;
@@ -153,6 +199,13 @@ export const mainConfig =
     </body>
   </html>
   `,
+          foxgloveExtraHeadTags: `
+            <title>Foxglove Studio</title>
+            <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+            <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+            <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+          `,
+          ...params.indexHtmlOptions,
         }),
       ],
     };

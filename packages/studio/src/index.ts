@@ -193,7 +193,7 @@ export type RenderState = {
   /**
    * Map of current Studio variables. Variables are key/value pairs that are globally accessible
    * to panels and scripts in the current layout. See
-   * <https://foxglove.dev/docs/studio/app-concepts/variables> for more information.
+   * <https://docs.foxglove.dev/docs/visualization/variables> for more information.
    */
   variables?: Map<string, VariableValue>;
 
@@ -236,39 +236,6 @@ export type RenderState = {
 
   /** Application settings. This will only contain subscribed application setting key/values */
   appSettings?: Map<string, AppSettingValue>;
-};
-
-export type DraggedMessagePath = {
-  /** The full message path */
-  path: string;
-  /** The schema name of the top-level topic being dragged */
-  rootSchemaName: string | undefined;
-  /** True if the path represents a whole topic (no message path component). */
-  isTopic: boolean;
-  /** True if the path represents a primitive value inside a message. */
-  isLeaf: boolean;
-};
-
-export type MessagePathDropStatus = {
-  /** True if the panel would be able to accept this dragged message path. */
-  canDrop: boolean;
-  /**
-   * Indicate the type of operation that would occur if this path were dropped. Used to change the
-   * mouse cursor.
-   */
-  effect?: "replace" | "add";
-  /**
-   * A message to display to the user indicating what will happen when the path is dropped.
-   */
-  message?: string;
-};
-
-export type MessagePathDropConfig = {
-  /** Called when the user drags message paths over the panel. */
-  getDropStatus: (paths: readonly DraggedMessagePath[]) => MessagePathDropStatus;
-
-  /** Called when the user drops message paths on the panel. */
-  handleDrop: (paths: readonly DraggedMessagePath[]) => void;
 };
 
 export type PanelExtensionContext = {
@@ -427,12 +394,6 @@ export type PanelExtensionContext = {
    * manually. A value of `undefined` will display the panel's name in the title bar.
    */
   setDefaultPanelTitle(defaultTitle: string | undefined): void;
-
-  /**
-   * Updates the configuration for message path drag & drop support. A value of `undefined`
-   * indicates that the panel does not accept any dragged message paths.
-   */
-  EXPERIMENTAL_setMessagePathDropConfig: (config: MessagePathDropConfig | undefined) => void;
 };
 
 export type ExtensionPanelRegistration = {
@@ -476,6 +437,17 @@ export interface ExtensionContext {
 
   registerPanel(params: ExtensionPanelRegistration): void;
 
+  /**
+   * Register a function to convert messages from one schema to another.
+   *
+   * A converter function is invoked when a panel subscribes to a topic with the `convertTo` option.
+   * The return value of the converter function is the converted message and is provided to the
+   * panel.
+   *
+   * If the converter function invocation returns _undefined_, the output of the converter for that
+   * message is ignored and no message is provided to the panel. This is useful in instances where
+   * you might want to selectively output a converted schema depending on the input message.
+   */
   registerMessageConverter<Src>(args: RegisterMessageConverterArgs<Src>): void;
 
   /**
@@ -497,6 +469,7 @@ export interface ExtensionModule {
 export type SettingsIcon =
   | "Add"
   | "Addchart"
+  | "AutoAwesome"
   | "Background"
   | "Camera"
   | "Cells"

@@ -11,8 +11,8 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { Button, Fade, Tooltip, useTheme } from "@mui/material";
-import { ChartOptions, ScaleOptions } from "chart.js";
+import { Button, Fade, Tooltip, buttonClasses } from "@mui/material";
+import { ChartOptions, InteractionMode, ScaleOptions } from "chart.js";
 import { AnnotationOptions } from "chartjs-plugin-annotation";
 import * as _ from "lodash-es";
 import * as R from "ramda";
@@ -44,7 +44,7 @@ import {
   useTimelineInteractionState,
 } from "@foxglove/studio-base/context/TimelineInteractionStateContext";
 import { Bounds } from "@foxglove/studio-base/types/Bounds";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
+import { fontMonospace } from "@foxglove/theme";
 
 import HoverBar from "./HoverBar";
 import TimeBasedChartTooltipContent, {
@@ -62,11 +62,19 @@ const useStyles = makeStyles()((theme) => ({
     position: "relative",
   },
   resetZoomButton: {
-    position: "absolute",
-    bottom: 0,
+    pointerEvents: "none",
+    position: "sticky",
+    display: "flex",
+    justifyContent: "flex-end",
+    paddingInline: theme.spacing(1),
     right: 0,
-    marginBottom: theme.spacing(4),
-    marginRight: theme.spacing(1),
+    left: 0,
+    bottom: 0,
+    width: "100%",
+
+    [`.${buttonClasses.root}`]: {
+      pointerEvents: "auto",
+    },
   },
   tooltip: {
     maxWidth: "none",
@@ -90,7 +98,7 @@ const selectGlobalBounds = (store: TimelineInteractionStateStore) => store.globa
 const selectSetGlobalBounds = (store: TimelineInteractionStateStore) => store.setGlobalBounds;
 
 // Calculation mode for the "reset view" view.
-export type ChartDefaultView =
+type ChartDefaultView =
   | { type: "fixed"; minXValue: number; maxXValue: number }
   | { type: "following"; width: number };
 
@@ -108,10 +116,12 @@ export type Props = {
   xAxes?: ScaleOptions<"linear">;
   yAxes: ScaleOptions<"linear">;
   annotations?: AnnotationOptions[];
+  resetButtonPaddingBottom?: number;
   isSynced?: boolean;
   linesToHide?: {
     [key: string]: boolean;
   };
+  interactionMode?: InteractionMode;
   datasetId?: string;
   onClick?: ChartComponentProps["onClick"];
   // If the x axis represents playback time ("timestamp"), the hover cursor will be synced.
@@ -140,6 +150,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
     defaultView,
     height,
     isSynced = false,
+    resetButtonPaddingBottom = 4,
     showXAxisLabels,
     type,
     width,
@@ -196,16 +207,15 @@ export default function TimeBasedChart(props: Props): JSX.Element {
   );
 
   const provided = useProvider(view, getBounds, mergeNormal, data, provider ?? downsampler);
-
   const typedProvided = useProvider(view, getTypedBounds, mergeTyped, typedData, typedProvider);
 
   React.useEffect(() => {
     setDatasetBounds((oldBounds) => {
-      if (provided != undefined && R.equals(oldBounds, provided.bounds)) {
+      if (provided != undefined && !R.equals(oldBounds, provided.bounds)) {
         return provided.bounds;
       }
 
-      if (typedProvided != undefined && R.equals(oldBounds, typedProvided.bounds)) {
+      if (typedProvided != undefined && !R.equals(oldBounds, typedProvided.bounds)) {
         return typedProvided.bounds;
       }
 
@@ -215,8 +225,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
 
   const bounds = dataBounds ?? datasetBounds;
 
-  const theme = useTheme();
-  const { classes, cx } = useStyles();
+  const { classes, cx, theme } = useStyles();
   const componentId = useMemo(() => uuidv4(), []);
   const isMounted = useMountedState();
   const canvasContainer = useRef<HTMLDivElement>(ReactNull);
@@ -337,20 +346,21 @@ export default function TimeBasedChart(props: Props): JSX.Element {
     const tooltipItems: { item: TimeBasedChartTooltipData; element: RpcElement }[] = [];
 
     for (const element of elements) {
-      if (!element.data) {
+      const { data: datum } = element;
+      if (datum == undefined) {
         continue;
       }
 
-      const datum = element.data;
-      if (datum.value == undefined) {
+      const { value, constantName, states } = datum;
+      if (value == undefined && states == undefined) {
         continue;
       }
 
       tooltipItems.push({
         item: {
-          datasetIndex: element.datasetIndex,
-          value: datum.value,
-          constantName: datum.constantName,
+          configIndex: element.datasetIndex,
+          value: value ?? (states ?? []).join(", "),
+          constantName,
         },
         element,
       });
@@ -510,7 +520,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
   const xScale = useMemo<ScaleOptions>(() => {
     const defaultXTicksSettings: ScaleOptions["ticks"] = {
       font: {
-        family: fonts.MONOSPACE,
+        family: fontMonospace,
         size: 10,
       },
       color: theme.palette.text.secondary,
@@ -535,7 +545,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
   const yScale = useMemo<ScaleOptions>(() => {
     const defaultYTicksSettings: ScaleOptions["ticks"] = {
       font: {
-        family: fonts.MONOSPACE,
+        family: fontMonospace,
         size: 10,
       },
       color: theme.palette.text.secondary,
@@ -573,7 +583,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
       elements: { line: { tension: 0 } },
       interaction: {
         intersect: false,
-        mode: "x",
+        mode: props.interactionMode ?? "x",
       },
       scales: {
         x: xScale,
@@ -581,7 +591,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
       },
       plugins,
     };
-  }, [plugins, xScale, yScale]);
+  }, [plugins, xScale, yScale, props.interactionMode]);
 
   const onHover = useCallback(
     (elements: RpcElement[]) => {
@@ -721,8 +731,8 @@ export default function TimeBasedChart(props: Props): JSX.Element {
       <TimeBasedChartTooltipContent
         content={activeTooltip.data}
         multiDataset={datasetsLength > 1}
-        colorsByDatasetIndex={colorsByDatasetIndex}
-        labelsByDatasetIndex={labelsByDatasetIndex}
+        colorsByConfigIndex={colorsByDatasetIndex}
+        labelsByConfigIndex={labelsByDatasetIndex}
       />
     ) : undefined;
   }, [activeTooltip, colorsByDatasetIndex, datasetsLength, labelsByDatasetIndex]);
@@ -760,7 +770,7 @@ export default function TimeBasedChart(props: Props): JSX.Element {
   }
 
   return (
-    <Stack direction="row" fullWidth>
+    <Stack direction="row" fullWidth fullHeight>
       <Tooltip
         arrow={false}
         classes={{ tooltip: classes.tooltip }}
@@ -799,15 +809,19 @@ export default function TimeBasedChart(props: Props): JSX.Element {
             </div>
 
             {showReset && (
-              <Button
+              <div
                 className={classes.resetZoomButton}
-                variant="contained"
-                color="inherit"
-                title="(shortcut: double-click)"
-                onClick={onResetZoom}
+                style={{ paddingBottom: theme.spacing(resetButtonPaddingBottom) }}
               >
-                Reset view
-              </Button>
+                <Button
+                  variant="contained"
+                  color="inherit"
+                  title="(shortcut: double-click)"
+                  onClick={onResetZoom}
+                >
+                  Reset view
+                </Button>
+              </div>
             )}
             <KeyListener global keyDownHandlers={keyDownHandlers} keyUpHandlers={keyUphandlers} />
           </div>

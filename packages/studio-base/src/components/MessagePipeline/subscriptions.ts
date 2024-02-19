@@ -36,7 +36,7 @@ function mergeSubscription(
 
   return {
     ...a,
-    ...(fields.length > 0 && !isAllFields ? { fields } : {}),
+    fields: fields.length > 0 && !isAllFields ? fields : undefined,
   };
 }
 
@@ -57,9 +57,8 @@ function denormalizeSubscriptions(
         return true;
       }
 
-      return !R.all(
+      return !payloads.every(
         (v: Immutable<SubscribePayload>) => v.fields != undefined && v.fields.length === 0,
-        payloads,
       );
     }),
     // Now reduce them down to a single payload for each topic
@@ -86,6 +85,16 @@ export function mergeSubscriptions(
   subscriptions: Immutable<SubscribePayload[]>,
 ): Immutable<SubscribePayload[]> {
   return R.pipe(
+    R.chain((v: Immutable<SubscribePayload>): Immutable<SubscribePayload>[] => {
+      const { preloadType } = v;
+      if (preloadType !== "full") {
+        return [v];
+      }
+
+      // a "full" subscription to all fields implies a "partial" subscription
+      // to those fields, too
+      return [v, { ...v, preloadType: "partial" }];
+    }),
     R.partition((v: Immutable<SubscribePayload>) => v.preloadType === "full"),
     ([full, partial]) => [...denormalizeSubscriptions(full), ...denormalizeSubscriptions(partial)],
   )(subscriptions);

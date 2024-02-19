@@ -12,7 +12,7 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { renderHook, act } from "@testing-library/react-hooks";
+import { renderHook, act } from "@testing-library/react";
 import { PropsWithChildren, useState } from "react";
 
 import { MessagePipelineProvider } from "@foxglove/studio-base/components/MessagePipeline";
@@ -25,9 +25,13 @@ import {
   Topic,
   MessageEvent,
 } from "@foxglove/studio-base/players/types";
+import MockCurrentLayoutProvider from "@foxglove/studio-base/providers/CurrentLayoutProvider/MockCurrentLayoutProvider";
 import { makeMockAppConfiguration } from "@foxglove/studio-base/util/makeMockAppConfiguration";
 
 import * as PanelAPI from ".";
+
+// MockMessagePipeline initial restore call arguments from initial, then backfill seek after getting subscriptions for initial messages
+const initialRestoreCallArguments = [[undefined], [undefined]];
 
 describe("useMessageReducer", () => {
   it("calls restore to initialize without messages", async () => {
@@ -47,31 +51,28 @@ describe("useMessageReducer", () => {
       },
     );
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([]);
     expect(result.current).toEqual(1);
   });
 
   it("requires exactly one 'add' callback", () => {
-    expect(React.version).toMatch(/^17\./);
-    // Disabled due to Jest being unable to catch the exception without failing the test (https://github.com/foxglove/studio/pull/5152)
-    // Re-enable and switch to expect.toThrow when upgrading to React 18 (https://github.com/foxglove/studio/commit/5f50ba279bfed3d5b16db5478594f945b0b6dcaf#diff-dc7f35671f5375e2127b759c5edfa9a81eea1534ad39eb4c6133895c6142331f)
-
-    // const restore = jest.fn().mockReturnValue(1);
-    // const addMessage = jest.fn();
-    // const addMessages = jest.fn();
-    // const { result: result1 } = renderHook(() =>
-    //   PanelAPI.useMessageReducer({ topics: ["/foo"], restore }),
-    // );
-    // expect(result1.error).toEqual(
-    //   new Error("useMessageReducer must be provided with exactly one of addMessage or addMessages"),
-    // );
-    // const { result: result2 } = renderHook(() =>
-    //   PanelAPI.useMessageReducer({ topics: ["/foo"], restore, addMessage, addMessages }),
-    // );
-    // expect(result2.error).toEqual(
-    //   new Error("useMessageReducer must be provided with exactly one of addMessage or addMessages"),
-    // );
+    const restore = jest.fn().mockReturnValue(1);
+    const addMessage = jest.fn();
+    const addMessages = jest.fn();
+    expect(() =>
+      renderHook(() => PanelAPI.useMessageReducer({ topics: ["/foo"], restore })),
+    ).toThrow(
+      new Error("useMessageReducer must be provided with exactly one of addMessage or addMessages"),
+    );
+    expect(() =>
+      renderHook(() =>
+        PanelAPI.useMessageReducer({ topics: ["/foo"], restore, addMessage, addMessages }),
+      ),
+    ).toThrow(
+      new Error("useMessageReducer must be provided with exactly one of addMessage or addMessages"),
+    );
+    (console.error as jest.Mock).mockClear();
   });
 
   it("calls restore to initialize and addMessage for initial messages", async () => {
@@ -99,7 +100,7 @@ describe("useMessageReducer", () => {
       },
     );
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([[1, message]]);
     expect(result.current).toEqual(2);
   });
@@ -131,20 +132,20 @@ describe("useMessageReducer", () => {
       },
     );
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessages.mock.calls).toEqual([[1, [message]]]);
     expect(result.current).toEqual(2);
   });
 
   it("calls addMessage for messages added later", async () => {
-    const message1: MessageEvent = {
+    const messageFoo: MessageEvent = {
       topic: "/foo",
       receiveTime: { sec: 0, nsec: 0 },
       message: { value: 2 },
       schemaName: "foo",
       sizeInBytes: 0,
     };
-    const message2: MessageEvent = {
+    const messageBar: MessageEvent = {
       topic: "/bar",
       receiveTime: { sec: 0, nsec: 0 },
       message: { value: 3 },
@@ -155,7 +156,7 @@ describe("useMessageReducer", () => {
     const restore = jest.fn().mockReturnValue(1);
     const addMessage = jest.fn().mockImplementation((_, msg) => msg.message.value);
 
-    let messages: (typeof message1)[] = [];
+    let messages: (typeof messageFoo)[] = [];
     const { result, rerender } = renderHook(
       ({ topics }) =>
         PanelAPI.useMessageReducer({
@@ -171,27 +172,27 @@ describe("useMessageReducer", () => {
       },
     );
 
-    messages = [message1];
-    rerender({ topics: ["/foo"] });
+    messages = [messageFoo];
+    rerender({ topics: ["/foo"] }); // subscriptions unchanged
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
-    expect(addMessage.mock.calls).toEqual([[1, message1]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
+    expect(addMessage.mock.calls).toEqual([[1, messageFoo]]);
     expect(result.current).toEqual(2);
 
     // Subscribe to a new topic, then receive a message on that topic
     rerender({ topics: ["/foo", "/bar"] });
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
-    expect(addMessage.mock.calls).toEqual([[1, message1]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
+    expect(addMessage.mock.calls).toEqual([[1, messageFoo]]);
     expect(result.current).toEqual(2);
 
-    messages = [message2];
+    messages = [messageBar];
     rerender({ topics: ["/foo", "/bar"] });
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([
-      [1, message1],
-      [2, message2],
+      [1, messageFoo],
+      [2, messageBar],
     ]);
     expect(result.current).toEqual(3);
   });
@@ -243,21 +244,21 @@ describe("useMessageReducer", () => {
     messages = [message1];
     rerender({ topics: ["/foo"] });
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessages.mock.calls).toEqual([[1, [message1]]]);
     expect(result.current).toEqual(2);
 
     // Subscribe to a new topic, then receive a message on that topic
     rerender({ topics: ["/foo", "/bar"] });
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessages.mock.calls).toEqual([[1, [message1]]]);
     expect(result.current).toEqual(2);
 
     messages = [message2, message3];
     rerender({ topics: ["/foo", "/bar"] });
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessages.mock.calls).toEqual([
       [1, [message1]],
       [2, [message2, message3]],
@@ -337,7 +338,7 @@ describe("useMessageReducer", () => {
     messages = [message1];
     rerender();
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([[1, message1]]);
     expect(result.current).toEqual(2);
 
@@ -345,40 +346,40 @@ describe("useMessageReducer", () => {
     activeData = { lastSeekTime: 1 };
     rerender();
 
-    expect(restore.mock.calls).toEqual([[undefined], [undefined]]);
+    expect(restore.mock.calls).toEqual([...initialRestoreCallArguments, [undefined]]);
     expect(addMessage.mock.calls).toEqual([[1, message1]]);
     expect(result.current).toEqual(1);
   });
 
   function makeWrapper(player: Player) {
-    function Wrapper({ children }: PropsWithChildren<unknown>) {
+    function Wrapper({ children }: PropsWithChildren) {
       const [config] = useState(() => makeMockAppConfiguration());
       return (
         <AppConfigurationContext.Provider value={config}>
-          <MessagePipelineProvider player={player} globalVariables={{}}>
-            {children}
-          </MessagePipelineProvider>
+          <MockCurrentLayoutProvider>
+            <MessagePipelineProvider player={player}>{children}</MessagePipelineProvider>
+          </MockCurrentLayoutProvider>
         </AppConfigurationContext.Provider>
       );
     }
     return Wrapper;
   }
 
-  it("doesn't call addMessage when requested topics change player", async () => {
+  it("calls add message for messages from newly subscribed topic, given that topic has emitted messages previously", async () => {
     const restore = jest.fn();
     const addMessage = jest.fn();
 
     restore.mockReturnValue(0);
     addMessage.mockImplementation((_, msg) => msg.message.value);
 
-    const message1: MessageEvent = {
+    const messageFoo: MessageEvent = {
       topic: "/foo",
       receiveTime: { sec: 0, nsec: 0 },
       message: { value: 1 },
       schemaName: "foo",
       sizeInBytes: 0,
     };
-    const message2: MessageEvent = {
+    const messageBar: MessageEvent = {
       topic: "/bar",
       receiveTime: { sec: 0, nsec: 0 },
       message: { value: 2 },
@@ -413,11 +414,12 @@ describe("useMessageReducer", () => {
       () =>
         void (promise = player.emit({
           activeData: {
-            messages: [message1, message2],
+            messages: [messageFoo, messageBar], // foo message being emitted here
             currentTime: { sec: 0, nsec: 0 },
             startTime: { sec: 0, nsec: 0 },
             endTime: { sec: 1, nsec: 0 },
             isPlaying: true,
+            repeatEnabled: false,
             speed: 0.2,
             lastSeekTime: 1234,
             topics: [
@@ -438,53 +440,18 @@ describe("useMessageReducer", () => {
 
     // restore call with undefined, then add message called with our subscribed message
     expect(restore.mock.calls).toEqual([[undefined], [undefined]]);
-    expect(addMessage.mock.calls).toEqual([[0, message2]]);
+    expect(addMessage.mock.calls).toEqual([[0, messageBar]]);
     expect(result.current).toEqual(2);
 
     rerender({ topics: ["/bar", "/foo"] });
 
-    // no additional calls
-    expect(restore.mock.calls).toEqual([[undefined], [undefined]]);
-    expect(addMessage.mock.calls).toEqual([[0, message2]]);
-    // the same result is repeated
-    expect(result.current).toEqual(2);
-
-    let promise2: Promise<void>;
-    act(
-      () =>
-        void (promise2 = player.emit({
-          activeData: {
-            messages: [message1, message2],
-            currentTime: { sec: 0, nsec: 0 },
-            startTime: { sec: 0, nsec: 0 },
-            endTime: { sec: 1, nsec: 0 },
-            isPlaying: true,
-            speed: 0.2,
-            lastSeekTime: 1234,
-            topics: [
-              { name: "/foo", schemaName: "foo" },
-              { name: "/bar", schemaName: "foo" },
-            ],
-            topicStats: new Map(),
-            datatypes: new Map(
-              Object.entries({ foo: { definitions: [] }, bar: { definitions: [] } }),
-            ),
-            totalBytesReceived: 1234,
-          },
-        })),
-    );
-    await act(async () => {
-      await promise2;
-    });
-
     expect(restore.mock.calls).toEqual([[undefined], [undefined]]);
     expect(addMessage.mock.calls).toEqual([
-      [0, message2],
-      [2, message1],
-      [1, message2],
+      [0, messageBar],
+      [2, messageFoo],
     ]);
-    // the same result is repeated
-    expect(result.current).toEqual(2);
+    // foo message after subscribing to that topic
+    expect(result.current).toEqual(1);
   });
 
   it("doesn't re-render when player topics or other playerState changes", async () => {
@@ -517,7 +484,7 @@ describe("useMessageReducer", () => {
       },
     );
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([[1, message]]);
     expect(result.current).toEqual(2);
 
@@ -526,7 +493,7 @@ describe("useMessageReducer", () => {
     capabilities = ["some_capability"];
     rerender();
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(addMessage.mock.calls).toEqual([[1, message]]);
     expect(result.current).toEqual(2);
   });
@@ -584,9 +551,9 @@ describe("useMessageReducer", () => {
       },
     );
 
-    expect(restore.mock.calls).toEqual([[undefined]]);
+    expect(restore.mock.calls).toEqual(initialRestoreCallArguments);
     expect(result.current).toEqual(2);
     rerender({ addMessages: jest.fn() });
-    expect(restore.mock.calls).toEqual([[undefined], [2]]);
+    expect(restore.mock.calls).toEqual([...initialRestoreCallArguments, [2]]);
   });
 });

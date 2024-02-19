@@ -15,11 +15,12 @@ import { withStyles, makeStyles } from "tss-react/mui";
 
 import HoverableIconButton from "@foxglove/studio-base/components/HoverableIconButton";
 import Stack from "@foxglove/studio-base/components/Stack";
-import { openSiblingPlotPanel, plotableRosTypes } from "@foxglove/studio-base/panels/Plot";
+import { openSiblingPlotPanel } from "@foxglove/studio-base/panels/Plot/openSiblingPlotPanel";
+import { plotableRosTypes } from "@foxglove/studio-base/panels/Plot/plotableRosTypes";
 import {
   openSiblingStateTransitionsPanel,
   transitionableRosTypes,
-} from "@foxglove/studio-base/panels/StateTransitions";
+} from "@foxglove/studio-base/panels/StateTransitions/openSiblingStateTransitionsPanel";
 import { OpenSiblingPanel } from "@foxglove/studio-base/types/panels";
 import clipboard from "@foxglove/studio-base/util/clipboard";
 

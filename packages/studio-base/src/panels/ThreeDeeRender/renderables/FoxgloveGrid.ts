@@ -16,13 +16,17 @@ import {
   getColorConverter,
   NEEDS_MIN_MAX,
   FS_SRGB_TO_LINEAR,
-  RGBA_PACKED_FIELDS,
-  hasSeparateRgbaFields,
+  autoSelectColorSettings,
 } from "./colorMode";
 import { FieldReader, getReader } from "./pointClouds/fieldReaders";
 import type { AnyRendererSubscription, IRenderer } from "../IRenderer";
 import { BaseUserData, Renderable } from "../Renderable";
-import { PartialMessage, PartialMessageEvent, SceneExtension } from "../SceneExtension";
+import {
+  PartialMessage,
+  PartialMessageEvent,
+  SceneExtension,
+  onlyLastByTopicMessage,
+} from "../SceneExtension";
 import { SettingsTreeEntry, SettingsTreeNodeWithActionHandler } from "../SettingsManager";
 import { rgbaToCssString, rgbaToLinear, stringToRgba } from "../color";
 import { normalizePose, normalizeTime, normalizeByteArray } from "../normalizeMessages";
@@ -129,17 +133,17 @@ function numericTypeName(type: NumericType): string {
   return NumericType[type as number] ?? `${type}`;
 }
 
-function getTextureEncoding(settings: GridColorModeSettings) {
+function getTextureColorSpace(settings: GridColorModeSettings): THREE.ColorSpace {
   switch (settings.colorMode) {
     case "flat":
       // color is converted to linear by getColorConverter before being written to the texture
-      return THREE.LinearEncoding;
+      return THREE.LinearSRGBColorSpace;
     case "gradient":
     case "colormap":
       // color value is raw numeric value
-      return THREE.LinearEncoding;
+      return THREE.LinearSRGBColorSpace;
     case "rgba-fields":
-      return THREE.sRGBEncoding;
+      return THREE.SRGBColorSpace;
   }
 }
 
@@ -303,9 +307,9 @@ export class FoxgloveGridRenderable extends Renderable<FoxgloveGridUserData> {
       this.userData.material.uniforms.map.value = texture;
     }
 
-    const encoding = getTextureEncoding(settings);
-    if (encoding !== texture.encoding) {
-      texture.encoding = encoding;
+    const colorSpace = getTextureColorSpace(settings);
+    if (colorSpace !== texture.colorSpace) {
+      texture.colorSpace = colorSpace;
       texture.needsUpdate = true;
     }
 
@@ -385,10 +389,11 @@ export class FoxgloveGridRenderable extends Renderable<FoxgloveGridUserData> {
 }
 
 export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
+  public static extensionId = "foxglove.Grid";
   #fieldsByTopic = new Map<string, string[]>();
 
-  public constructor(renderer: IRenderer) {
-    super("foxglove.Grid", renderer);
+  public constructor(renderer: IRenderer, name: string = FoxgloveGrid.extensionId) {
+    super(name, renderer);
   }
 
   public override getSubscriptions(): readonly AnyRendererSubscription[] {
@@ -396,7 +401,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
       {
         type: "schema",
         schemaNames: GRID_DATATYPES,
-        subscription: { handler: this.#handleFoxgloveGrid },
+        subscription: { handler: this.#handleFoxgloveGrid, filterQueue: onlyLastByTopicMessage },
       },
     ];
   }
@@ -487,6 +492,15 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
       return;
     }
 
+    let fields = this.#fieldsByTopic.get(topic);
+    let fieldsUpdated = false;
+    if (!fields || fields.length !== foxgloveGrid.fields.length) {
+      fields = foxgloveGrid.fields.map((field) => field.name);
+      this.#fieldsByTopic.set(topic, fields);
+      this.updateSettingsTree();
+      fieldsUpdated = true;
+    }
+
     if (renderable) {
       renderable.visible = true;
     } else {
@@ -496,8 +510,11 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
         | undefined;
       const settings = { ...DEFAULT_SETTINGS, ...userSettings };
       // only want to autoselect if it's in flatcolor mode (without colorfield) and previously didn't have fields
-      if (settings.colorField == undefined && this.#fieldsByTopic.get(topic) == undefined) {
-        autoSelectColorField(settings, foxgloveGrid.fields, { supportsPackedRgbModes: false });
+      if (settings.colorField == undefined && fieldsUpdated) {
+        autoSelectColorSettings(settings, fields, {
+          supportsPackedRgbModes: false,
+          supportsRgbaFieldsMode: true,
+        });
         // Update user settings with the newly selected color field
         this.renderer.updateConfig((draft) => {
           const updatedUserSettings = { ...userSettings };
@@ -506,6 +523,7 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
           updatedUserSettings.colorMap = settings.colorMap;
           draft.topics[topic] = updatedUserSettings;
         });
+        this.updateSettingsTree();
       }
 
       // Check color
@@ -537,13 +555,6 @@ export class FoxgloveGrid extends SceneExtension<FoxgloveGridRenderable> {
 
       this.add(renderable);
       this.renderables.set(topic, renderable);
-    }
-
-    let fields = this.#fieldsByTopic.get(topic);
-    if (!fields || fields.length !== foxgloveGrid.fields.length) {
-      fields = foxgloveGrid.fields.map((field) => field.name);
-      this.#fieldsByTopic.set(topic, fields);
-      this.updateSettingsTree();
     }
 
     this.#updateFoxgloveGridRenderable(
@@ -661,7 +672,7 @@ function createTexture(foxgloveGrid: Grid, settings: GridColorModeSettings): THR
     THREE.NearestFilter,
     THREE.LinearFilter,
     1,
-    getTextureEncoding(settings),
+    getTextureColorSpace(settings),
   );
   texture.generateMipmaps = false;
   return texture;
@@ -810,7 +821,7 @@ function createMaterial(texture: THREE.DataTexture, topic: string): GridShaderMa
       void main() {
         vec4 color = texture2D(map, vUv);
         if(colorMode == COLOR_MODE_RGBA) {
-          // input color is in sRGB, texture.encoding is sRGB, so no conversion is needed
+          // input color is in sRGB, texture.colorSpace is sRGB, so no conversion is needed
           gl_FragColor = color;
         } else if (colorMode == COLOR_MODE_FLAT) {
           // input color was already converted to linear by getColorConverter
@@ -846,7 +857,7 @@ function createMaterial(texture: THREE.DataTexture, topic: string): GridShaderMa
         if(PICKING == 1) {
           gl_FragColor = objectId;
         } else {
-          #include <encodings_fragment>
+          #include <colorspace_fragment>
         }
       }
     `,
@@ -917,43 +928,3 @@ const NumericTypeMinMaxValueMap: Record<NumericType, [number, number]> = {
   [NumericType.FLOAT32]: [0, 1.0],
   [NumericType.FLOAT64]: [0, 1.0],
 };
-
-function autoSelectColorField<Settings extends ColorModeSettings>(
-  output: Settings,
-  fields: PackedElementField[],
-  { supportsPackedRgbModes }: { supportsPackedRgbModes: boolean },
-): void {
-  // Prefer color fields first
-  if (supportsPackedRgbModes) {
-    for (const field of fields) {
-      const fieldNameLower = field.name.toLowerCase();
-      if (RGBA_PACKED_FIELDS.has(fieldNameLower)) {
-        output.colorField = field.name;
-        switch (fieldNameLower) {
-          case "rgb":
-            output.colorMode = "rgb";
-            break;
-          default:
-          case "rgba":
-            output.colorMode = "rgba";
-            break;
-        }
-        return;
-      }
-    }
-  }
-
-  if (hasSeparateRgbaFields(fields.map((f) => f.name))) {
-    output.colorMode = "rgba-fields";
-    return;
-  }
-
-  // Fall back to using the first field
-  if (fields.length > 0) {
-    const firstField = fields[0]!;
-    output.colorField = firstField.name;
-    output.colorMode = "colormap";
-    output.colorMap = "turbo";
-    return;
-  }
-}

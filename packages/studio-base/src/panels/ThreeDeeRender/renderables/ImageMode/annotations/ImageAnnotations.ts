@@ -4,11 +4,14 @@
 
 import { t } from "i18next";
 import * as THREE from "three";
+import { Opaque } from "ts-essentials";
 
+import { filterMap } from "@foxglove/den/collection";
 import { PinholeCameraModel } from "@foxglove/den/image";
 import { ImageAnnotations as FoxgloveImageAnnotations } from "@foxglove/schemas";
 import { Immutable, MessageEvent, SettingsTreeAction, Topic } from "@foxglove/studio";
 import { Path } from "@foxglove/studio-base/panels/ThreeDeeRender/LayerErrors";
+import { onlyLastByTopicMessage } from "@foxglove/studio-base/panels/ThreeDeeRender/SceneExtension";
 import {
   ImageMarker as RosImageMarker,
   ImageMarkerArray as RosImageMarkerArray,
@@ -23,11 +26,11 @@ import { IMAGE_ANNOTATIONS_DATATYPES } from "../../../foxglove";
 import { IMAGE_MARKER_ARRAY_DATATYPES, IMAGE_MARKER_DATATYPES } from "../../../ros";
 import { topicIsConvertibleToSchema } from "../../../topicIsConvertibleToSchema";
 import { sortPrefixMatchesToFront } from "../../Images/topicPrefixMatching";
-import { MessageHandler, MessageRenderState } from "../MessageHandler";
+import { IMessageHandler, MessageRenderState } from "../MessageHandler";
 
 const MISSING_SYNCHRONIZED_ANNOTATION = "MISSING_SYNCHRONIZED_ANNOTATION";
 
-type TopicName = string & { __brand: "TopicName" };
+type TopicName = Opaque<string, "TopicName">;
 
 interface ImageAnnotationsContext {
   initialScale: number;
@@ -39,7 +42,7 @@ interface ImageAnnotationsContext {
   updateConfig(updateHandler: (draft: ImageModeConfig) => void): void;
   updateSettingsTree(): void;
   labelPool: LabelPool;
-  messageHandler: MessageHandler;
+  messageHandler: IMessageHandler;
   addSettingsError(path: Path, errorId: string, errorMessage: string): void;
   removeSettingsError(path: Path, errorId: string): void;
 }
@@ -53,7 +56,7 @@ const LEGACY_ANNOTATION_SCHEMAS = new Set([
   "webviz_msgs/ImageMarkerArray",
 ]);
 
-export const ALL_SUPPORTED_ANNOTATION_SCHEMAS = new Set([
+const ALL_SUPPORTED_ANNOTATION_SCHEMAS = new Set([
   ...IMAGE_ANNOTATIONS_DATATYPES,
   ...IMAGE_MARKER_DATATYPES,
   ...IMAGE_MARKER_ARRAY_DATATYPES,
@@ -74,6 +77,8 @@ export class ImageAnnotations extends THREE.Object3D {
   #canvasHeight: number;
   #pixelRatio: number;
 
+  public supportedAnnotationSchemas = ALL_SUPPORTED_ANNOTATION_SCHEMAS;
+
   public constructor(context: ImageAnnotationsContext) {
     super();
     this.#context = context;
@@ -89,9 +94,34 @@ export class ImageAnnotations extends THREE.Object3D {
       {
         type: "schema",
         schemaNames: ALL_SUPPORTED_ANNOTATION_SCHEMAS,
-        subscription: { handler: this.#context.messageHandler.handleAnnotations },
+        subscription: {
+          handler: this.#context.messageHandler.handleAnnotations,
+          filterQueue: this.#filterMessageQueue.bind(this),
+        },
       },
     ];
+  }
+
+  public handleTopicsChanged(topics: readonly Topic[] | undefined): void {
+    if (!topics) {
+      return;
+    }
+    const availableAnnotationTopics = filterMap(topics, (topic) => {
+      if (topicIsConvertibleToSchema(topic, ALL_SUPPORTED_ANNOTATION_SCHEMAS)) {
+        return topic.name;
+      }
+      return undefined;
+    });
+
+    this.#context.messageHandler.setAvailableAnnotationTopics(availableAnnotationTopics);
+  }
+
+  #filterMessageQueue<T>(msgs: MessageEvent<T>[]): MessageEvent<T>[] {
+    // if sync annotations not active, only take the last message for each topic
+    if (this.#context.config().synchronize !== true) {
+      return onlyLastByTopicMessage(msgs);
+    }
+    return msgs;
   }
 
   public dispose(): void {
@@ -161,6 +191,9 @@ export class ImageAnnotations extends THREE.Object3D {
         "Waiting for annotation message with timestamp matching image. Turn off “Sync annotations” to display annotations regardless of timestamp.",
       );
     }
+    if (newState.missingAnnotationTopics) {
+      this.removeAllRenderables();
+    }
   };
 
   #handleMessage(
@@ -186,8 +219,12 @@ export class ImageAnnotations extends THREE.Object3D {
       return;
     }
     const { value, path } = action.payload;
-    const topic = path[1]! as TopicName;
-    if (path[0] === "imageAnnotations" && path[2] === "visible" && typeof value === "boolean") {
+    const category = path[0];
+    if (category !== "imageAnnotations") {
+      return;
+    }
+    if (path[2] === "visible" && typeof value === "boolean") {
+      const topic = path[1]! as TopicName;
       this.#handleTopicVisibilityChange(topic, value);
     }
     this.#context.updateSettingsTree();
@@ -202,9 +239,7 @@ export class ImageAnnotations extends THREE.Object3D {
       const settings = (draft.annotations[topic] ??= {});
       settings.visible = visible;
     });
-    this.#context.messageHandler.setConfig({
-      annotations: this.#context.config().annotations,
-    } as Readonly<Partial<ImageModeConfig>>);
+    this.#context.messageHandler.setConfig(this.#context.config());
     const renderable = this.#renderablesByTopic.get(topic);
     if (renderable) {
       renderable.visible = visible;

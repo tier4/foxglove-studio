@@ -3,6 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import * as _ from "lodash-es";
+import { Opaque } from "ts-essentials";
 
 import {
   Immutable,
@@ -11,12 +12,14 @@ import {
   Subscription,
 } from "@foxglove/studio";
 import { Topic as PlayerTopic } from "@foxglove/studio-base/players/types";
+import { ExtensionNamespace } from "@foxglove/studio-base/types/Extensions";
 
 // Branded string to ensure that users go through the `converterKey` function to compute a lookup key
-type Brand<K, T> = K & { __brand: T };
-type ConverterKey = Brand<string, "ConverterKey">;
+type ConverterKey = Opaque<string, "ConverterKey">;
 
-type MessageConverter = RegisterMessageConverterArgs<unknown>;
+type MessageConverter = RegisterMessageConverterArgs<unknown> & {
+  extensionNamespace?: ExtensionNamespace;
+};
 
 type TopicSchemaConverterMap = Map<ConverterKey, MessageConverter[]>;
 
@@ -41,6 +44,10 @@ export function convertMessage(
   const matchedConverters = converters.get(key);
   for (const converter of matchedConverters ?? []) {
     const convertedMessage = converter.converter(messageEvent.message, messageEvent);
+    // If the converter returns _undefined_ or _null_ the message is skipped
+    if (convertedMessage == undefined) {
+      continue;
+    }
     convertedMessages.push({
       topic: messageEvent.topic,
       schemaName: converter.toSchemaName,
@@ -135,13 +142,13 @@ export function collateTopicSchemaConversions(
     }
 
     // Find a converter that can go from the original topic schema to the target schema
-    // Note: We only support one converter per unique from/to pair so this _find_ only needs to
-    //       find one converter rather than multiple converters.
-    const converter = messageConverters?.find(
+    const converters = (messageConverters ?? []).filter(
       (conv) =>
         conv.fromSchemaName === subscriberTopic.schemaName &&
         conv.toSchemaName === subscription.convertTo,
     );
+    // Prefer 'local' converters over 'org' provided ones
+    const converter = _.minBy(converters, (conv) => conv.extensionNamespace ?? "unknown");
 
     if (converter) {
       existingConverters ??= [];

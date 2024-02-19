@@ -5,17 +5,22 @@
 import { Divider, Paper } from "@mui/material";
 import { makeStyles } from "tss-react/mui";
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles<void, "selected">()((theme, _props, classes) => ({
+  selected: {},
   root: {
     display: "flex",
-    borderColor: theme.palette.action.selected,
     borderRadius: "1em",
-    color: theme.palette.text.secondary,
+    color: theme.palette.action.selected,
+    borderColor: "currentColor",
     backgroundColor: theme.palette.background.paper,
+    cursor: "grab",
 
-    [`@container (max-width: 320px)`]: {
+    [`@container (max-width: 180px)`]: {
       display: "none",
     },
+    ...(theme.palette.mode === "dark" && {
+      [`&.${classes.selected}`]: { color: theme.palette.primary.main },
+    }),
   },
   stat: {
     whiteSpace: "nowrap",
@@ -26,24 +31,42 @@ const useStyles = makeStyles()((theme) => ({
     paddingBlock: theme.spacing(0.25),
     fontFeatureSettings: `${theme.typography.fontFeatureSettings}, 'tnum'`,
 
-    "&:nth-child(1)": {
+    "&:first-of-type": {
       paddingInlineStart: theme.spacing(0.75),
+
+      [`@container (max-width: 280px)`]: {
+        paddingInlineEnd: theme.spacing(0.75),
+      },
     },
-    "&:nth-last-child(1)": {
+    "&:last-of-type": {
       paddingInlineEnd: theme.spacing(0.75),
+
+      [`@container (max-width: 280px)`]: {
+        display: "none",
+      },
     },
   },
   divider: {
-    borderColor: theme.palette.action.selected,
+    borderColor: "currentColor",
     marginInline: theme.spacing(0.5),
+
+    [`@container (max-width: 280px)`]: {
+      display: "none",
+    },
   },
 }));
 
-export function TopicStatsChip({ topicName }: { topicName: string }): JSX.Element {
-  const { classes } = useStyles();
+export function TopicStatsChip({
+  topicName,
+  selected,
+}: {
+  topicName: string;
+  selected: boolean;
+}): JSX.Element {
+  const { classes, cx } = useStyles();
 
   return (
-    <Paper variant="outlined" className={classes.root}>
+    <Paper variant="outlined" className={cx(classes.root, { [classes.selected]: selected })}>
       <div className={classes.stat} data-topic={topicName} data-topic-stat="frequency">
         &ndash;
       </div>

@@ -11,7 +11,16 @@
 //   found at http://www.apache.org/licenses/LICENSE-2.0
 //   You may not use this file except in compliance with the License.
 
-import { Chart, ChartData, ChartOptions, ChartType } from "chart.js";
+import {
+  Chart,
+  ChartData,
+  ChartOptions,
+  ChartType,
+  Interaction,
+  InteractionModeFunction,
+  InteractionItem,
+} from "chart.js";
+import { getRelativePosition } from "chart.js/helpers";
 import type { Context as DatalabelContext } from "chartjs-plugin-datalabels";
 import DatalabelPlugin from "chartjs-plugin-datalabels";
 import { type Options as DatalabelsPluginOptions } from "chartjs-plugin-datalabels/types/options";
@@ -21,7 +30,7 @@ import { Zoom as ZoomPlugin } from "@foxglove/chartjs-plugin-zoom";
 import Logger from "@foxglove/log";
 import { RpcElement, RpcScales } from "@foxglove/studio-base/components/Chart/types";
 import { maybeCast } from "@foxglove/studio-base/util/maybeCast";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
+import { fontMonospace } from "@foxglove/theme";
 
 import { lineSegmentLabelColor } from "./lineSegments";
 import { proxyTyped } from "./proxy";
@@ -68,6 +77,41 @@ type ZoomableChart = Chart & {
     panEndHandler(event: HammerInput): void;
   };
 };
+
+declare module "chart.js" {
+  interface InteractionModeMap {
+    lastX: InteractionModeFunction;
+  }
+}
+
+// A custom interaction mode that returns the items before an x cursor position. This mode is
+// used by the state transition panel to show a tooltip of the current state "between" state datapoints.
+//
+// Built-in chartjs interaction of nearest is not sufficient because it snaps forward whereas we only
+// want to look backwards at the state we are currently in.
+//
+// See: https://www.chartjs.org/docs/latest/configuration/interactions.html#custom-interaction-modes
+const lastX: InteractionModeFunction = (chart, event, _options, useFinalPosition) => {
+  // Suppress the type error on the _chart_ type. Chartjs types are broken for the
+  // `getRelativePosition` function which seems to use a different declaration of the Chart type
+  // than what is exported from chart.js.
+  //
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+  const position = getRelativePosition(event, chart as any);
+
+  // Create a sparse array to track the last datum for each dataset
+  const datasetIndexToLastItem: InteractionItem[] = [];
+  Interaction.evaluateInteractionItems(chart, "x", position, (element, datasetIndex, index) => {
+    const center = element.getCenterPoint(useFinalPosition);
+    if (center.x <= position.x) {
+      datasetIndexToLastItem[datasetIndex] = { element, datasetIndex, index };
+    }
+  });
+  // Filter unused entries from the sparse array
+  return datasetIndexToLastItem.filter(Boolean);
+};
+
+Interaction.modes.lastX = lastX;
 
 export default class ChartJSManager {
   #chartInstance?: Chart;
@@ -126,7 +170,7 @@ export default class ChartJSManager {
     const fullOptions: ChartOptions = {
       ...this.#addFunctionsToConfig(options),
       devicePixelRatio,
-      font: { family: fonts.MONOSPACE },
+      font: { family: fontMonospace },
       // we force responsive off since we manually trigger width/height updates on the chart
       // responsive mode does not work properly with offscreen canvases and retina device pixel ratios
       // it results in a run-away canvas that keeps doubling in size!
@@ -273,9 +317,7 @@ export default class ChartJSManager {
 
     if (data != undefined) {
       instance.data = data;
-    }
-
-    if (typedData != undefined) {
+    } else if (typedData != undefined) {
       instance.data = proxyTyped(typedData);
     }
 

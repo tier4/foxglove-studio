@@ -7,8 +7,8 @@ import { TypeOptions } from "i18next";
 export const panels: Partial<TypeOptions["resources"]["panels"]> = {
   "3D": "3D",
   "3DPanelDescription": "マーカーやカメラ映像、メッシュ、URDFなどを3Dシーンで表示します。",
-  callService: undefined,
-  callServiceDescription: undefined,
+  callService: "サービスを呼び出す",
+  callServiceDescription: "サービスを呼び出し、サービス呼び出し結果を表示する",
   dataSourceInfo: "データソース情報",
   dataSourceInfoDescription:
     "現在のデータソースに関するトピックやタイムスタンプなどの詳細を表示します。",
@@ -36,9 +36,6 @@ export const panels: Partial<TypeOptions["resources"]["panels"]> = {
   ROSDiagnosticSummaryDescription: "すべてのROS DiagnosticArrayメッセージの概要を表示します。",
   stateTransitions: "ステートトランジション",
   stateTransitionsDescription: "時間とともに値が変化するときを追跡します。",
-  studioPlaybackPerformance: "Studio - 再生パフォーマンス",
-  studioPlaybackPerformanceDescription:
-    "再生およびデータストリーミングのパフォーマンス統計情報を表示します。",
   tab: "タブ",
   tabDescription: "複数のパネルをタブでグループ化して表示します。",
   table: "テーブル",
@@ -52,4 +49,5 @@ export const panels: Partial<TypeOptions["resources"]["panels"]> = {
     "TypeScriptでカスタムデータ変換を記述します。以前はNode Playgroundとして知られていました。",
   variableSlider: "変数スライダー",
   variableSliderDescription: "レイアウトの数値変数を更新します。",
+  settings: undefined,
 };

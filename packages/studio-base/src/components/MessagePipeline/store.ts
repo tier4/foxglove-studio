@@ -27,9 +27,11 @@ import isDesktopApp from "@foxglove/studio-base/util/isDesktopApp";
 import { FramePromise } from "./pauseFrameForPromise";
 import { MessagePipelineContext } from "./types";
 
-export function defaultPlayerState(): PlayerState {
+export function defaultPlayerState(player?: Player): PlayerState {
   return {
-    presence: PlayerPresence.NOT_PRESENT,
+    // when there is a player we default to initializing, to prevent thrashing in the UI when
+    // the player is initialized.
+    presence: player ? PlayerPresence.INITIALIZING : PlayerPresence.NOT_PRESENT,
     progress: {},
     capabilities: [],
     profile: undefined,
@@ -48,13 +50,22 @@ export type MessagePipelineInternalState = {
 
   /** used to keep track of whether we need to update public.startPlayback/playUntil/etc. */
   lastCapabilities: string[];
-  // Preserves reference equality of subscriptions to minimize player subscription churn.
+  /** Preserves reference equality of subscriptions to minimize player subscription churn. */
   subscriptionMemoizer: (sub: SubscribePayload) => SubscribePayload;
   subscriptionsById: Map<string, Immutable<SubscribePayload[]>>;
   publishersById: { [key: string]: AdvertiseOptions[] };
   allPublishers: AdvertiseOptions[];
+  /**
+   * A map of topic name to the IDs that are subscribed to that topic. Incoming messages
+   * are bucketed by ID so only the messages a panel subscribed to are sent to it.
+   *
+   * Note: Even though we avoid storing the same ID twice in the array, we use an array rather than
+   * a Set because iterating over array elements is faster than iterating a Set and the "hot" path
+   * for dispatching messages needs to iterate over the array of IDs.
+   */
   subscriberIdsByTopic: Map<string, string[]>;
-  newTopicsBySubscriberId: Map<string, Set<string>>;
+  /** This holds the last message emitted by the player on each topic. Attempt to use this before falling back to player backfill.
+   */
   lastMessageEventByTopic: Map<string, MessageEvent>;
   /** Function to call when react render has completed with the latest state */
   renderDone?: () => void;
@@ -124,12 +135,13 @@ export function createMessagePipelineStore({
           pausePlayback: undefined,
           setPlaybackSpeed: undefined,
           seekPlayback: undefined,
+          enableRepeatPlayback: undefined,
         },
       }));
     },
 
     public: {
-      playerState: defaultPlayerState(),
+      playerState: defaultPlayerState(initialPlayer),
       messageEventsBySubscriberId: new Map(),
       subscriptions: [],
       sortedTopics: [],
@@ -156,37 +168,58 @@ export function createMessagePipelineStore({
       },
       async fetchAsset(uri, options) {
         const { protocol } = new URL(uri);
-        const player = get().player;
+        const { player, lastCapabilities } = get();
 
-        if (player?.fetchAsset && protocol === "package:") {
-          try {
-            return await player.fetchAsset(uri);
-          } catch (err) {
-            // Bail out if this is not a desktop app. For the desktop app, package:// is registered
-            // as a supported schema for builtin _fetch_ calls. Hence we fallback to a normal
-            // _fetch_ call if the asset couldn't be loaded through the player.
-            if (!isDesktopApp()) {
-              throw err;
+        if (protocol === "package:") {
+          // For the desktop app, package:// is registered as a supported schema for builtin _fetch_ calls.
+          const canBuiltinFetchPkgUri = isDesktopApp();
+          const pkgPath = uri.slice("package://".length);
+          const pkgName = pkgPath.split("/")[0];
+
+          if (lastCapabilities.includes(PlayerCapabilities.assets) && player?.fetchAsset) {
+            try {
+              return await player.fetchAsset(uri);
+            } catch (_err) {
+              // Do nothing here as one of the fallback methods below might work.
             }
           }
+
+          if (canBuiltinFetchPkgUri) {
+            try {
+              return await builtinFetch(uri, options);
+            } catch (_err) {
+              // Do nothing here as the fallback method below might work.
+            }
+          }
+
+          if (
+            pkgName &&
+            options?.referenceUrl != undefined &&
+            !options.referenceUrl.startsWith("package://") &&
+            options.referenceUrl.includes(pkgName)
+          ) {
+            // As last resort to load the package://<pkgName>/<pkgPath> URL, we resolve the package URL to
+            // be relative of the base URL (which contains <pkgName> and is not a package:// URL itself).
+            // Example:
+            //   base URL: https://example.com/<pkgName>/urdf/robot.urdf
+            //   resolved: https://example.com/<pkgName>/<pkgPath>
+            const resolvedUrl =
+              options.referenceUrl.slice(0, options.referenceUrl.lastIndexOf(pkgName)) + pkgPath;
+            return await builtinFetch(resolvedUrl, options);
+          }
+
+          throw new Error(`Failed to load asset ${uri}`);
         }
 
-        const response = await fetch(uri, options);
-        if (!response.ok) {
-          const errMsg = response.statusText;
-          throw new Error(`Error ${response.status}${errMsg ? ` (${errMsg})` : ``}`);
-        }
-        return {
-          uri,
-          data: new Uint8Array(await response.arrayBuffer()),
-          mediaType: response.headers.get("content-type") ?? undefined,
-        };
+        // Use a regular fetch for all other protocols
+        return await builtinFetch(uri, options);
       },
       startPlayback: undefined,
       playUntil: undefined,
       pausePlayback: undefined,
       setPlaybackSpeed: undefined,
       seekPlayback: undefined,
+      enableRepeatPlayback: undefined,
 
       pauseFrame(name: string) {
         const condvar = new Condvar();
@@ -198,63 +231,97 @@ export function createMessagePipelineStore({
     },
   }));
 }
-// Update state with a subscriber. Any new topics for the subscriber are tracked in newTopicsBySubscriberId
-// to receive the last message on their newly subscribed topics.
+/** Update subscriptions. New topics that have already emit messages previously we emit the last message on the topic to the subscriber */
 function updateSubscriberAction(
   prevState: MessagePipelineInternalState,
   action: UpdateSubscriberAction,
 ): MessagePipelineInternalState {
   const previousSubscriptionsById = prevState.subscriptionsById;
-  const newTopicsBySubscriberId = new Map(prevState.newTopicsBySubscriberId);
 
-  // Record any _new_ topics for this subscriber into newTopicsBySubscriberId
-  const newTopics = newTopicsBySubscriberId.get(action.id);
-  if (!newTopics) {
-    const actionTopics = action.payloads.map((sub) => sub.topic);
-    newTopicsBySubscriberId.set(action.id, new Set(actionTopics));
-  } else {
-    const previousSubscription = previousSubscriptionsById.get(action.id);
-    const prevTopics = new Set(previousSubscription?.map((sub) => sub.topic) ?? []);
-    for (const { topic: newTopic } of action.payloads) {
-      if (!prevTopics.has(newTopic)) {
-        newTopics.add(newTopic);
-      }
-    }
-  }
-
-  const newSubscriptionsById = new Map(previousSubscriptionsById);
+  const subscriptionsById = new Map(previousSubscriptionsById);
 
   if (action.payloads.length === 0) {
     // When a subscription id has no topics we removed it from our map
-    newSubscriptionsById.delete(action.id);
+    subscriptionsById.delete(action.id);
   } else {
-    newSubscriptionsById.set(action.id, action.payloads);
+    subscriptionsById.set(action.id, action.payloads);
   }
 
   const subscriberIdsByTopic = new Map<string, string[]>();
 
   // make a map of topics to subscriber ids
-  for (const [id, subs] of newSubscriptionsById) {
+  for (const [id, subs] of subscriptionsById) {
     for (const subscription of subs) {
       const topic = subscription.topic;
 
       const ids = subscriberIdsByTopic.get(topic) ?? [];
-      ids.push(id);
+      // If the id is already present in the array for the topic then we should not add it again.
+      // If we add it again it will be given frame messages again when bucketing incoming messages
+      // by subscriber id.
+      if (!ids.includes(id)) {
+        ids.push(id);
+      }
       subscriberIdsByTopic.set(topic, ids);
     }
   }
 
-  const subscriptions = mergeSubscriptions(Array.from(newSubscriptionsById.values()).flat());
+  // Record any _new_ topics for this subscriber so that we can emit last messages on these topics
+  const newTopicsForId = new Set<string>();
+
+  const prevSubsForId = previousSubscriptionsById.get(action.id);
+  const prevTopics = new Set(prevSubsForId?.map((sub) => sub.topic) ?? []);
+  for (const { topic: newTopic } of action.payloads) {
+    if (!prevTopics.has(newTopic)) {
+      newTopicsForId.add(newTopic);
+    }
+  }
+
+  const lastMessageEventByTopic = new Map(prevState.lastMessageEventByTopic);
+
+  for (const topic of prevTopics) {
+    // if this topic has no other subscribers, we want to remove it from the lastMessageEventByTopic.
+    // This fixes the case where if a panel unsubscribes, triggers playback, and then resubscribes,
+    // they won't get this old stale message when they resubscribe again before getting the message
+    // at the current time frome seek-backfill.
+    if (!subscriberIdsByTopic.has(topic)) {
+      lastMessageEventByTopic.delete(topic);
+    }
+  }
+
+  // Inject the last message on new topics for this subscriber
+  const messagesForSubscriber = [];
+  for (const topic of newTopicsForId) {
+    const msgEvent = lastMessageEventByTopic.get(topic);
+    if (msgEvent) {
+      messagesForSubscriber.push(msgEvent);
+    }
+  }
+
+  let newMessagesBySubscriberId;
+
+  if (messagesForSubscriber.length > 0) {
+    newMessagesBySubscriberId = new Map<string, readonly MessageEvent[]>(
+      prevState.public.messageEventsBySubscriberId,
+    );
+    // This should update only the panel that subscribed to the new topic
+    newMessagesBySubscriberId.set(action.id, messagesForSubscriber);
+  }
+
+  const subscriptions = mergeSubscriptions(Array.from(subscriptionsById.values()).flat());
+
+  const newPublicState = {
+    ...prevState.public,
+    subscriptions,
+    messageEventsBySubscriberId:
+      newMessagesBySubscriberId ?? prevState.public.messageEventsBySubscriberId,
+  };
 
   return {
     ...prevState,
-    subscriptionsById: newSubscriptionsById,
+    lastMessageEventByTopic,
+    subscriptionsById,
     subscriberIdsByTopic,
-    newTopicsBySubscriberId,
-    public: {
-      ...prevState.public,
-      subscriptions,
-    },
+    public: newPublicState,
   };
 }
 // Update with a player state.
@@ -272,11 +339,9 @@ function updatePlayerStateAction(
   // on object instance reference checks to determine if there are new messages
   const messagesBySubscriberId = new Map<string, MessageEvent[]>();
 
-  const subsById = prevState.subscriptionsById;
   const subscriberIdsByTopic = prevState.subscriberIdsByTopic;
 
   const lastMessageEventByTopic = prevState.lastMessageEventByTopic;
-  const newTopicsBySubscriberId = new Map(prevState.newTopicsBySubscriberId);
 
   // Put messages into per-subscriber queues
   if (messages && messages !== prevState.public.playerState.activeData?.messages) {
@@ -292,38 +357,14 @@ function updatePlayerStateAction(
       }
 
       for (const id of ids) {
-        let subscriberMessageEvents = messagesBySubscriberId.get(id);
+        const subscriberMessageEvents = messagesBySubscriberId.get(id);
         if (!subscriberMessageEvents) {
-          subscriberMessageEvents = [];
-          messagesBySubscriberId.set(id, subscriberMessageEvents);
+          messagesBySubscriberId.set(id, [messageEvent]);
+        } else {
+          subscriberMessageEvents.push(messageEvent);
         }
-        subscriberMessageEvents.push(messageEvent);
       }
     }
-  }
-
-  // Inject the last message on a topic to all new subscribers of the topic
-  for (const id of subsById.keys()) {
-    const newTopics = newTopicsBySubscriberId.get(id);
-    if (!newTopics) {
-      continue;
-    }
-    for (const topic of newTopics) {
-      // If we had a message for this topic in the regular set of messages, we don't need to inject
-      // another message.
-      if (seenTopics.has(topic)) {
-        continue;
-      }
-      const msgEvent = lastMessageEventByTopic.get(topic);
-      if (msgEvent) {
-        const subscriberMessageEvents = messagesBySubscriberId.get(id) ?? [];
-        // the injected message is older than any new messages
-        subscriberMessageEvents.unshift(msgEvent);
-        messagesBySubscriberId.set(id, subscriberMessageEvents);
-      }
-    }
-    // We've processed all new subscriber topics into message queues
-    newTopics.clear();
   }
 
   const newPublicState = {
@@ -331,7 +372,6 @@ function updatePlayerStateAction(
     playerState: action.playerState,
     messageEventsBySubscriberId: messagesBySubscriberId,
   };
-
   const topics = action.playerState.activeData?.topics;
   if (topics !== prevState.public.playerState.activeData?.topics) {
     newPublicState.sortedTopics = topics
@@ -362,11 +402,13 @@ function updatePlayerStateAction(
     newPublicState.seekPlayback = capabilities.includes(PlayerCapabilities.playbackControl)
       ? player.seekPlayback?.bind(player)
       : undefined;
+    newPublicState.enableRepeatPlayback = capabilities.includes(PlayerCapabilities.playbackControl)
+      ? player.enableRepeatPlayback?.bind(player)
+      : undefined;
   }
 
   return {
     ...prevState,
-    newTopicsBySubscriberId,
     renderDone: action.renderDone,
     public: newPublicState,
     lastCapabilities: capabilities,
@@ -399,4 +441,17 @@ export function reducer(
     action,
     `Unhandled message pipeline action type ${(action as MessagePipelineStateAction).type}`,
   );
+}
+
+async function builtinFetch(url: string, opts?: { signal?: AbortSignal }) {
+  const response = await fetch(url, opts);
+  if (!response.ok) {
+    const errMsg = response.statusText;
+    throw new Error(`Error ${response.status}${errMsg ? ` (${errMsg})` : ``}`);
+  }
+  return {
+    uri: url,
+    data: new Uint8Array(await response.arrayBuffer()),
+    mediaType: response.headers.get("content-type") ?? undefined,
+  };
 }
