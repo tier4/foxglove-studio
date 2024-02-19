@@ -85,7 +85,7 @@ const useStyles = makeStyles()({
 });
 
 type WorkspaceProps = CustomWindowControlsProps & {
-  deepLinks?: string[];
+  deepLinks?: readonly string[];
   appBarHidden?: boolean;
   appBarLeftInset?: number;
   onAppBarDoubleClick?: () => void;

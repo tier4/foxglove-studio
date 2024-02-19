@@ -35,6 +35,7 @@ function contextMenuHandler(event: MouseEvent) {
 export function StudioApp(): JSX.Element {
   const {
     dataSources,
+    deepLinks,
     enableLaunchPreferenceScreen,
     extraProviders,
     appBarLeftInset,
@@ -81,6 +82,7 @@ export function StudioApp(): JSX.Element {
           <Suspense fallback={<></>}>
             <PanelCatalogProvider>
               <Workspace
+                deepLinks={deepLinks}
                 appBarLeftInset={appBarLeftInset}
                 onAppBarDoubleClick={onAppBarDoubleClick}
                 showCustomWindowControls={customWindowControlProps?.showCustomWindowControls}
