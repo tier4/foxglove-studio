@@ -5,7 +5,6 @@
 import ReactRefreshPlugin from "@pmmmwh/react-refresh-webpack-plugin";
 import { CleanWebpackPlugin } from "clean-webpack-plugin";
 import CopyPlugin from "copy-webpack-plugin";
-import Dotenv from "dotenv-webpack";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import path from "path";
 import { Configuration, WebpackPluginInstance } from "webpack";
@@ -110,8 +109,6 @@ export const mainConfig =
 
     const allowUnusedVariables = isDev;
 
-    const dotenvPath = path.resolve(params.contextPath, "..", `.env.${argv.mode}`);
-
     const plugins: WebpackPluginInstance[] = [];
 
     if (isServe) {
@@ -145,9 +142,6 @@ export const mainConfig =
       plugins: [
         ...plugins,
         ...(appWebpackConfig.plugins ?? []),
-        new Dotenv({
-          path: dotenvPath,
-        }),
         new CopyPlugin({
           patterns: [{ from: path.resolve(__dirname, "..", "public") }],
         }),
@@ -157,21 +151,7 @@ export const mainConfig =
   <html>
     <head>
       <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, shrink-to-fit=no, viewport-fit=cover, interactive-widget=resizes-content" />
-      <meta name="mobile-web-app-capable" content="yes">
       <meta name="apple-mobile-web-app-capable" content="yes">
-      <meta property="og:title" content="Foxglove Studio"/>
-      <meta property="og:description" content="Open source visualization and debugging tool for robotics"/>
-      <meta property="og:type" content="website"/>
-      <meta property="og:image" content="https://foxglove.dev/images/og-image.jpeg"/>
-      <meta property="og:url" content="https://studio.foxglove.dev/"/>
-      <meta name="twitter:card" content="summary_large_image"/>
-      <meta name="twitter:site" content="@foxglovedev"/>
-      <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
-      <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
-      <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
-      <link rel="manifest" href="manifest.json" />
-      <title>Foxglove Studio</title>
       ${htmlWebpackPlugin.options.foxgloveExtraHeadTags}
       <style type="text/css" id="loading-styles">
         body {
