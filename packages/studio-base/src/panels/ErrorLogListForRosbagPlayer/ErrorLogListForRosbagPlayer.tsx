@@ -3,10 +3,10 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import Typography from "@mui/material/Typography";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState, memo } from "react";
 
-import { Time, fromString } from "@foxglove/rostime";
-import { PanelExtensionContext, MessageEvent } from "@foxglove/studio";
+import { fromString } from "@foxglove/rostime";
+import { PanelExtensionContext } from "@foxglove/studio";
 import ErrorLogList from "@foxglove/studio-base/components/ErrorLogList/ErrorLogList";
 import { ErrorLog } from "@foxglove/studio-base/components/ErrorLogList/ErrorLogListItem";
 import FeedbackDialog from "@foxglove/studio-base/components/FeedbackDialog";
@@ -19,15 +19,9 @@ type Props = {
   context: PanelExtensionContext;
 };
 
-type ClockMsg = {
-  clock: Time;
-};
-
 export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
-  const [message, setMessage] = useState<MessageEvent | undefined>();
-  const clockRef = useRef<Time>();
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [feedbackContentIds, setFeedbackContentIds] = useState<string[]>([]);
   const [selectedErrorContent, setSelectedErrorContent] = useState<string | undefined>(undefined);
@@ -68,23 +62,13 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     void getFeedbackContentIds(feedbackContentsUrl);
   }, [feedbackContentsUrl]);
 
-  useEffect(() => {
-    if (message) {
-      clockRef.current = (message.message as ClockMsg).clock;
-    }
-  }, [message]);
-
   useLayoutEffect(() => {
-    context.watch("colorScheme");
     context.onRender = (renderState, done) => {
       setRenderDone(() => done);
       setColorScheme(renderState.colorScheme);
-      if (renderState.currentFrame && renderState.currentFrame.length > 0) {
-        setMessage(renderState.currentFrame[renderState.currentFrame.length - 1]);
-      }
     };
+    context.watch("colorScheme");
     context.watch("currentFrame");
-    context.subscribe([{ topic: "/clock" }]);
     return () => {
       context.onRender = undefined;
     };
@@ -107,8 +91,9 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
 
   const handleClickItem = useCallback(
     async (item: ErrorLog, _: number) => {
+      console.log(item);
       const playbackTime = fromString(item.timestamp);
-      if (playbackTime == undefined || clockRef.current == undefined) {
+      if (playbackTime == undefined) {
         return;
       }
       const seekMessage = {

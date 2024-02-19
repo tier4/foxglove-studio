@@ -3,15 +3,14 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
 import { Typography } from "@mui/material";
-import { last } from "lodash";
+import * as _ from "lodash-es";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useState } from "react";
 
+import { MessagePath, parseMessagePath } from "@foxglove/message-path";
 import { MessageEvent, PanelExtensionContext, SettingsTreeAction } from "@foxglove/studio";
-import { RosPath } from "@foxglove/studio-base/components/MessagePathSyntax/constants";
-import parseRosPath from "@foxglove/studio-base/components/MessagePathSyntax/parseRosPath";
 import { simpleGetMessagePathDataItems } from "@foxglove/studio-base/components/MessagePathSyntax/simpleGetMessagePathDataItems";
 import Stack from "@foxglove/studio-base/components/Stack";
-import { fonts } from "@foxglove/studio-base/util/sharedStyleConstants";
+import { fontMonospace } from "@foxglove/theme";
 
 import { settingsActionReducer, useSettingsTree } from "./settings";
 import { Config } from "./types";
@@ -27,15 +26,15 @@ const defaultConfig: Config = {
 
 type State = {
   path: string;
-  parsedPath: RosPath | undefined;
-  latestMessage: MessageEvent<unknown> | undefined;
-  latestMatchingQueriedData: unknown | undefined;
+  parsedPath: MessagePath | undefined;
+  latestMessage: MessageEvent | undefined;
+  latestMatchingQueriedData: unknown;
   error: Error | undefined;
   pathParseError: string | undefined;
 };
 
 type Action =
-  | { type: "frame"; messages: readonly MessageEvent<unknown>[] }
+  | { type: "frame"; messages: readonly MessageEvent[] }
   | { type: "path"; path: string }
   | { type: "seek" };
 
@@ -51,7 +50,7 @@ function reducer(state: State, action: Action): State {
     switch (action.type) {
       case "frame": {
         if (state.pathParseError != undefined) {
-          return { ...state, latestMessage: last(action.messages), error: undefined };
+          return { ...state, latestMessage: _.last(action.messages), error: undefined };
         }
         let latestMatchingQueriedData = state.latestMatchingQueriedData;
         let latestMessage = state.latestMessage;
@@ -72,7 +71,7 @@ function reducer(state: State, action: Action): State {
         return { ...state, latestMessage, latestMatchingQueriedData, error: undefined };
       }
       case "path": {
-        const newPath = parseRosPath(action.path);
+        const newPath = parseMessagePath(action.path);
         let pathParseError: string | undefined;
         if (
           newPath?.messagePath.some(
@@ -84,7 +83,7 @@ function reducer(state: State, action: Action): State {
         ) {
           pathParseError = "Message paths using variables are not currently supported";
         }
-        let latestMatchingQueriedData: unknown | undefined;
+        let latestMatchingQueriedData: unknown;
         let error: Error | undefined;
         try {
           latestMatchingQueriedData =
@@ -130,7 +129,7 @@ export function Number({ context }: Props): JSX.Element {
     config,
     ({ path }): State => ({
       path,
-      parsedPath: parseRosPath(path),
+      parsedPath: parseMessagePath(path),
       latestMessage: undefined,
       latestMatchingQueriedData: undefined,
       pathParseError: undefined,
@@ -167,8 +166,9 @@ export function Number({ context }: Props): JSX.Element {
   }, [context]);
 
   const settingsActionHandler = useCallback(
-    (action: SettingsTreeAction) =>
-      setConfig((prevConfig) => settingsActionReducer(prevConfig, action)),
+    (action: SettingsTreeAction) => {
+      setConfig((prevConfig) => settingsActionReducer(prevConfig, action));
+    },
     [setConfig],
   );
 
@@ -184,7 +184,9 @@ export function Number({ context }: Props): JSX.Element {
     if (state.parsedPath?.topicName != undefined) {
       context.subscribe([state.parsedPath.topicName]);
     }
-    return () => context.unsubscribeAll();
+    return () => {
+      context.unsubscribeAll();
+    };
   }, [context, state.parsedPath?.topicName]);
 
   // Indicate render is complete - the effect runs after the dom is updated
@@ -207,10 +209,10 @@ export function Number({ context }: Props): JSX.Element {
         padding={1}
       >
         <Stack direction="column" alignItems="center" gap={2}>
-          <Typography fontFamily={fonts.MONOSPACE} variant="h1" whiteSpace="pre">
+          <Typography fontFamily={fontMonospace} variant="h1" whiteSpace="pre">
             {Math.ceil(rawValue)}
           </Typography>
-          <Typography fontFamily={fonts.MONOSPACE} variant="h5" whiteSpace="pre">
+          <Typography fontFamily={fontMonospace} variant="h5" whiteSpace="pre">
             {unit}
           </Typography>
         </Stack>

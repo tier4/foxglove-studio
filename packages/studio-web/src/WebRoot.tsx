@@ -33,8 +33,7 @@ export function WebRoot(props: {
         defaults: {
           [AppSetting.SHOW_DEBUG_PANELS]: false,
           [AppSetting.COLOR_SCHEME]: "dark",
-          [AppSetting.TELEMETRY_ENABLED]: false,
-          [AppSetting.CRASH_REPORTING_ENABLED]: false,
+          [AppSetting.UPDATES_ENABLED]: false,
           [AppSetting.HIDE_SIGN_IN_PROMPT]: true,
           [AppSetting.MESSAGE_RATE]: 30,
         },

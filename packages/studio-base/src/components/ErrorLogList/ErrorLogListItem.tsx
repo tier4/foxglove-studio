@@ -52,17 +52,19 @@ const ErrorLogListItem = ({
   handleClickFeedback,
   hiddenScore = false,
 }: ErrorLogListItemProps) => {
-  const { onClick: onClickItem, onTouchEnd: onTouchEndItem } = clickOrTap(() => {
-    handleClickItem(item, index);
-  });
-  const { onClick: onClickFeedback, onTouchEnd: onTouchEndFeedback } = clickOrTap(() => {
-    handleClickFeedback(item.error_contents);
-  });
   const style = isSelected ? { fontWeight: 900, color: red[500] } : {};
+
+  const onClickItem = React.useCallback(() => {
+    handleClickItem(item, index);
+  }, [handleClickItem, item, index]);
+
+  const onClickFeedback = React.useCallback(() => {
+    handleClickFeedback(item.error_contents);
+  }, [handleClickFeedback, item]);
 
   return (
     <ListItem>
-      <ListItemButton onClick={onClickItem} onTouchEnd={onTouchEndItem}>
+      <ListItemButton onClick={onClickItem}>
         <ListItemAvatar>
           <Avatar
             variant="circular"
@@ -101,7 +103,6 @@ const ErrorLogListItem = ({
           <IconButton
             component="span"
             onClick={onClickFeedback}
-            onTouchEnd={onTouchEndFeedback}
             // eslint-disable-next-line react/forbid-component-props
             sx={style}
           >
@@ -112,51 +113,5 @@ const ErrorLogListItem = ({
     </ListItem>
   );
 };
-
-// https://gist.github.com/hanakla/37bc63cad897a51e8b7a4bd3d6610d44
-function clickOrTap(
-  handler:
-    | ((event: React.MouseEvent<HTMLInputElement> | React.TouchEvent<HTMLInputElement>) => void)
-    | undefined,
-) {
-  return {
-    onClick: (event: React.MouseEvent<HTMLInputElement>) => {
-      if (typeof handler === "function") {
-        handler(event);
-      }
-    },
-    onTouchEnd: (event: React.TouchEvent<HTMLInputElement>) => {
-      // during scrolling
-      if (!event.cancelable) {
-        return;
-      }
-      const touch = event.changedTouches[0];
-      const bound = event.currentTarget.getBoundingClientRect();
-      // outside of the element
-      if (
-        touch != undefined &&
-        (touch.clientX < bound.left ||
-          touch.clientX > bound.right ||
-          touch.clientY < bound.top ||
-          touch.clientY > bound.bottom)
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-        return;
-      }
-
-      if (
-        handler == undefined &&
-        ["INPUT", "SELECT", "TEXTAREA"].includes(event.currentTarget.tagName)
-      ) {
-        event.currentTarget.focus();
-      } else {
-        if (typeof handler === "function") {
-          handler(event);
-        }
-      }
-    },
-  };
-}
 
 export default React.memo(ErrorLogListItem);
