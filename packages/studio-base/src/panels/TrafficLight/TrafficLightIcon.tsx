@@ -14,18 +14,10 @@ type TrafficLightIconProps = {
 };
 
 function TrafficLightIcon({ type }: TrafficLightIconProps) {
-  // type
-  //   UNKNOWN=0
-  //   RED=1
-  //   GREEN=2
-  //   YELLOW=3
-  //   LEFT=4
-  //   RIGHT=5
-  //   UP=6
-  //   DOWN=7
-  return type === 2 ? (
+  // https://github.com/autowarefoundation/autoware_msgs/blob/main/autoware_perception_msgs/msg/TrafficSignalElement.msg
+  return type === 3 ? (
     <GreenLight />
-  ) : type === 3 ? (
+  ) : type === 2 ? (
     <YellowLight />
   ) : type === 1 ? (
     <RedLight />
