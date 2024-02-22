@@ -10,25 +10,17 @@ export default {
 };
 
 export const Green = (): JSX.Element => {
-  return (
-    <TrafficLightIcon type={2} />
-  );
+  return <TrafficLightIcon type={3} />;
 };
 
 export const Yellow = (): JSX.Element => {
-  return (
-    <TrafficLightIcon type={3} />
-  );
+  return <TrafficLightIcon type={2} />;
 };
 
 export const Led = (): JSX.Element => {
-  return (
-    <TrafficLightIcon type={1} />
-  );
+  return <TrafficLightIcon type={1} />;
 };
 
 export const Unknown = (): JSX.Element => {
-  return (
-    <TrafficLightIcon type={0} />
-  );
+  return <TrafficLightIcon type={0} />;
 };
