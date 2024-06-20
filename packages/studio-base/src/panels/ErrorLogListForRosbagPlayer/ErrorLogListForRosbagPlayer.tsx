@@ -91,14 +91,13 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
 
   const handleClickItem = useCallback(
     async (item: ErrorLog, _: number) => {
-      console.log(item);
       const playbackTime = fromString(item.timestamp);
       if (playbackTime == undefined) {
         return;
       }
       const seekMessage = {
         time: {
-          sec: playbackTime.sec + offsetSec,
+          sec: playbackTime.sec - offsetSec,
           nanosec: playbackTime.nsec,
         },
       };
