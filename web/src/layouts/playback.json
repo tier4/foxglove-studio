@@ -1,0 +1,259 @@
+{
+  "configById": {
+    "TrafficLightPanel!3kh4v6y": {
+      "path": "/visualization/traffic_light_state.data"
+    },
+    "Image!3mnp456": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/sensing/camera/front/image_raw/compressed"
+      }
+    },
+    "Image!1gvvy09": {
+      "cameraState": {
+        "distance": 20,
+        "perspective": true,
+        "phi": 60,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 45,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {},
+      "transforms": {},
+      "topics": {},
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {
+        "imageTopic": "/sensing/camera/driver/image_raw/compressed"
+      }
+    },
+    "Indicator!4f13dbh": {
+      "path": "/aidi/can_info/strmode.data",
+      "style": "leftArrow",
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "16",
+          "color": "#fff000",
+          "label": ""
+        }
+      ]
+    },
+    "NumberPanel!4eq4wnn": {
+      "path": "/aidi/can_info/speed.speed",
+      "unit": "km/h"
+    },
+    "Indicator!36lrit4": {
+      "path": "/aidi/can_info/strmode.data",
+      "style": "rightArrow",
+      "fallbackColor": "#a0a0a0",
+      "fallbackLabel": "",
+      "rules": [
+        {
+          "operator": "=",
+          "rawValue": "32",
+          "color": "#fff000",
+          "label": ""
+        }
+      ]
+    },
+    "3D!18i6zy7": {
+      "layers": {},
+      "cameraState": {
+        "distance": 37.01235612443113,
+        "perspective": false,
+        "phi": 53.82352941176452,
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOffset": [
+          1.5649686691503046,
+          0.8470931328428243,
+          -2.2542619316598866e-17
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "thetaOffset": 94.85294117647199,
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-pose",
+      "scene": {
+        "transforms": {
+          "labelSize": 0,
+          "lineWidth": 0,
+          "axisScale": 0,
+          "showLabel": false
+        },
+        "meshUpAxis": "y_up",
+        "ignoreColladaUpAxis": true
+      },
+      "transforms": {},
+      "topics": {
+        "/map/vector_map_marker": {
+          "visible": true,
+          "namespaces": {
+            "center_lane_line": {
+              "visible": false
+            },
+            "center_line_arrows": {
+              "visible": false
+            },
+            "curbstone": {
+              "visible": false
+            },
+            "lanelet_id": {
+              "visible": false
+            },
+            "lanelet direction": {
+              "visible": false
+            },
+            "lane_start_bound": {
+              "visible": false
+            },
+            "traffic_light_id": {
+              "visible": false
+            }
+          },
+          "color": "#ffffff45"
+        },
+        "/visualization/error_markers": {
+          "visible": true
+        },
+        "/visualization/waypoints/ego_vehicle": {
+          "visible": true
+        },
+        "/visualization/waypoints/ground_truth": {
+          "visible": true
+        },
+        "/robot_description": {
+          "visible": true
+        },
+        "/aidi/distance/wheels_to_lane/visualization": {
+          "visible": true
+        }
+      },
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    },
+    "ErrorLogListPanel!22jaldw": {}
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "layout": {
+    "first": {
+      "first": {
+        "first": {
+          "first": "TrafficLightPanel!3kh4v6y",
+          "second": "Image!3mnp456",
+          "direction": "column",
+          "splitPercentage": 17.19553720205752
+        },
+        "second": "Image!1gvvy09",
+        "direction": "column",
+        "splitPercentage": 55.347871235721705
+      },
+      "second": {
+        "first": {
+          "first": {
+            "first": "Indicator!4f13dbh",
+            "second": "NumberPanel!4eq4wnn",
+            "direction": "row"
+          },
+          "second": "Indicator!36lrit4",
+          "direction": "row",
+          "splitPercentage": 64.67580452619332
+        },
+        "second": "3D!18i6zy7",
+        "direction": "column",
+        "splitPercentage": 9.397715472481828
+      },
+      "direction": "row",
+      "splitPercentage": 27.11511789181692
+    },
+    "second": "ErrorLogListPanel!22jaldw",
+    "direction": "row",
+    "splitPercentage": 77.94594594594595
+  }
+}
