@@ -53,7 +53,14 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
       try {
         const res = await fetch(url);
         const data: FileType[] = await res.json();
-        const contentIds = data.map((d) => d.name.replace(".png", ""));
+        const contentIds = data.map((d) => {
+          const filename = d.name;
+          const lastDotIndex = filename.lastIndexOf(".");
+          if (lastDotIndex === -1) {
+            return filename; // 拡張子なし
+          }
+          return filename.substring(0, lastDotIndex);
+        });
         setFeedbackContentIds(contentIds);
       } catch (err) {
         setFeedbackContentIds([]);
