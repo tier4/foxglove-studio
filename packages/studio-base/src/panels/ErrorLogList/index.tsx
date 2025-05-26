@@ -30,6 +30,14 @@ type Props = {
   config: Config;
 };
 
+function getFilenameWithoutExtension(filename: string): string {
+  const lastDotIndex = filename.lastIndexOf(".");
+  if (lastDotIndex === -1) {
+    return filename; // 拡張子なし
+  }
+  return filename.substring(0, lastDotIndex);
+}
+
 function insertDotAtNanoBoundary(s: string): string {
   if (s.length <= 9) {
     return "0." + s.padStart(9, "0");
@@ -47,8 +55,8 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
   const endTime = useMessagePipeline(selectEndTime);
 
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
-  const [feedbackContentIds, setFeedbackContentIds] = useState<string[]>([]);
-  const [selectedErrorContent, setSelectedErrorContent] = useState<string | undefined>(undefined);
+  const [feedbackFilenames, setFeedbackFilenames] = useState<string[]>([]);
+  const [selectedFilename, setSelectedFilename] = useState<string | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const params = new URLSearchParams(window.location.search);
@@ -80,18 +88,10 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
     const getFeedbackContentIds = async (url: string) => {
       const res = await fetch(url);
       const data: FileType[] = await res.json();
-      const contentIds = data.map((d) => {
-        const filename = d.name;
-        const lastDotIndex = filename.lastIndexOf(".");
-        if (lastDotIndex === -1) {
-          return filename; // 拡張子なし
-        }
-        return filename.substring(0, lastDotIndex);
-      });
-      setFeedbackContentIds(contentIds);
+      setFeedbackFilenames(data.map((d) => d.name));
     };
     getFeedbackContentIds(feedbackContentsUrl).catch(() => {
-      setFeedbackContentIds([]);
+      setFeedbackFilenames([]);
     });
   }, [feedbackContentsUrl]);
 
@@ -111,12 +111,18 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
   );
 
   const handleCloseFeedbackDialog = useCallback((): void => {
-    setSelectedErrorContent(undefined);
+    setSelectedFilename(undefined);
   }, []);
 
-  const handleClickFeedback = useCallback((error_content: string) => {
-    setSelectedErrorContent(error_content);
-  }, []);
+  const handleClickFeedback = useCallback(
+    (error_content: string) => {
+      const feedbackFilename = feedbackFilenames.find(
+        (filename) => getFilenameWithoutExtension(filename) === error_content,
+      );
+      setSelectedFilename(feedbackFilename);
+    },
+    [feedbackFilenames],
+  );
 
   return (
     <Stack fullHeight>
@@ -126,7 +132,9 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
           <ErrorLogList
             errorLogs={errorLogs}
             handleClickItem={handleClickItem}
-            feedbackContentIds={feedbackContentIds}
+            feedbackContentIds={feedbackFilenames.map((filename) =>
+              getFilenameWithoutExtension(filename),
+            )}
             handleClickFeedback={handleClickFeedback}
             hiddenScore={hiddenScore}
             defaultIndex={selectedIndex}
@@ -154,8 +162,8 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
         </Stack>
       )}
       <FeedbackDialog
-        open={selectedErrorContent != undefined}
-        contentUrl={`${feedbackContentsUrl}${selectedErrorContent}.png`}
+        open={selectedFilename != undefined}
+        contentUrl={`${feedbackContentsUrl}/${selectedFilename}`}
         handleClose={handleCloseFeedbackDialog}
       />
     </Stack>
