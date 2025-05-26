@@ -27,6 +27,15 @@ function getFilenameWithoutExtension(filename: string): string {
   return filename.substring(0, lastDotIndex);
 }
 
+function insertDotAtNanoBoundary(s: string): string {
+  if (s.length <= 9) {
+    return "0." + s.padStart(9, "0");
+  }
+  const sec = s.slice(0, s.length - 9);
+  const nanosec = s.slice(-9);
+  return sec + "." + nanosec;
+}
+
 export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   const [renderDone, setRenderDone] = useState<() => void>(() => () => {});
   const [colorScheme, setColorScheme] = useState<"dark" | "light" | undefined>();
@@ -98,7 +107,9 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
 
   const handleClickItem = useCallback(
     async (item: ErrorLog, _: number) => {
-      const playbackTime = fromString(item.timestamp);
+      const formatedTimestamp = insertDotAtNanoBoundary(item.timestamp);
+      const playbackTime = fromString(formatedTimestamp);
+      console.log(item.timestamp, "->", playbackTime);
       if (playbackTime == undefined) {
         return;
       }
