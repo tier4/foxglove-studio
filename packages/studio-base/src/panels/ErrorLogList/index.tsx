@@ -30,6 +30,15 @@ type Props = {
   config: Config;
 };
 
+function insertDotAtNanoBoundary(s: string): string {
+  if (s.length <= 9) {
+    return "0." + s.padStart(9, "0");
+  }
+  const sec = s.slice(0, s.length - 9);
+  const nanosec = s.slice(-9);
+  return sec + "." + nanosec;
+}
+
 export function ErrorLogListPanel(_: Props): JSX.Element {
   const playerPresence = useMessagePipeline(selectPlayerPresence);
   const play = useMessagePipeline(selectPlay);
@@ -88,7 +97,9 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
 
   const handleClickItem = useCallback(
     (item: ErrorLog) => {
-      const playbackTime = fromString(item.timestamp);
+      const formatedTimestamp = insertDotAtNanoBoundary(item.timestamp);
+      const playbackTime = fromString(formatedTimestamp);
+      console.log(item.timestamp, "->", playbackTime);
       if (playbackTime == undefined || startTime == undefined || endTime == undefined) {
         return;
       }
