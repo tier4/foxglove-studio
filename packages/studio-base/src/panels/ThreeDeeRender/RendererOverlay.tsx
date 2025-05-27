@@ -352,9 +352,7 @@ export function RendererOverlay(props: Props): JSX.Element {
                 color={props.perspective ? "info" : "inherit"}
                 onClick={props.onTogglePerspective}
               >
-                <span className={classes.threeDeeButton} style={{ fontSize: "1.0rem" }}>
-                  3D
-                </span>
+                <span className={classes.threeDeeButton}>3D</span>
               </IconButton>
             </Tooltip>
             {/* <Tooltip
