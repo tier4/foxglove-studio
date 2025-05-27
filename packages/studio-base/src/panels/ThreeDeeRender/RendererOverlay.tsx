@@ -322,7 +322,7 @@ export function RendererOverlay(props: Props): JSX.Element {
     <>
       {props.interfaceMode === "image" && <PanelContextMenu getItems={getContextMenuItems} />}
       <div ref={mousePresenceRef} className={classes.root}>
-        {
+        {/* {
           // Only show on hover for image panel
           (props.interfaceMode === "3d" || mousePresent) && (
             <Interactions
@@ -334,7 +334,7 @@ export function RendererOverlay(props: Props): JSX.Element {
               timezone={props.timezone}
             />
           )
-        }
+        } */}
         {props.interfaceMode === "3d" && (
           <Paper square={false} elevation={4} style={{ display: "flex", flexDirection: "column" }}>
             <Tooltip
@@ -348,14 +348,16 @@ export function RendererOverlay(props: Props): JSX.Element {
             >
               <IconButton
                 className={classes.iconButton}
-                size="small"
+                size="large"
                 color={props.perspective ? "info" : "inherit"}
                 onClick={props.onTogglePerspective}
               >
-                <span className={classes.threeDeeButton}>3D</span>
+                <span className={classes.threeDeeButton} style={{ fontSize: "1.0rem" }}>
+                  3D
+                </span>
               </IconButton>
             </Tooltip>
-            <Tooltip
+            {/* <Tooltip
               placement="left"
               title={props.measureActive ? "Cancel measuring" : "Measure distance"}
             >
@@ -370,7 +372,7 @@ export function RendererOverlay(props: Props): JSX.Element {
                   {props.measureActive ? <Ruler20Filled /> : <Ruler20Regular />}
                 </div>
               </IconButton>
-            </Tooltip>
+            </Tooltip> */}
 
             {publishControls}
           </Paper>
