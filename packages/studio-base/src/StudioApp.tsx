@@ -93,6 +93,7 @@ export function StudioApp(): JSX.Element {
                 onUnmaximizeWindow={customWindowControlProps?.onUnmaximizeWindow}
                 onCloseWindow={customWindowControlProps?.onCloseWindow}
                 AppBarComponent={AppBarComponent}
+                appBarHidden={true}
               />
             </PanelCatalogProvider>
           </Suspense>
