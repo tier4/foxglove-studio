@@ -372,7 +372,7 @@ export function RendererOverlay(props: Props): JSX.Element {
               </IconButton>
             </Tooltip> */}
 
-            {publishControls}
+            {/* {publishControls} */}
           </Paper>
         )}
       </div>
