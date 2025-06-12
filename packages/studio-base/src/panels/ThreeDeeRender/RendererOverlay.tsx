@@ -2,7 +2,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
-import { Ruler20Filled, Ruler20Regular } from "@fluentui/react-icons";
+// import { Ruler20Filled, Ruler20Regular } from "@fluentui/react-icons";
 import {
   Button,
   IconButton,
@@ -28,10 +28,15 @@ import {
 import PublishGoalIcon from "@foxglove/studio-base/components/PublishGoalIcon";
 import PublishPointIcon from "@foxglove/studio-base/components/PublishPointIcon";
 import PublishPoseEstimateIcon from "@foxglove/studio-base/components/PublishPoseEstimateIcon";
-import { usePanelMousePresence } from "@foxglove/studio-base/hooks/usePanelMousePresence";
+// import { usePanelMousePresence } from "@foxglove/studio-base/hooks/usePanelMousePresence";
 import { HUD } from "@foxglove/studio-base/panels/ThreeDeeRender/HUD";
 
-import { InteractionContextMenu, Interactions, SelectionObject, TabType } from "./Interactions";
+import {
+  InteractionContextMenu,
+  // Interactions,
+  SelectionObject,
+  // TabType,
+} from "./Interactions";
 import type { PickedRenderable } from "./Picker";
 import { Renderable } from "./Renderable";
 import { useRenderer, useRendererEvent } from "./RendererContext";
@@ -124,15 +129,15 @@ export function RendererOverlay(props: Props): JSX.Element {
   const [selectedRenderable, setSelectedRenderable] = useState<PickedRenderable | undefined>(
     undefined,
   );
-  const [interactionsTabType, setInteractionsTabType] = useState<TabType | undefined>(undefined);
+  // const [interactionsTabType, setInteractionsTabType] = useState<TabType | undefined>(undefined);
   const renderer = useRenderer();
 
-  // Toggle object selection mode on/off in the renderer
-  useEffect(() => {
-    if (renderer) {
-      renderer.setPickingEnabled(interactionsTabType != undefined);
-    }
-  }, [interactionsTabType, renderer]);
+  // // Toggle object selection mode on/off in the renderer
+  // useEffect(() => {
+  //   if (renderer) {
+  //     renderer.setPickingEnabled(interactionsTabType != undefined);
+  //   }
+  // }, [interactionsTabType, renderer]);
 
   useRendererEvent("renderablesClicked", (selections, cursorCoords) => {
     const rect = props.canvas!.getBoundingClientRect();
@@ -223,7 +228,7 @@ export function RendererOverlay(props: Props): JSX.Element {
 
   // Publish control is only available if the canPublish prop is true and we have a fixed frame in the renderer
   const showPublishControl =
-    props.interfaceMode === "3d" && props.canPublish && renderer?.fixedFrameId != undefined;
+    props.interfaceMode === "3d" && !props.canPublish && renderer?.fixedFrameId != undefined;
   const publishControls = showPublishControl && (
     <>
       <Tooltip
@@ -316,7 +321,7 @@ export function RendererOverlay(props: Props): JSX.Element {
   }, [renderer]);
 
   const mousePresenceRef = useRef<HTMLDivElement>(ReactNull);
-  const mousePresent = usePanelMousePresence(mousePresenceRef);
+  // const mousePresent = usePanelMousePresence(mousePresenceRef);
 
   return (
     <>
