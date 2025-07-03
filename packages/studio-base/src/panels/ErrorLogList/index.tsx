@@ -62,7 +62,7 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
   const params = new URLSearchParams(window.location.search);
   const offsetSec = Number(params.get("offset-sec") ?? 6);
   const selectedIndex = Number(params.get("selected-index") ?? -1);
-  const hiddenScore = params.get("hidden-score") == undefined;
+  const hiddenScore = params.get("hidden-score") == "true";
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
 
