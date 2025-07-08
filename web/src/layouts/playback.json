@@ -1,7 +1,7 @@
 {
   "configById": {
     "TrafficLightPanel!3kh4v6y": {
-      "path": "/visualization/traffic_light_state.data"
+      "path": "/aidi/distance/intersections.route_lanes[0].light_color"
     },
     "Image!3mnp456": {
       "cameraState": {
@@ -106,7 +106,7 @@
       ]
     },
     "NumberPanel!4eq4wnn": {
-      "path": "/aidi/can_info/speed.speed",
+      "path": "/aidi/can_info/speed.data",
       "unit": "km/h"
     },
     "Indicator!36lrit4": {
