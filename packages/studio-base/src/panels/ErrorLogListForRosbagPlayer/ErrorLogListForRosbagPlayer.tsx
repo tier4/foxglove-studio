@@ -1,10 +1,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
-
 import Typography from "@mui/material/Typography";
 import { useCallback, useEffect, useLayoutEffect, useState, memo } from "react";
-
 import { fromString } from "@foxglove/rostime";
 import { PanelExtensionContext } from "@foxglove/studio";
 import ErrorLogList from "@foxglove/studio-base/components/ErrorLogList/ErrorLogList";
@@ -42,14 +40,16 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
   const [feedbackFilenames, setFeedbackFilenames] = useState<string[]>([]);
   const [selectedFilename, setSelectedFilename] = useState<string | undefined>(undefined);
+  const [highlightedIndex, setHighlightedIndex] = useState<number | undefined>(undefined);
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
-
+  const [advertised, setAdvertised] = useState(false);
   const params = new URLSearchParams(window.location.search);
   const offsetSec = Number(params.get("offset-sec") ?? 6);
   const selectedIndex = Number(params.get("selected-index") ?? -1);
   const hiddenScore = params.get("hidden-score") == "true";
   const errorLogUrl = params.get("error-log-url") ?? "";
   const feedbackContentsUrl = params.get("feedback-contents-url") ?? "";
+  const isFixedMode = params.get("fixed") !== null;
 
   useEffect(() => {
     const getErrorLog = async (url: string) => {
@@ -64,6 +64,82 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     };
     void getErrorLog(errorLogUrl);
   }, [errorLogUrl]);
+
+  useEffect(() => {
+    if (context.advertise && !advertised) {
+      context.advertise?.("/marker/errors", "visualization_msgs/msg/MarkerArray", {});
+      setAdvertised(true);
+    }
+  }, [context]);
+
+  useEffect(() => {
+    if (!isFixedMode) return; // ← fixed パラメータがない場合は何もしない
+
+    const interval = setInterval(() => {
+      if (!advertised || !context.publish || errorLogs.length === 0) return;
+
+      const markers = errorLogs.flatMap((log, i) => {
+        const stamp = fromString(insertDotAtNanoBoundary(log.timestamp));
+
+        /* ------------------ 球体マーカー ------------------ */
+        const sphere = {
+          header: { frame_id: "map", stamp },
+          ns: "error_logs",
+          id: i * 2, // id は一意にする
+          type: 2, // SPHERE
+          action: 0,
+          pose: {
+            position: {
+              x: Number(log["position.x"] ?? 0),
+              y: Number(log["position.y"] ?? 0),
+              z: Number(log["position.z"] ?? 0) + 1.0 + (i === highlightedIndex ? 2.0 : 1.0),
+            },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+          },
+          scale: { x: 4, y: 4, z: 4 },
+          color: {
+            r: i === highlightedIndex ? 1 : 1,
+            g: i === highlightedIndex ? 0 : 1,
+            b: i === highlightedIndex ? 0 : 0,
+            a: i === highlightedIndex ? 1 : 0.7,
+          },
+          lifetime: { sec: 0, nanosec: 0 },
+        };
+
+        /* ------------------ テキストマーカー ------------------ */
+        const text = {
+          header: { frame_id: "map", stamp },
+          ns: "error_logs",
+          id: i * 2 + 1, // 別 ID
+          type: 9, // TEXT_VIEW_FACING
+          action: 0,
+          pose: {
+            position: {
+              x: Number(log["position.x"] ?? 0) + 4.0,
+              y: Number(log["position.y"] ?? 0) + 4.0,
+              z: Number(log["position.z"] ?? 0) + 2.0 + (i === highlightedIndex ? 2.0 : 1.0),
+            },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+          },
+          scale: { x: 0.0, y: 0.0, z: 7.0 }, // z がフォントサイズ
+          color: {
+            r: i === highlightedIndex ? 1 : 1,
+            g: i === highlightedIndex ? 0 : 1,
+            b: i === highlightedIndex ? 0 : 1,
+            a: 1,
+          },
+          lifetime: { sec: 0, nanosec: 0 },
+          text: `${i + 1.0}`, // ← インデックス表示
+        };
+
+        return [sphere, text];
+      });
+
+      context.publish?.("/marker/errors", { markers });
+    }, 250); // 1 秒ごとに更新
+
+    return () => clearInterval(interval);
+  }, [advertised, context, errorLogs, isFixedMode, highlightedIndex]);
 
   useEffect(() => {
     const getFeedbackFilenames = async (url: string) => {
@@ -125,6 +201,13 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
     [offsetSec, callService],
   );
 
+  const handleClickItemWithFixedMode = useCallback(
+    (_: ErrorLog, index: number) => {
+      setHighlightedIndex(index);
+    },
+    [setHighlightedIndex],
+  );
+
   const handleCloseFeedbackDialog = useCallback((): void => {
     setSelectedFilename(undefined);
   }, []);
@@ -154,7 +237,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
           <Stack fullHeight gap={1} overflowY="scroll" paddingBottom={20}>
             <ErrorLogList
               errorLogs={errorLogs}
-              handleClickItem={handleClickItem}
+              handleClickItem={isFixedMode ? handleClickItemWithFixedMode : handleClickItem}
               feedbackContentIds={feedbackFilenames.map((filename) =>
                 getFilenameWithoutExtension(filename),
               )}
