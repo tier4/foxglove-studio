@@ -66,7 +66,10 @@ const useStyles = makeStyles()((theme) => ({
     position: "relative",
     pointerEvents: "auto",
     aspectRatio: "1/1",
-  },
+      width: 120,
+      height: 120,
+      fontSize: "4.0rem",
+    },
   rulerIcon: {
     transform: "rotate(45deg)",
     display: "flex",
@@ -76,7 +79,7 @@ const useStyles = makeStyles()((theme) => ({
   threeDeeButton: {
     fontFamily: theme.typography.fontMonospace,
     fontFeatureSettings: theme.typography.caption.fontFeatureSettings,
-    fontSize: theme.typography.caption.fontSize,
+    fontSize: "4.0rem",
     fontWeight: theme.typography.fontWeightBold,
     lineHeight: "1em",
   },
