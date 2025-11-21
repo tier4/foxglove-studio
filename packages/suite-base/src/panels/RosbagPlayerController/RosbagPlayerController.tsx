@@ -4,8 +4,8 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import Log from "@foxglove/log";
-import { Time } from "@foxglove/rostime";
+import Log from "@lichtblick/log";
+import { Time } from "@lichtblick/rostime";
 import { PanelExtensionContext, MessageEvent } from "@lichtblick/suite";
 import Stack from "@lichtblick/suite-base/components/Stack";
 import ControlBussons from "@lichtblick/suite-base/panels/RosbagPlayerController/ControlBussons";

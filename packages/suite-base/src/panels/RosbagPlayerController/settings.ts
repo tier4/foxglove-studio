@@ -6,7 +6,7 @@ import { produce } from "immer";
 import * as _ from "lodash-es";
 import { useMemo } from "react";
 
-import { useShallowMemo } from "@foxglove/hooks";
+import { useShallowMemo } from "@lichtblick/hooks";
 import { SettingsTreeAction, SettingsTreeNodes } from "@lichtblick/suite";
 
 import { Config } from "./types";

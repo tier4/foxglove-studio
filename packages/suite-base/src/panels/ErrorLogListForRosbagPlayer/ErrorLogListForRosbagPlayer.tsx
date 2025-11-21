@@ -3,7 +3,7 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 import Typography from "@mui/material/Typography";
 import { useCallback, useEffect, useLayoutEffect, useState, memo } from "react";
-import { fromString } from "@foxglove/rostime";
+import { fromString } from "@lichtblick/rostime";
 import { PanelExtensionContext } from "@lichtblick/suite";
 import ErrorLogList from "@lichtblick/suite-base/components/ErrorLogList/ErrorLogList";
 import { ErrorLog } from "@lichtblick/suite-base/components/ErrorLogList/ErrorLogListItem";

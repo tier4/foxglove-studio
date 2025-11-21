@@ -198,4 +198,34 @@ export const getBuiltin: (t: TFunction<"panels">) => PanelInfo[] = (t) => [
     description: t("studioPlaybackPerformanceDescription"),
     module: async () => await import("./PlaybackPerformance"),
   },
+  {
+    title: "ErrorLogList",
+    type: "ErrorLogList",
+    description: "Display a list of error logs.",
+    module: async () => await import("./ErrorLogList"),
+  },
+  {
+    title: "ErrorLogListForRosbagPlayer",
+    type: "ErrorLogListForRosbagPlayer",
+    description: "Display a list of error logs for the Rosbag Player.",
+    module: async () => await import("./ErrorLogListForRosbagPlayer"),
+  },
+  {
+    title: "Number",
+    type: "Number",
+    description: "Display a number.",
+    module: async () => await import("./Number"),
+  },
+  {
+    title: "RosbagPlayerController",
+    type: "RosbagPlayerController",
+    description: "Control the playback of a rosbag file.",
+    module: async () => await import("./RosbagPlayerController"),
+  },
+  {
+    title: "TrafficLight",
+    type: "TrafficLight",
+    description: "Display a traffic light.",
+    module: async () => await import("./TrafficLight"),
+  },
 ];

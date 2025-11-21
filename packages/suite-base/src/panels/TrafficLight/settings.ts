@@ -6,7 +6,7 @@ import { produce } from "immer";
 import { set } from "lodash";
 import { useMemo } from "react";
 
-import { useShallowMemo } from "@foxglove/hooks";
+import { useShallowMemo } from "@lichtblick/hooks";
 import { SettingsTreeAction, SettingsTreeNode, SettingsTreeNodes } from "@lichtblick/suite";
 
 import { Config } from "./types";

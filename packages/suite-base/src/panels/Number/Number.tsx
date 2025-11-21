@@ -6,11 +6,11 @@ import { Typography } from "@mui/material";
 import * as _ from "lodash-es";
 import { useCallback, useEffect, useLayoutEffect, useReducer, useState } from "react";
 
-import { MessagePath, parseMessagePath } from "@foxglove/message-path";
+import { MessagePath, parseMessagePath } from "@lichtblick/message-path";
 import { MessageEvent, PanelExtensionContext, SettingsTreeAction } from "@lichtblick/suite";
 import { simpleGetMessagePathDataItems } from "@lichtblick/suite-base/components/MessagePathSyntax/simpleGetMessagePathDataItems";
 import Stack from "@lichtblick/suite-base/components/Stack";
-import { fontMonospace } from "@foxglove/theme";
+import { fontMonospace } from "@lichtblick/theme";
 
 import { settingsActionReducer, useSettingsTree } from "./settings";
 import { Config } from "./types";

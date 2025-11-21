@@ -5,7 +5,7 @@
 import { StrictMode, useMemo } from "react";
 import ReactDOM from "react-dom";
 
-import { useCrash } from "@foxglove/hooks";
+import { useCrash } from "@lichtblick/hooks";
 import { PanelExtensionContext } from "@lichtblick/suite";
 import { CaptureErrorBoundary } from "@lichtblick/suite-base/components/CaptureErrorBoundary";
 import Panel from "@lichtblick/suite-base/components/Panel";
