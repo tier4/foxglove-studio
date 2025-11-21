@@ -28,7 +28,7 @@ const packageJson: Record<string, unknown> = {
   description: "",
   devDependencies: {
     "@foxglove/fox": "file:../fox",
-    "@foxglove/studio": "0.11.0",
+    "@lichtblick/suite": "0.11.0",
     typescript: "4.3.2",
   },
   displayName: "turtlesim",
