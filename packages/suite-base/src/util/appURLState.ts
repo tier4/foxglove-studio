@@ -14,6 +14,7 @@ import { keyMap } from "./constants";
 
 export type AppURLState = {
   ds?: string;
+  layoutUrl?: string;
   dsParams?: Record<string, string>;
   dsParamsArray?: Record<string, string[]>;
   layoutId?: LayoutID;
@@ -30,6 +31,14 @@ export type AppURLState = {
 export function updateAppURLState(url: URL, urlState: AppURLState): URL {
   const newURL = new URL(url.href);
 
+  if ("layoutUrl" in urlState) {
+    if (urlState.layoutUrl) {
+      newURL.searchParams.set("layoutUrl", urlState.layoutUrl);
+    } else {
+      newURL.searchParams.delete("layoutUrl");
+    }
+  }
+
   if ("time" in urlState) {
     if (urlState.time) {
       newURL.searchParams.set("time", toRFC3339String(urlState.time));
@@ -43,6 +52,14 @@ export function updateAppURLState(url: URL, urlState: AppURLState): URL {
       newURL.searchParams.set("ds", urlState.ds);
     } else {
       newURL.searchParams.delete("ds");
+    }
+  }
+
+  if ("layoutUrl" in urlState) {
+    if (urlState.layoutUrl) {
+      newURL.searchParams.set("layoutUrl", urlState.layoutUrl);
+    } else {
+      newURL.searchParams.delete("layoutUrl");
     }
   }
 
@@ -77,6 +94,7 @@ export function updateAppURLState(url: URL, urlState: AppURLState): URL {
  */
 export function parseAppURLState(url: URL): AppURLState | undefined {
   const ds = url.searchParams.get("ds") ?? undefined;
+  const layoutUrl = url.searchParams.get("layoutUrl");
   const timeString = url.searchParams.get("time");
   const time = timeString == undefined ? undefined : fromRFC3339String(timeString);
   const dsParams: Record<string, string> = {};
@@ -94,11 +112,7 @@ export function parseAppURLState(url: URL): AppURLState | undefined {
   });
 
   const state: AppURLState = _.omitBy(
-    {
-      time,
-      ds,
-      dsParams: _.isEmpty(dsParams) ? undefined : dsParams,
-    },
+    { time, ds, layoutUrl, dsParams: _.isEmpty(dsParams) ? undefined : dsParams },
     _.isEmpty,
   );
 

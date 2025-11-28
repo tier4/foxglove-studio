@@ -21,6 +21,7 @@ import { useAnalytics } from "@lichtblick/suite-base/context/AnalyticsContext";
 import { useAppParameters } from "@lichtblick/suite-base/context/AppParametersContext";
 import CurrentLayoutContext, {
   ICurrentLayout,
+  LayoutData,
   LayoutID,
   LayoutState,
 } from "@lichtblick/suite-base/context/CurrentLayoutContext";
@@ -63,9 +64,7 @@ const log = Logger.getLogger(__filename);
 export default function CurrentLayoutProvider({
   children,
   loaders = [],
-}: React.PropsWithChildren<{
-  loaders?: readonly LayoutLoader[];
-}>): React.JSX.Element {
+}: React.PropsWithChildren<{ loaders?: readonly LayoutLoader[] }>): React.JSX.Element {
   const { enqueueSnackbar } = useSnackbar();
   const { getUserProfile, setUserProfile } = useUserProfileStorage();
   const layoutManager = useLayoutManager();
@@ -170,9 +169,7 @@ export default function CurrentLayoutProvider({
               console.error(error);
               enqueueSnackbar(
                 `The current layout could not be saved. ${(error as Error).toString()}`,
-                {
-                  variant: "error",
-                },
+                { variant: "error" },
               );
             });
           }
@@ -336,7 +333,19 @@ export default function CurrentLayoutProvider({
   const actions: ICurrentLayout["actions"] = useMemo(
     () => ({
       updateSharedPanelState,
-      setCurrentLayout: () => {},
+      setCurrentLayout: ({ data }: { data: LayoutData }) => {
+        const currentId = layoutStateRef.current.selectedLayout?.id;
+        const id = currentId ?? (uuidv4() as LayoutID);
+        setLayoutState({
+          selectedLayout: {
+            id,
+            data,
+            name: layoutStateRef.current.selectedLayout?.name,
+            edited: true,
+            loading: false,
+          },
+        });
+      },
       setSelectedLayoutId,
       getCurrentLayoutState: () => layoutStateRef.current,
 
@@ -414,10 +423,7 @@ export default function CurrentLayoutProvider({
       },
       dropPanel: (payload: DropPanelPayload) => {
         performAction({ type: "DROP_PANEL", payload });
-        void analytics.logEvent(AppEvent.PANEL_ADD, {
-          type: payload.newPanelType,
-          action: "drop",
-        });
+        void analytics.logEvent(AppEvent.PANEL_ADD, { type: payload.newPanelType, action: "drop" });
       },
       startDrag: (payload: StartDragPayload) => {
         performAction({ type: "START_DRAG", payload });

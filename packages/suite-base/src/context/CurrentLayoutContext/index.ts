@@ -94,6 +94,7 @@ export interface ICurrentLayout {
      */
     getCurrentLayoutState: () => LayoutState;
     setSelectedLayoutId: (id: LayoutID | undefined) => void;
+    setCurrentLayout: (payload: { data: LayoutData }) => void;
 
     /**
      * Update the transient state associated with a particular panel type.
