@@ -60,7 +60,9 @@ import { AllowedFileExtensions } from "@lichtblick/suite-base/constants/allowedF
 import { useAppContext } from "@lichtblick/suite-base/context/AppContext";
 import {
   LayoutState,
+  useCurrentLayoutActions,
   useCurrentLayoutSelector,
+  LayoutData,
 } from "@lichtblick/suite-base/context/CurrentLayoutContext";
 import {
   useCurrentUser,
@@ -93,6 +95,7 @@ import useBroadcast from "@lichtblick/suite-base/util/broadcast/useBroadcast";
 import isDesktopApp from "@lichtblick/suite-base/util/isDesktopApp";
 
 import { useWorkspaceActions } from "./context/Workspace/useWorkspaceActions";
+import { useLayoutTransfer } from "@lichtblick/suite-base/hooks/useLayoutTransfer";
 
 const log = Logger.getLogger(__filename);
 
@@ -159,6 +162,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
   );
 
   const { dialogActions, sidebarActions } = useWorkspaceActions();
+  const { setCurrentLayout } = useCurrentLayoutActions();
   const { handleFiles } = useHandleFiles({
     availableSources,
     selectSource,
@@ -192,6 +196,8 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
   useDefaultWebLaunchPreference();
 
   useStructureItemsStoreManager();
+
+  const { parseAndInstallLayout } = useLayoutTransfer();
 
   const [enableDebugMode = false] = useAppConfigurationValue<boolean>(AppSetting.SHOW_DEBUG_PANELS);
 
@@ -355,10 +361,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
         }
       }
 
-      bottomItems.set("app-settings", {
-        iconName: "Settings",
-        title: "Settings",
-      });
+      bottomItems.set("app-settings", { iconName: "Settings", title: "Settings" });
     }
 
     return [topItems, bottomItems];
@@ -387,10 +390,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
           component: AlertsList,
           badge:
             playerAlerts && playerAlerts.length > 0
-              ? {
-                  count: playerAlerts.length,
-                  color: "error",
-                }
+              ? { count: playerAlerts.length, color: "error" }
               : undefined,
         },
       ],
@@ -401,13 +401,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
 
   const rightSidebarItems = useMemo(() => {
     const items = new Map<RightSidebarItemKey, SidebarItem>([
-      [
-        "variables",
-        {
-          title: t("workspace:variables"),
-          component: VariablesList,
-        },
-      ],
+      ["variables", { title: t("workspace:variables"), component: VariablesList }],
     ]);
     if (enableDebugMode) {
       if (PerformanceSidebarComponent) {
@@ -422,10 +416,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
       });
     }
     if (showEventsTab) {
-      items.set("events", {
-        title: t("workspace:events"),
-        component: EventsList,
-      });
+      items.set("events", { title: t("workspace:events"), component: EventsList });
     }
     return items;
   }, [enableDebugMode, showEventsTab, PerformanceSidebarComponent]);
@@ -446,9 +437,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
             <Trans
               t={tAddPanel}
               i18nKey="noLayoutSelected"
-              components={{
-                selectLayoutLink: <Link onClick={openLayoutBrowser} />,
-              }}
+              components={{ selectLayoutLink: <Link onClick={openLayoutBrowser} /> }}
             />
           </Typography>
         ) : (
@@ -496,15 +485,49 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
   }, [props.deepLinks]);
 
   const [unappliedSourceArgs, setUnappliedSourceArgs] = useState(
-    targetUrlState ? { ds: targetUrlState.ds, dsParams: targetUrlState.dsParams } : undefined,
+    targetUrlState
+      ? {
+          ds: targetUrlState.ds,
+          dsParams: targetUrlState.dsParams,
+          layoutUrl: targetUrlState.layoutUrl,
+        }
+      : undefined,
   );
 
   const selectEvent = useEvents(selectSelectEvent);
+
+  const fetchLayoutFromUrl = async (layoutUrl: string) => {
+    if (!layoutUrl) {
+      return;
+    }
+    let res;
+    try {
+      res = await fetch(layoutUrl);
+    } catch {
+      log.debug(`Could not load the layout from ${layoutUrl}`);
+      return;
+    }
+
+    try {
+      const text = await res.text();
+      // Create a File object from the fetched data
+      const blob = new Blob([text], { type: "application/json" });
+      const file = new File([blob], "layout-from-url.json", { type: "application/json" });
+
+      // Use parseAndInstallLayout to apply the layout
+      await parseAndInstallLayout(file, "local");
+    } catch (error) {
+      log.debug(`Failed to parse or install layout from ${layoutUrl}`, error);
+    }
+  };
+
   // Load data source from URL.
   useEffect(() => {
     if (!unappliedSourceArgs) {
       return;
     }
+
+    let shouldUpdate;
 
     // Apply any available data source args
     if (unappliedSourceArgs.ds) {
@@ -514,7 +537,15 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
         params: unappliedSourceArgs.dsParams,
       });
       selectEvent(unappliedSourceArgs.dsParams?.eventId);
-      setUnappliedSourceArgs({ ds: undefined, dsParams: undefined });
+      shouldUpdate = true;
+    }
+    // Apply any available datasource args
+    if (unappliedSourceArgs.layoutUrl) {
+      fetchLayoutFromUrl(unappliedSourceArgs.layoutUrl);
+      shouldUpdate = true;
+    }
+    if (shouldUpdate) {
+      setUnappliedSourceArgs({ ds: undefined, dsParams: undefined, layoutUrl: undefined });
     }
   }, [selectEvent, selectSource, unappliedSourceArgs, setUnappliedSourceArgs]);
 
@@ -567,12 +598,7 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
     ],
   );
 
-  useBroadcast({
-    play,
-    pause,
-    seek,
-    playUntil,
-  });
+  useBroadcast({ play, pause, seek, playUntil });
 
   return (
     <PanelStateContextProvider>
@@ -642,10 +668,7 @@ export default function Workspace(props: WorkspaceProps): React.JSX.Element {
         open: initialItem != undefined,
         item: initialItem,
       },
-      preferences: {
-        initialTab: undefined,
-        open: false,
-      },
+      preferences: { initialTab: undefined, open: false },
     },
   };
 
