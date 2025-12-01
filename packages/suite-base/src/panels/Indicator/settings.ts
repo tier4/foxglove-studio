@@ -164,6 +164,8 @@ export function useSettingsTree(
           options: [
             { label: "Bulb", value: "bulb" },
             { label: "Background", value: "background" },
+            { label: "RightArrow", value: "right_arrow" },
+            { label: "LeftArrow", value: "left_arrow" },
           ],
         },
       },

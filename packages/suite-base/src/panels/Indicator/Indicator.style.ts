@@ -1,9 +1,16 @@
 // SPDX-FileCopyrightText: Copyright (C) 2023-2025 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)<lichtblick@bmwgroup.com>
 // SPDX-License-Identifier: MPL-2.0
 
+import { keyframes } from "@emotion/react";
 import { makeStyles } from "tss-react/mui";
 
 import { IndicatorStyle } from "@lichtblick/suite-base/panels/Indicator/types";
+
+const blink = keyframes`
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+`;
 
 export const useStyles = makeStyles<Partial<{ style: IndicatorStyle; backgroundColor: string }>>()(
   ({ spacing }, { style, backgroundColor = "transparent" }) => ({
@@ -41,6 +48,17 @@ export const useStyles = makeStyles<Partial<{ style: IndicatorStyle; backgroundC
       fontSize: "clamp(10px, min(1.5vw, 1.5vh), 52px)",
       whiteSpace: "pre",
       padding: spacing(0),
+    },
+    arrow: {
+      width: "clamp(20px, 10vw, 128px)",
+      height: "clamp(20px, 10vw, 128px)",
+      color: backgroundColor,
+    },
+    blink: {
+      animation: `${blink} 1s infinite`,
+    },
+    flip: {
+      transform: "rotate(180deg)",
     },
   }),
 );

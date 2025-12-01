@@ -129,7 +129,7 @@ describe("Indicator Component", () => {
     expect(config).toMatchObject(customConfig);
   });
 
-  it.each<IndicatorStyle>(["bulb", "background"])(
+  it.each<IndicatorStyle>(["bulb", "background", "right_arrow", "left_arrow"])(
     "renders with the proper style indicator",
     (style) => {
       const { matchingRule } = setup({
