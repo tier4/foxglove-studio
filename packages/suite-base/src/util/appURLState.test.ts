@@ -97,6 +97,14 @@ describe("app state url parser", () => {
         dsParams: { bar: "barValue", baz: "bazValue" },
       });
     });
+    it("parses error-log-url", () => {
+      const url = urlBuilder();
+      url.searchParams.append("error-log-url", "http://example.com/error.log");
+
+      expect(parseAppURLState(url)).toMatchObject({
+        errorLogUrl: "http://example.com/error.log",
+      });
+    });
   });
 });
 
@@ -133,6 +141,18 @@ describe("updateAppURLState", () => {
 
     expect(decodeURIComponent(result.href)).toEqual(
       `${baseURL.origin}/?ds=${urlState.ds}&ds.url=${urls[0]}&ds.url=${urls[1]}`,
+    );
+  });
+
+  it("encodes error-log-url", () => {
+    const urlState: AppURLState = {
+      errorLogUrl: "http://example.com/error.log",
+    };
+
+    const result = updateAppURLState(baseURL, urlState);
+
+    expect(decodeURIComponent(result.href)).toEqual(
+      `${baseURL.origin}/?error-log-url=${urlState.errorLogUrl!}`,
     );
   });
 
