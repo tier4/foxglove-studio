@@ -60,9 +60,7 @@ import { AllowedFileExtensions } from "@lichtblick/suite-base/constants/allowedF
 import { useAppContext } from "@lichtblick/suite-base/context/AppContext";
 import {
   LayoutState,
-  useCurrentLayoutActions,
   useCurrentLayoutSelector,
-  LayoutData,
 } from "@lichtblick/suite-base/context/CurrentLayoutContext";
 import {
   useCurrentUser,
@@ -162,7 +160,6 @@ function WorkspaceContent(props: WorkspaceProps): React.JSX.Element {
   );
 
   const { dialogActions, sidebarActions } = useWorkspaceActions();
-  const { setCurrentLayout } = useCurrentLayoutActions();
   const { handleFiles } = useHandleFiles({
     availableSources,
     selectSource,

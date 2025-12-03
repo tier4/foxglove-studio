@@ -5,6 +5,7 @@
 // License, v2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/
 
+import { Forward } from "@mui/icons-material";
 import { Typography } from "@mui/material";
 import {
   memo,
@@ -154,6 +155,14 @@ export function Indicator({ context }: IndicatorProps): React.JSX.Element {
       <Stack className={classes.indicatorStack}>
         {style === "bulb" && <Bulb label={label} bulbColor={bulbColor} />}
         {style === "background" && <Background label={label} textColor={textColor} />}
+        {(style === "right_arrow" || style === "left_arrow") && (
+          <Arrow
+            label={label}
+            arrowColor={bulbColor}
+            style={style}
+            isMatchingRule={!!matchingRule}
+          />
+        )}
       </Stack>
     </Stack>
   );
@@ -183,3 +192,40 @@ const Background = memo(({ label, textColor }: { label: string; textColor: strin
   );
 });
 Background.displayName = "Background";
+
+const Arrow = memo(
+  ({
+    label,
+    arrowColor,
+    style,
+    isMatchingRule,
+  }: {
+    label: string;
+    arrowColor: string;
+    style: "right_arrow" | "left_arrow";
+    isMatchingRule: boolean;
+  }) => {
+    const { classes, cx } = useStyles({ backgroundColor: arrowColor });
+    const isBlinking =
+      isMatchingRule && arrowColor !== "transparent" && arrowColor !== "#000000";
+
+    return (
+      <Stack className={classes.stack}>
+        {style === "left_arrow" && (
+          <Forward
+            className={cx(classes.arrow, classes.flip, { [classes.blink]: isBlinking })}
+            data-testid="left_arrow-indicator"
+          />
+        )}
+        <Typography className={classes.typography}>{label}</Typography>
+        {style === "right_arrow" && (
+          <Forward
+            className={cx(classes.arrow, { [classes.blink]: isBlinking })}
+            data-testid="right_arrow-indicator"
+          />
+        )}
+      </Stack>
+    );
+  },
+);
+Arrow.displayName = "Arrow";

@@ -9,7 +9,7 @@ import { PanelExtensionContext } from "@lichtblick/suite";
 
 export type IndicatorOperator = "=" | "<" | "<=" | ">" | ">=";
 
-export type IndicatorStyle = "bulb" | "background";
+export type IndicatorStyle = "bulb" | "background" | "right_arrow" | "left_arrow";
 
 export type IndicatorRule = {
   color: string;
