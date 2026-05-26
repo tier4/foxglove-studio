@@ -167,15 +167,24 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   }, [context]);
 
   const callService = useCallback(
-    async (serviceName: string, requestPayload: string | undefined) => {
+    async (
+      serviceName: string,
+      requestPayload: string | undefined,
+      options: { showError?: boolean } = {},
+    ) => {
+      const { showError = true } = options;
       if (!context.callService) {
-        setErrorMessage("データソースがサービスをサポートしていません");
+        if (showError) {
+          setErrorMessage("データソースがサービスをサポートしていません");
+        }
         return;
       }
       try {
         await context.callService(serviceName, JSON.parse(requestPayload!));
       } catch (err) {
-        setErrorMessage("サービスの呼び出しに失敗しました");
+        if (showError) {
+          setErrorMessage("サービスの呼び出しに失敗しました");
+        }
       }
     },
     [context],
@@ -223,7 +232,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
   );
 
   useEffect(() => {
-    void callService("/rosbag2_player/resume", JSON.stringify({}));
+    void callService("/rosbag2_player/resume", JSON.stringify({}), { showError: false });
   }, [callService]);
 
   useEffect(() => {
@@ -254,7 +263,7 @@ export function ErrorLogListForRosbagPlayer({ context }: Props): JSX.Element {
             overflow="hidden"
             padding={1}
           >
-            <EmptyMessage message="減点はありません" />
+            <EmptyMessage message="チェックされた項目はありませんでした" />
           </Stack>
         ) : (
           <Stack
