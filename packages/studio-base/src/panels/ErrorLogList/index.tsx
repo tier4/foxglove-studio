@@ -148,7 +148,7 @@ export function ErrorLogListPanel(_: Props): JSX.Element {
           overflow="hidden"
           padding={1}
         >
-          <EmptyMessage message="減点はありません" />
+          <EmptyMessage message="チェックされた項目はありませんでした" />
         </Stack>
       ) : (
         <Stack
