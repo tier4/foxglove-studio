@@ -253,21 +253,28 @@ function PanelExtensionAdapter(
 
     // tell the panel to render and lockout future renders until rendering is complete
     renderingRef.current = true;
+    let doneCalled = false;
+    const finishRender = () => {
+      if (doneCalled) {
+        return false;
+      }
+      doneCalled = true;
+      resumeFrame();
+      renderingRef.current = false;
+      return true;
+    };
     try {
       setError(undefined);
-      let doneCalled = false;
       renderFn(renderState, () => {
         // ignore any additional done calls from the panel
-        if (doneCalled) {
+        if (!finishRender()) {
           log.warn(`${panelId} called render done function twice`);
           return;
         }
-        doneCalled = true;
-        resumeFrame();
-        renderingRef.current = false;
       });
     } catch (err) {
-      setError(err);
+      finishRender();
+      setError(err as Error);
     }
   }, [
     appSettings,
