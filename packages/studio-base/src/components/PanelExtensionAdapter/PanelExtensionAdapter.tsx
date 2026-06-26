@@ -274,7 +274,7 @@ function PanelExtensionAdapter(
       });
     } catch (err) {
       finishRender();
-      setError(err as Error);
+      setError(err instanceof Error ? err : new Error(String(err)));
     }
   }, [
     appSettings,
