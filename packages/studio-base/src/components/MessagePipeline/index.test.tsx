@@ -280,18 +280,24 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     ]);
   });
 
-  it("throws an error when the player emits before the previous emit has been resolved", async () => {
+  it("drops the pending frame when the player emits before the previous emit has been resolved", async () => {
     const player = new FakePlayer();
-    const { Hook, Wrapper } = makeTestHook({ player });
-    renderHook(Hook, {
-      wrapper: Wrapper,
-    });
-    act(() => {
-      void player.emit();
-    });
-    await expect(async () => {
-      await player.emit();
-    }).rejects.toThrow("New playerState was emitted before last playerState was rendered.");
+    const { Hook, Wrapper, all } = makeTestHook({ player });
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      renderHook(Hook, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        void player.emit();
+      });
+      await doubleAct(async () => {
+        await player.emit();
+      });
+      expect(all.at(-1)?.playerState.presence).toEqual(PlayerPresence.PRESENT);
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 
   it("sets subscriptions", async () => {

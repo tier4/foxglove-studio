@@ -15,6 +15,7 @@ import {
 import { StoreApi, useStore } from "zustand";
 
 import { useGuaranteedContext } from "@foxglove/hooks";
+import Logger from "@foxglove/log";
 import { Immutable } from "@foxglove/studio";
 import { AppSetting } from "@foxglove/studio-base/AppSetting";
 import CurrentLayoutContext, {
@@ -41,6 +42,7 @@ import { MessagePipelineContext } from "./types";
 export type { MessagePipelineContext };
 
 const EMPTY_GLOBAL_VARIABLES: GlobalVariables = Object.freeze({});
+const log = Logger.getLogger(__filename);
 
 // exported only for MockMessagePipelineProvider
 export const ContextInternal = createContext<StoreApi<MessagePipelineInternalState> | undefined>(
@@ -258,24 +260,33 @@ function createPlayerListener(args: {
   let closed = false;
   let prevPlayerId: string | undefined;
   let resolveFn: undefined | (() => void);
+  let nextFrameId = 0;
+  let pendingFrameId: number | undefined;
   const listener = async (listenerPlayerState: PlayerState) => {
     if (closed) {
       return;
     }
 
     if (resolveFn) {
-      throw new Error("New playerState was emitted before last playerState was rendered.");
+      log.warn("New playerState was emitted before last playerState was rendered; dropping pending frame");
+      promisesToWaitForRef.current = [];
+      resolveFn();
     }
 
     // check for any out-of-order or out-of-sync messages
     const problems = messageOrderTracker.update(listenerPlayerState);
     const newPlayerState = concatProblems(listenerPlayerState, problems);
+    const frameId = ++nextFrameId;
 
     const promise = new Promise<void>((resolve) => {
       resolveFn = () => {
         resolveFn = undefined;
+        if (pendingFrameId === frameId) {
+          pendingFrameId = undefined;
+        }
         resolve();
       };
+      pendingFrameId = frameId;
     });
 
     // Track when we start the state update. This will pair when layout effect calls renderDone.
@@ -286,7 +297,7 @@ function createPlayerListener(args: {
     // animation frame to invoke pause.
     let called = false;
     function renderDone() {
-      if (called) {
+      if (called || pendingFrameId !== frameId) {
         return;
       }
       called = true;
@@ -297,7 +308,7 @@ function createPlayerListener(args: {
 
       // Panels have the remaining frame time to invoke pause
       setTimeout(async () => {
-        if (closed) {
+        if (closed || pendingFrameId !== frameId) {
           return;
         }
 
