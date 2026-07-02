@@ -284,18 +284,20 @@ describe("MessagePipelineProvider/useMessagePipeline", () => {
     const player = new FakePlayer();
     const { Hook, Wrapper, all } = makeTestHook({ player });
     const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    renderHook(Hook, {
-      wrapper: Wrapper,
-    });
-    act(() => {
-      void player.emit();
-    });
-    await doubleAct(async () => {
-      await player.emit();
-    });
-    expect(all.at(-1)?.playerState.presence).toEqual(PlayerPresence.PRESENT);
-    consoleWarn.mockClear();
-    consoleWarn.mockRestore();
+    try {
+      renderHook(Hook, {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        void player.emit();
+      });
+      await doubleAct(async () => {
+        await player.emit();
+      });
+      expect(all.at(-1)?.playerState.presence).toEqual(PlayerPresence.PRESENT);
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 
   it("sets subscriptions", async () => {
